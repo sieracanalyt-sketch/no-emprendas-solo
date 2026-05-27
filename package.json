@@ -5,12 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.104.1",
     "firebase": "^12.12.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
