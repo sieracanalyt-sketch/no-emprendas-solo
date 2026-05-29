@@ -1,8 +1,6 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
-import { auth } from "../firebase"
-import { saveUser } from "../lib/saveUser"
+import { supabase } from "../supabase"
 import AuthCard from "../components/AuthCard"
 import Input from "../components/Input"
 
@@ -14,30 +12,27 @@ export default function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (password !== confirmPassword) {
       alert("Las contraseñas no coinciden")
       return
     }
-
     try {
-      const result = await createUserWithEmailAndPassword(auth, email, password)
-      await saveUser(result.user)
+      const { error } = await supabase.auth.signUp({ email, password })
+      if (error) throw error
       navigate("/explorar")
-    } catch (error) {
-      console.error(error)
-      alert("Error al registrarte")
+    } catch {
+      alert("Error al registrarte. Puede que el correo ya esté en uso.")
     }
   }
 
   const registerGoogle = async () => {
     try {
-      const provider = new GoogleAuthProvider()
-      const result = await signInWithPopup(auth, provider)
-      await saveUser(result.user)
-      navigate("/explorar")
-    } catch (error) {
-      console.error(error)
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/explorar` },
+      })
+      if (error) throw error
+    } catch {
       alert("Error al registrarte con Google")
     }
   }
@@ -52,28 +47,24 @@ export default function Register() {
             value={email}
             onChange={setEmail}
           />
-
           <Input
             type="password"
             placeholder="Contraseña"
             value={password}
             onChange={setPassword}
           />
-
           <Input
             type="password"
             placeholder="Confirmar contraseña"
             value={confirmPassword}
             onChange={setConfirmPassword}
           />
-
           <button
             type="submit"
             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded"
           >
             Crear cuenta
           </button>
-
           <button
             type="button"
             onClick={registerGoogle}
@@ -82,7 +73,6 @@ export default function Register() {
             Registrarse con Google
           </button>
         </form>
-
         <div className="text-center mt-4">
           <p>¿Ya tienes cuenta?</p>
           <Link to="/" className="text-blue-600 underline">

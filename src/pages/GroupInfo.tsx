@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { db } from "../firebase"
-import { doc, getDoc, updateDoc } from "firebase/firestore"
-import { useAuthState } from "react-firebase-hooks/auth"
-import { auth } from "../firebase"
+import { supabase } from "../supabase"
+import { useUser } from "../hooks/useUser"
 
 export default function GroupInfo() {
   const { id } = useParams()
   const groupId = id as string
-  const [user] = useAuthState(auth)
+  const [user] = useUser()
   const [groupInfo, setGroupInfo] = useState<{ name: string; members: string[] } | null>(null)
   const [newName, setNewName] = useState("")
   const [membersNames, setMembersNames] = useState<Record<string, string>>({})
@@ -16,19 +14,21 @@ export default function GroupInfo() {
 
   useEffect(() => {
     const load = async () => {
-      const ref = doc(db, "groups", groupId, "info", "data")
-      const snap = await getDoc(ref)
-      const info = snap.data()
-      setGroupInfo(info)
-      setNewName(info?.name || "")
+      const { data } = await supabase
+        .from("groups")
+        .select("name, members")
+        .eq("id", groupId)
+        .single()
 
-      // Cargar nombres reales de cada miembro
-      if (info?.members) {
+      if (!data) return
+      setGroupInfo(data)
+      setNewName(data.name || "")
+
+      if (data.members) {
         const names: Record<string, string> = {}
-        for (const uid of info.members) {
-          const userRef = doc(db, "users", uid)
-          const userSnap = await getDoc(userRef)
-          names[uid] = userSnap.data()?.nombre || "Usuario"
+        for (const uid of data.members) {
+          const { data: u } = await supabase.from("users").select("nombre").eq("id", uid).single()
+          names[uid] = u?.nombre || "Usuario"
         }
         setMembersNames(names)
       }
@@ -38,8 +38,7 @@ export default function GroupInfo() {
 
   const changeName = async () => {
     if (!newName.trim()) return
-    const ref = doc(db, "groups", groupId, "info", "data")
-    await updateDoc(ref, { name: newName })
+    await supabase.from("groups").update({ name: newName }).eq("id", groupId)
     alert("Nombre actualizado")
   }
 
@@ -49,9 +48,8 @@ export default function GroupInfo() {
       `¿Eliminar a ${membersNames[uid] || "este usuario"} del grupo?`
     )
     if (!confirmed) return
-    const newMembers = groupInfo.members.filter((m: string) => m !== uid)
-    const ref = doc(db, "groups", groupId, "info", "data")
-    await updateDoc(ref, { members: newMembers })
+    const newMembers = groupInfo.members.filter((m) => m !== uid)
+    await supabase.from("groups").update({ members: newMembers }).eq("id", groupId)
     setGroupInfo({ ...groupInfo, members: newMembers })
   }
 
@@ -59,16 +57,13 @@ export default function GroupInfo() {
     if (!groupInfo) return
     const confirmed = window.confirm("¿Seguro que quieres salir del grupo?")
     if (!confirmed) return
-    const newMembers = groupInfo.members.filter((m: string) => m !== user?.uid)
-    const ref = doc(db, "groups", groupId, "info", "data")
-    await updateDoc(ref, { members: newMembers })
+    const newMembers = groupInfo.members.filter((m) => m !== user?.id)
+    await supabase.from("groups").update({ members: newMembers }).eq("id", groupId)
     navigate("/grupos")
   }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-
-      {/* BACK */}
       <button
         onClick={() => navigate(`/group/${groupId}`)}
         className="flex items-center gap-1.5 text-white/40 hover:text-white text-sm mb-8 transition-colors"
@@ -80,8 +75,7 @@ export default function GroupInfo() {
 
       {groupInfo && (
         <div className="space-y-5">
-
-          {/* NOMBRE DEL GRUPO */}
+          {/* NOMBRE */}
           <section
             className="rounded-xl border border-white/[0.08] overflow-hidden"
             style={{ background: "rgba(255,255,255,0.03)" }}
@@ -94,10 +88,7 @@ export default function GroupInfo() {
             <div className="flex gap-3 px-5 pb-4 pt-2">
               <input
                 className="flex-1 px-4 py-2.5 rounded-lg text-white text-sm outline-none transition"
-                style={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                }}
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && changeName()}
@@ -129,33 +120,26 @@ export default function GroupInfo() {
             </div>
 
             <div className="divide-y divide-white/[0.05]">
-              {groupInfo.members.map((uid: string) => {
+              {groupInfo.members.map((uid) => {
                 const name = membersNames[uid]
                 const initial = name ? name[0].toUpperCase() : "?"
-                const isCurrentUser = uid === user?.uid
-
+                const isCurrentUser = uid === user?.id
                 return (
                   <div key={uid} className="flex items-center justify-between px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      {/* Avatar */}
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white/60"
                         style={{ background: "rgba(255,255,255,0.1)" }}
                       >
                         {initial}
                       </div>
-
-                      {/* Nombre */}
                       <div>
                         <p className="text-white text-sm font-medium leading-tight">
                           {name || "Cargando…"}
                         </p>
-                        {isCurrentUser && (
-                          <p className="text-white/30 text-[11px]">Tú</p>
-                        )}
+                        {isCurrentUser && <p className="text-white/30 text-[11px]">Tú</p>}
                       </div>
                     </div>
-
                     {!isCurrentUser && (
                       <button
                         onClick={() => removeMember(uid)}
@@ -170,7 +154,7 @@ export default function GroupInfo() {
             </div>
           </section>
 
-          {/* SALIR DEL GRUPO */}
+          {/* SALIR */}
           <button
             onClick={leaveGroup}
             className="w-full py-3 text-sm font-medium rounded-xl transition"
@@ -182,7 +166,6 @@ export default function GroupInfo() {
           >
             Salir del grupo
           </button>
-
         </div>
       )}
     </div>

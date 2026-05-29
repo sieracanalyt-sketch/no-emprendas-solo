@@ -1,17 +1,14 @@
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { db } from "../firebase"
+import type { User } from "@supabase/supabase-js"
+import { supabase } from "../supabase"
 
-export async function saveUser(user: { uid: string; email?: string | null; displayName?: string | null; photoURL?: string | null }) {
-  const userRef = doc(db, "users", user.uid)
-  const snapshot = await getDoc(userRef)
-
-  if (!snapshot.exists()) {
-    await setDoc(userRef, {
-      uid: user.uid,
-      email: user.email || null,
-      nombre: user.displayName || user.email?.split("@")[0] || "Usuario",
-      avatar: user.photoURL || null,
-      createdAt: Date.now()
+export async function saveUser(user: User) {
+  const { data } = await supabase.from("users").select("id").eq("id", user.id).single()
+  if (!data) {
+    await supabase.from("users").insert({
+      id: user.id,
+      email: user.email ?? null,
+      nombre: user.user_metadata?.full_name || user.email?.split("@")[0] || "Usuario",
+      avatar: user.user_metadata?.avatar_url ?? null,
     })
   }
 }

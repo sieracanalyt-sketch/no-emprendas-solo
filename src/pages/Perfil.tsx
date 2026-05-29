@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react"
-import { auth, db } from "../firebase"
-import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore"
-import { deleteUser } from "firebase/auth"
+import { supabase } from "../supabase"
 import { useNavigate } from "react-router-dom"
 
 export default function Perfil() {
@@ -14,11 +12,10 @@ export default function Perfil() {
 
   useEffect(() => {
     const cargarPerfil = async () => {
-      const user = auth.currentUser
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const snap = await getDoc(doc(db, "users", user.uid))
-      if (snap.exists()) {
-        const data = snap.data()
+      const { data } = await supabase.from("users").select("*").eq("id", user.id).single()
+      if (data) {
         setPerfil({
           nombre: data.nombre || "",
           biografia: data.biografia || "",
@@ -32,14 +29,10 @@ export default function Perfil() {
   }, [])
 
   const guardarPerfil = async () => {
-    const user = auth.currentUser
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setSaving(true)
-    await setDoc(
-      doc(db, "users", user.uid),
-      { ...perfil, buscando },
-      { merge: true }
-    )
+    await supabase.from("users").update({ ...perfil, buscando }).eq("id", user.id)
     setSaving(false)
     alert("Perfil actualizado")
   }
@@ -49,17 +42,14 @@ export default function Perfil() {
       "¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer."
     )
     if (!confirmed) return
-
     try {
-      const user = auth.currentUser
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      await deleteDoc(doc(db, "users", user.uid))
-      await deleteUser(user)
+      await supabase.from("users").delete().eq("id", user.id)
+      await supabase.rpc("delete_user")
       navigate("/")
     } catch {
-      alert(
-        "Por seguridad, Firebase requiere que vuelvas a iniciar sesión antes de eliminar la cuenta."
-      )
+      alert("Error al eliminar la cuenta. Inténtalo de nuevo.")
     }
   }
 
@@ -82,7 +72,6 @@ export default function Perfil() {
       </div>
     )
 
-  /* ---- shared input style ---- */
   const inputStyle: React.CSSProperties = {
     background: "rgba(255,255,255,0.05)",
     border: "1px solid rgba(255,255,255,0.08)",
@@ -90,23 +79,15 @@ export default function Perfil() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-
-      {/* TITLE */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Tu perfil</h1>
-        <p className="text-white/40 text-sm mt-0.5">
-          Actualiza tu información pública
-        </p>
+        <p className="text-white/40 text-sm mt-0.5">Actualiza tu información pública</p>
       </div>
 
       <div
         className="rounded-xl p-6 space-y-6"
-        style={{
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.07)",
-        }}
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
       >
-        {/* Nombre */}
         <Field label="Nombre">
           <input
             value={perfil.nombre}
@@ -115,8 +96,6 @@ export default function Perfil() {
             style={inputStyle}
           />
         </Field>
-
-        {/* Biografía */}
         <Field label="Biografía">
           <textarea
             value={perfil.biografia}
@@ -126,8 +105,6 @@ export default function Perfil() {
             style={inputStyle}
           />
         </Field>
-
-        {/* Proyecto */}
         <Field label="Proyecto">
           <input
             value={perfil.proyecto}
@@ -136,8 +113,6 @@ export default function Perfil() {
             style={inputStyle}
           />
         </Field>
-
-        {/* Tags */}
         <Field label="Tipo de persona que buscas">
           {buscando.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
@@ -145,10 +120,7 @@ export default function Perfil() {
                 <div
                   key={i}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white"
-                  style={{
-                    background: "rgba(255,255,255,0.1)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                  }}
+                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.12)" }}
                 >
                   <span>{tag}</span>
                   <button
@@ -172,7 +144,6 @@ export default function Perfil() {
         </Field>
       </div>
 
-      {/* GUARDAR */}
       <button
         onClick={guardarPerfil}
         disabled={saving}
@@ -181,24 +152,15 @@ export default function Perfil() {
         {saving ? "Guardando…" : "Guardar cambios"}
       </button>
 
-      {/* SEPARATOR */}
-      <div
-        className="my-6"
-        style={{ height: "1px", background: "rgba(255,255,255,0.07)" }}
-      />
+      <div className="my-6" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
 
-      {/* ZONA DE PELIGRO */}
       <div
         className="rounded-xl p-5"
-        style={{
-          background: "rgba(239,68,68,0.04)",
-          border: "1px solid rgba(239,68,68,0.12)",
-        }}
+        style={{ background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.12)" }}
       >
         <p className="text-white text-sm font-medium mb-1">Eliminar cuenta</p>
         <p className="text-white/40 text-xs mb-4">
-          Esta acción es permanente. Todos tus datos serán borrados y no podrás
-          recuperarlos.
+          Esta acción es permanente. Todos tus datos serán borrados y no podrás recuperarlos.
         </p>
         <button
           onClick={eliminarCuenta}
@@ -212,19 +174,11 @@ export default function Perfil() {
           Eliminar mi cuenta
         </button>
       </div>
-
     </div>
   )
 }
 
-/* ---- helper ---- */
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <label className="block text-[11px] font-medium text-white/40 uppercase tracking-wider mb-2">

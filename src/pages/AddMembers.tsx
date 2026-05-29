@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { db } from "../firebase"
-import { collection, getDocs, doc, updateDoc, getDoc } from "firebase/firestore"
+import { supabase } from "../supabase"
 
 export default function AddMembers() {
   const { id } = useParams()
@@ -14,10 +13,15 @@ export default function AddMembers() {
 
   useEffect(() => {
     const load = async () => {
-      const infoSnap = await getDoc(doc(db, "groups", groupId, "info", "data"))
-      setCurrentMembers(infoSnap.data()?.members || [])
-      const snap = await getDocs(collection(db, "users"))
-      setUsers(snap.docs.map((d) => ({ id: d.id, nombre: (d.data() as { nombre?: string }).nombre })))
+      const { data: group } = await supabase
+        .from("groups")
+        .select("members")
+        .eq("id", groupId)
+        .single()
+      setCurrentMembers(group?.members ?? [])
+
+      const { data: allUsers } = await supabase.from("users").select("id, nombre")
+      setUsers(allUsers ?? [])
     }
     load()
   }, [groupId])
@@ -31,8 +35,10 @@ export default function AddMembers() {
 
   const addMembers = async () => {
     if (selected.length === 0) return
-    const ref = doc(db, "groups", groupId, "info", "data")
-    await updateDoc(ref, { members: [...currentMembers, ...selected] })
+    await supabase
+      .from("groups")
+      .update({ members: [...currentMembers, ...selected] })
+      .eq("id", groupId)
     navigate(`/group/${groupId}/info`)
   }
 
@@ -40,8 +46,6 @@ export default function AddMembers() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-
-      {/* BACK */}
       <button
         onClick={() => navigate(`/group/${groupId}/info`)}
         className="flex items-center gap-1.5 text-white/40 hover:text-white text-sm mb-8 transition-colors"
@@ -61,10 +65,7 @@ export default function AddMembers() {
       {available.length === 0 ? (
         <p className="text-white/40 text-sm">Todos los usuarios ya son miembros.</p>
       ) : (
-        <div
-          className="rounded-xl overflow-hidden mb-5"
-          style={{ border: "1px solid rgba(255,255,255,0.07)" }}
-        >
+        <div className="rounded-xl overflow-hidden mb-5" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
           {available.map((u, i) => {
             const isSelected = selected.includes(u.id)
             return (
@@ -73,9 +74,7 @@ export default function AddMembers() {
                 onClick={() => toggle(u.id)}
                 className="flex items-center justify-between px-4 py-3.5 cursor-pointer transition"
                 style={{
-                  background: isSelected
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(255,255,255,0.03)",
+                  background: isSelected ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
                   borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
                 }}
               >
@@ -86,14 +85,9 @@ export default function AddMembers() {
                   >
                     {(u.nombre || "?")[0].toUpperCase()}
                   </div>
-                  <span className="text-white text-sm font-medium">
-                    {u.nombre || "Usuario"}
-                  </span>
+                  <span className="text-white text-sm font-medium">{u.nombre || "Usuario"}</span>
                 </div>
-
-                {isSelected && (
-                  <span className="text-white text-xs font-medium">✓</span>
-                )}
+                {isSelected && <span className="text-white text-xs font-medium">✓</span>}
               </div>
             )
           })}

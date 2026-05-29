@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
-import { db, auth } from "../firebase"
-import { collection, getDocs } from "firebase/firestore"
+import { supabase } from "../supabase"
+import { useUser } from "../hooks/useUser"
 import { useNavigate } from "react-router-dom"
 
 type User = {
@@ -11,30 +11,26 @@ type User = {
 }
 
 export default function Explorar() {
+  const [user] = useUser()
   const [usuarios, setUsuarios] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
   useEffect(() => {
+    if (!user) return
     const cargarUsuarios = async () => {
-      const snap = await getDocs(collection(db, "users"))
-      const currentUserId = auth.currentUser?.uid
-
-      const list: User[] = snap.docs
-        .map((doc) => ({ id: doc.id, ...(doc.data() as Omit<User, "id">) }))
-        .filter((u) => u.id !== currentUserId)
-
-      setUsuarios(list)
+      const { data } = await supabase
+        .from("users")
+        .select("id, nombre, proyecto, biografia")
+        .neq("id", user.id)
+      setUsuarios(data ?? [])
       setLoading(false)
     }
-
     cargarUsuarios()
-  }, [])
+  }, [user])
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-
-      {/* HEADER */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Explorar</h1>
         <p className="text-white/40 text-sm mt-0.5">
@@ -42,16 +38,11 @@ export default function Explorar() {
         </p>
       </div>
 
-      {/* STATES */}
-      {loading && (
-        <p className="text-white/40 text-sm">Cargando usuarios…</p>
-      )}
-
+      {loading && <p className="text-white/40 text-sm">Cargando usuarios…</p>}
       {!loading && usuarios.length === 0 && (
         <p className="text-white/40 text-sm">No hay usuarios todavía.</p>
       )}
 
-      {/* LIST */}
       {usuarios.length > 0 && (
         <div
           className="rounded-xl overflow-hidden"
@@ -73,7 +64,6 @@ export default function Explorar() {
                 (e.currentTarget.style.background = "rgba(255,255,255,0.03)")
               }
             >
-              {/* Avatar + info */}
               <div className="flex items-center gap-3 min-w-0">
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white/50 shrink-0"
@@ -81,20 +71,15 @@ export default function Explorar() {
                 >
                   {(u.nombre || "?")[0].toUpperCase()}
                 </div>
-
                 <div className="min-w-0">
                   <h2 className="text-white font-medium text-sm">
                     {u.nombre || "Usuario"}
                   </h2>
                   {u.proyecto && (
-                    <p className="text-white/40 text-xs truncate mt-0.5">
-                      {u.proyecto}
-                    </p>
+                    <p className="text-white/40 text-xs truncate mt-0.5">{u.proyecto}</p>
                   )}
                 </div>
               </div>
-
-              {/* Acción */}
               <button
                 onClick={(e) => {
                   e.stopPropagation()

@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react"
-import { db } from "../firebase"
-import { collection, addDoc, doc, setDoc, getDocs } from "firebase/firestore"
-import { useAuthState } from "react-firebase-hooks/auth"
-import { auth } from "../firebase"
+import { supabase } from "../supabase"
+import { useUser } from "../hooks/useUser"
 import { useNavigate } from "react-router-dom"
 
 type User = { id: string; nombre?: string }
 
 export default function CreateGroup() {
-  const [user] = useAuthState(auth)
+  const [user] = useUser()
   const navigate = useNavigate()
 
   const [name, setName] = useState("")
@@ -18,32 +16,23 @@ export default function CreateGroup() {
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    getDocs(collection(db, "users")).then((snap) =>
-      setUsers(
-        snap.docs.map((d) => ({
-          id: d.id,
-          nombre: (d.data() as { nombre?: string }).nombre,
-        }))
-      )
-    )
+    supabase.from("users").select("id, nombre").then(({ data }) => setUsers(data ?? []))
   }, [])
 
   const toggleUser = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id]
-    )
+    setSelected((prev) => prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id])
   }
 
   const createGroup = async () => {
-    if (!name.trim()) return
+    if (!name.trim() || !user) return
     setCreating(true)
-    const groupRef = await addDoc(collection(db, "groups"), { updatedAt: Date.now() })
-    await setDoc(doc(db, "groups", groupRef.id, "info", "data"), {
-      name,
-      description,
-      members: [user!.uid, ...selected],
-    })
-    navigate(`/group/${groupRef.id}`)
+    const { data } = await supabase
+      .from("groups")
+      .insert({ name, description, members: [user.id, ...selected] })
+      .select("id")
+      .single()
+
+    if (data) navigate(`/group/${data.id}`)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -53,8 +42,6 @@ export default function CreateGroup() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-
-      {/* BACK */}
       <button
         onClick={() => navigate("/grupos")}
         className="flex items-center gap-1.5 text-white/40 hover:text-white text-sm mb-8 transition-colors"
@@ -64,19 +51,13 @@ export default function CreateGroup() {
 
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">Crear grupo</h1>
-        <p className="text-white/40 text-sm mt-0.5">
-          Configura los detalles y añade miembros
-        </p>
+        <p className="text-white/40 text-sm mt-0.5">Configura los detalles y añade miembros</p>
       </div>
 
       <div
         className="rounded-xl p-6 space-y-5 mb-5"
-        style={{
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.07)",
-        }}
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
       >
-        {/* Nombre */}
         <div>
           <label className="block text-[11px] font-medium text-white/40 uppercase tracking-wider mb-2">
             Nombre
@@ -89,8 +70,6 @@ export default function CreateGroup() {
             style={inputStyle}
           />
         </div>
-
-        {/* Descripción */}
         <div>
           <label className="block text-[11px] font-medium text-white/40 uppercase tracking-wider mb-2">
             Descripción <span className="normal-case text-white/20">(opcional)</span>
@@ -106,15 +85,11 @@ export default function CreateGroup() {
         </div>
       </div>
 
-      {/* MIEMBROS */}
       <div
         className="rounded-xl overflow-hidden mb-5"
         style={{ border: "1px solid rgba(255,255,255,0.07)" }}
       >
-        <div
-          className="px-4 py-3"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-        >
+        <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">
             Añadir miembros
             {selected.length > 0 && (
@@ -124,39 +99,32 @@ export default function CreateGroup() {
             )}
           </p>
         </div>
-
         <div className="max-h-60 overflow-y-auto">
-          {users
-            .filter((u) => u.id !== user?.uid)
-            .map((u, i) => {
-              const isSelected = selected.includes(u.id)
-              return (
-                <div
-                  key={u.id}
-                  onClick={() => toggleUser(u.id)}
-                  className="flex items-center justify-between px-4 py-3 cursor-pointer transition"
-                  style={{
-                    background: isSelected
-                      ? "rgba(255,255,255,0.07)"
-                      : "rgba(255,255,255,0.02)",
-                    borderTop: i > 0 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white/50"
-                      style={{ background: "rgba(255,255,255,0.09)" }}
-                    >
-                      {(u.nombre || "?")[0].toUpperCase()}
-                    </div>
-                    <span className="text-white text-sm">{u.nombre || "Usuario"}</span>
+          {users.filter((u) => u.id !== user?.id).map((u, i) => {
+            const isSelected = selected.includes(u.id)
+            return (
+              <div
+                key={u.id}
+                onClick={() => toggleUser(u.id)}
+                className="flex items-center justify-between px-4 py-3 cursor-pointer transition"
+                style={{
+                  background: isSelected ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)",
+                  borderTop: i > 0 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white/50"
+                    style={{ background: "rgba(255,255,255,0.09)" }}
+                  >
+                    {(u.nombre || "?")[0].toUpperCase()}
                   </div>
-                  {isSelected && (
-                    <span className="text-white text-xs">✓</span>
-                  )}
+                  <span className="text-white text-sm">{u.nombre || "Usuario"}</span>
                 </div>
-              )
-            })}
+                {isSelected && <span className="text-white text-xs">✓</span>}
+              </div>
+            )
+          })}
         </div>
       </div>
 

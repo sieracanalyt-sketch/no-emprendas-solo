@@ -1,13 +1,12 @@
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { signOut } from "firebase/auth"
-import { auth } from "../firebase"
+import { supabase } from "../supabase"
 
 export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
 
   const handleLogout = async () => {
-    await signOut(auth)
+    await supabase.auth.signOut()
     navigate("/")
   }
 
@@ -78,17 +77,7 @@ export default function Navbar() {
   )
 }
 
-/* ---------------- NAV ITEM ---------------- */
-
-function NavItem({
-  to,
-  label,
-  active,
-}: {
-  to: string
-  label: string
-  active: boolean
-}) {
+function NavItem({ to, label, active }: { to: string; label: string; active: boolean }) {
   return (
     <Link
       to={to}

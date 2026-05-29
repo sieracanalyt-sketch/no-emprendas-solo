@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
-import { db } from "../firebase"
-import { doc, getDoc } from "firebase/firestore"
+import { supabase } from "../supabase"
 
 type UserData = {
   nombre?: string
@@ -16,8 +15,12 @@ export default function PerfilPublico() {
 
   useEffect(() => {
     const cargar = async () => {
-      const snap = await getDoc(doc(db, "users", id!))
-      if (snap.exists()) setUserData(snap.data() as UserData)
+      const { data } = await supabase
+        .from("users")
+        .select("nombre, biografia, proyecto, buscando")
+        .eq("id", id)
+        .single()
+      if (data) setUserData(data)
     }
     cargar()
   }, [id])
@@ -31,8 +34,6 @@ export default function PerfilPublico() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-
-      {/* AVATAR + NOMBRE */}
       <div className="flex items-center gap-5 mb-8">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white/70 shrink-0"
@@ -47,22 +48,14 @@ export default function PerfilPublico() {
         </div>
       </div>
 
-      {/* SECCIONES */}
       <div
         className="rounded-xl divide-y overflow-hidden"
-        style={{
-          border: "1px solid rgba(255,255,255,0.07)",
-          divideColor: "rgba(255,255,255,0.06)",
-        }}
+        style={{ border: "1px solid rgba(255,255,255,0.07)" }}
       >
         <InfoRow label="Biografía" value={userData.biografia || "Sin biografía"} />
         <InfoRow label="Proyecto" value={userData.proyecto || "Sin proyecto"} />
 
-        {/* Busca */}
-        <div
-          className="px-5 py-4"
-          style={{ background: "rgba(255,255,255,0.03)" }}
-        >
+        <div className="px-5 py-4" style={{ background: "rgba(255,255,255,0.03)" }}>
           <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider mb-3">
             Busca
           </p>

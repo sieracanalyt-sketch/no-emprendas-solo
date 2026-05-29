@@ -1,5 +1,8 @@
+import { useEffect } from "react"
 import { Routes, Route, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
+import { supabase } from "./supabase"
+import { saveUser } from "./lib/saveUser"
 
 import Login from "./pages/Login"
 import Register from "./pages/Register"
@@ -20,15 +23,20 @@ import AddMembers from "./pages/AddMembers"
 
 export default function App() {
   const location = useLocation()
-
   const hideNavbar = location.pathname === "/" || location.pathname === "/register"
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+        await saveUser(session.user)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   return (
     <div className="w-full min-h-screen bg-[#09090b] text-white">
-
-      {/* navbar full-width fuera del contenedor centrado */}
       {!hideNavbar && <Navbar />}
-
       <div className="app-container mx-auto">
         <Routes>
           <Route path="/" element={<Login />} />
@@ -52,7 +60,6 @@ export default function App() {
           <Route path="/workflow" element={<Workflow />} />
           <Route path="/calendario" element={<Calendario />} />
         </Routes>
-
       </div>
     </div>
   )

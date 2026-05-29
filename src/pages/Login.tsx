@@ -1,8 +1,6 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
-import { auth } from "../firebase"
-import { saveUser } from "../lib/saveUser"
+import { supabase } from "../supabase"
 import AuthCard from "../components/AuthCard"
 import Input from "../components/Input"
 
@@ -14,23 +12,22 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password)
-      await saveUser(result.user)
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
       navigate("/explorar")
-    } catch (error) {
-      console.error(error)
-      alert("Error al iniciar sesión")
+    } catch {
+      alert("Error al iniciar sesión. Comprueba tu correo y contraseña.")
     }
   }
 
   const loginGoogle = async () => {
     try {
-      const provider = new GoogleAuthProvider()
-      const result = await signInWithPopup(auth, provider)
-      await saveUser(result.user)
-      navigate("/explorar")
-    } catch (error) {
-      console.error(error)
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/explorar` },
+      })
+      if (error) throw error
+    } catch {
       alert("Error al iniciar sesión con Google")
     }
   }
@@ -45,21 +42,18 @@ export default function Login() {
             value={email}
             onChange={setEmail}
           />
-
           <Input
             type="password"
             placeholder="Contraseña"
             value={password}
             onChange={setPassword}
           />
-
           <button
             type="submit"
             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded"
           >
             Entrar
           </button>
-
           <button
             type="button"
             onClick={loginGoogle}
@@ -68,7 +62,6 @@ export default function Login() {
             Entrar con Google
           </button>
         </form>
-
         <div className="text-center mt-4">
           <p>¿No tienes cuenta?</p>
           <Link to="/register" className="text-blue-600 underline">
