@@ -24,12 +24,12 @@ export default function App() {
   const hideNavbar = location.pathname === "/" || location.pathname === "/register"
 
   return (
-    <div className="w-full min-h-screen bg-[#0f0f11] text-white flex justify-center">
-      <div className="app-container">
+    <div className="w-full min-h-screen bg-[#09090b] text-white">
 
-        {/* 🚀 SOLO MOSTRAR NAVBAR SI NO ES AUTH */}
-        {!hideNavbar && <Navbar />}
+      {/* navbar full-width fuera del contenedor centrado */}
+      {!hideNavbar && <Navbar />}
 
+      <div className="app-container mx-auto">
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />

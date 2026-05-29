@@ -11,31 +11,44 @@ export default function Navbar() {
     navigate("/")
   }
 
-  const isActive = (path: string) => location.pathname === path
+  const isActive = (path: string) =>
+    path === "/explorar"
+      ? location.pathname === path
+      : location.pathname.startsWith(path)
 
   return (
-    <header className="w-full h-16 flex items-center justify-center border-b border-white/10 bg-black/30 backdrop-blur-xl">
+    <header
+      className="sticky top-0 z-50 w-full"
+      style={{
+        background: "rgba(9, 9, 11, 0.85)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+      }}
+    >
+      <div className="w-full max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-8">
 
-      {/* INNER CONTAINER */}
-      <div className="w-full max-w-5xl px-4 flex items-center justify-between">
-
-        {/* LEFT */}
-        <div
-          className="flex items-center gap-3 cursor-pointer group"
+        {/* LOGO */}
+        <button
           onClick={() => navigate("/explorar")}
+          className="flex items-center gap-2.5 shrink-0 group"
         >
-          <div className="w-8 h-8 rounded-full bg-white/10 border border-white/10 group-hover:bg-white/20 transition" />
-
-          <span className="text-white font-medium text-sm tracking-wide">
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-black"
+            style={{ background: "white" }}
+          >
+            N
+          </div>
+          <span className="text-white text-sm font-semibold tracking-tight">
             NoEmprendasSolo
           </span>
-        </div>
+        </button>
 
         {/* CENTER NAV */}
-        <nav className="flex items-center gap-6 text-sm">
+        <nav className="flex items-center gap-1 flex-1 justify-center">
           <NavItem to="/explorar" label="Explorar" active={isActive("/explorar")} />
-          <NavItem to="/chats" label="Chat" active={isActive("/chats")} />
-          <NavItem to="/grupos" label="Grupos" active={isActive("/grupos")} />
+          <NavItem to="/chats" label="Mensajes" active={isActive("/chats") || isActive("/chat")} />
+          <NavItem to="/grupos" label="Grupos" active={isActive("/grupos") || isActive("/group")} />
           <NavItem to="/workflow" label="Workflow" active={isActive("/workflow")} />
           <NavItem to="/foros" label="Foros" active={isActive("/foros")} />
           <NavItem to="/calendario" label="Calendario" active={isActive("/calendario")} />
@@ -45,7 +58,17 @@ export default function Navbar() {
         {/* RIGHT */}
         <button
           onClick={handleLogout}
-          className="px-3 py-1.5 text-sm bg-red-500/70 hover:bg-red-500 rounded-md text-white transition hover:scale-[1.02]"
+          className="shrink-0 px-4 py-1.5 text-sm font-medium text-white rounded-lg transition-all"
+          style={{
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.12)",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.14)"
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"
+          }}
         >
           Salir
         </button>
@@ -69,19 +92,20 @@ function NavItem({
   return (
     <Link
       to={to}
-      className={`
-        relative transition
-        ${active ? "text-white" : "text-gray-400 hover:text-white"}
-      `}
+      className="relative px-3 py-1.5 text-sm rounded-md transition-all"
+      style={{
+        color: active ? "white" : "rgba(255,255,255,0.5)",
+        background: active ? "rgba(255,255,255,0.08)" : "transparent",
+        fontWeight: active ? 500 : 400,
+      }}
+      onMouseEnter={e => {
+        if (!active) (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.85)"
+      }}
+      onMouseLeave={e => {
+        if (!active) (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.5)"
+      }}
     >
       {label}
-
-      <span
-        className={`
-          absolute left-0 -bottom-1 h-[2px] w-full rounded-full transition
-          ${active ? "bg-white" : "bg-transparent"}
-        `}
-      />
     </Link>
   )
 }
