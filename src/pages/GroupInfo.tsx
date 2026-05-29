@@ -9,16 +9,29 @@ export default function GroupInfo() {
   const { id } = useParams()
   const groupId = id as string
   const [user] = useAuthState(auth)
-  const [groupInfo, setGroupInfo] = useState<any>(null)
+  const [groupInfo, setGroupInfo] = useState<{ name: string; members: string[] } | null>(null)
   const [newName, setNewName] = useState("")
+  const [membersNames, setMembersNames] = useState<Record<string, string>>({})
   const navigate = useNavigate()
 
   useEffect(() => {
     const load = async () => {
       const ref = doc(db, "groups", groupId, "info", "data")
       const snap = await getDoc(ref)
-      setGroupInfo(snap.data())
-      setNewName(snap.data()?.name || "")
+      const info = snap.data()
+      setGroupInfo(info)
+      setNewName(info?.name || "")
+
+      // Cargar nombres reales de cada miembro
+      if (info?.members) {
+        const names: Record<string, string> = {}
+        for (const uid of info.members) {
+          const userRef = doc(db, "users", uid)
+          const userSnap = await getDoc(userRef)
+          names[uid] = userSnap.data()?.nombre || "Usuario"
+        }
+        setMembersNames(names)
+      }
     }
     load()
   }, [groupId])
@@ -32,84 +45,145 @@ export default function GroupInfo() {
 
   const removeMember = async (uid: string) => {
     if (!groupInfo) return
-
+    const confirmed = window.confirm(
+      `¿Eliminar a ${membersNames[uid] || "este usuario"} del grupo?`
+    )
+    if (!confirmed) return
     const newMembers = groupInfo.members.filter((m: string) => m !== uid)
-
     const ref = doc(db, "groups", groupId, "info", "data")
     await updateDoc(ref, { members: newMembers })
-
     setGroupInfo({ ...groupInfo, members: newMembers })
   }
 
   const leaveGroup = async () => {
     if (!groupInfo) return
-
+    const confirmed = window.confirm("¿Seguro que quieres salir del grupo?")
+    if (!confirmed) return
     const newMembers = groupInfo.members.filter((m: string) => m !== user?.uid)
-
     const ref = doc(db, "groups", groupId, "info", "data")
     await updateDoc(ref, { members: newMembers })
-
-    navigate("/mensajes")
+    navigate("/grupos")
   }
 
   return (
-    <div className="p-6 text-white">
-      <h1 className="text-2xl font-bold mb-6">Información del grupo</h1>
+    <div className="max-w-2xl mx-auto px-4 py-8">
+
+      {/* BACK */}
+      <button
+        onClick={() => navigate(`/group/${groupId}`)}
+        className="flex items-center gap-1.5 text-white/40 hover:text-white text-sm mb-8 transition-colors"
+      >
+        ← Volver al chat
+      </button>
+
+      <h1 className="text-2xl font-bold text-white mb-8">Información del grupo</h1>
 
       {groupInfo && (
-        <>
-          {/* Cambiar nombre */}
-          <div className="mb-6">
-            <p className="text-gray-400 text-sm">Nombre del grupo</p>
-            <input
-              className="w-full p-2 bg-gray-800 rounded mt-1"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <button
-              onClick={changeName}
-              className="mt-2 px-3 py-2 bg-blue-600 rounded"
-            >
-              Guardar nombre
-            </button>
-          </div>
+        <div className="space-y-5">
 
-          {/* Miembros */}
-          <div className="mb-6">
-            <p className="text-gray-400 text-sm mb-2">Miembros</p>
-            <div className="flex flex-col gap-2">
-              {groupInfo.members.map((m: string) => (
-                <div key={m} className="bg-gray-800 p-2 rounded flex justify-between items-center">
-                  <span>{m}</span>
+          {/* NOMBRE DEL GRUPO */}
+          <section
+            className="rounded-xl border border-white/[0.08] overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.03)" }}
+          >
+            <div className="px-5 pt-4 pb-1">
+              <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">
+                Nombre del grupo
+              </p>
+            </div>
+            <div className="flex gap-3 px-5 pb-4 pt-2">
+              <input
+                className="flex-1 px-4 py-2.5 rounded-lg text-white text-sm outline-none transition"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && changeName()}
+              />
+              <button
+                onClick={changeName}
+                className="px-4 py-2.5 bg-white text-black text-sm font-medium rounded-lg hover:bg-white/90 transition shrink-0"
+              >
+                Guardar
+              </button>
+            </div>
+          </section>
 
-                  {m !== user?.uid && (
-                    <button
-                      onClick={() => removeMember(m)}
-                      className="px-2 py-1 bg-red-600 rounded text-sm"
-                    >
-                      Eliminar
-                    </button>
-                  )}
-                </div>
-              ))}
+          {/* MIEMBROS */}
+          <section
+            className="rounded-xl border border-white/[0.08] overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.03)" }}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">
+                Miembros · {groupInfo.members.length}
+              </p>
+              <button
+                onClick={() => navigate(`/group/${groupId}/add-members`)}
+                className="text-white/40 hover:text-white text-xs transition-colors"
+              >
+                + Añadir
+              </button>
             </div>
 
-            <button
-              onClick={() => navigate(`/group/${groupId}/add-members`)}
-              className="mt-4 px-3 py-2 bg-green-600 rounded"
-            >
-              Añadir miembros
-            </button>
+            <div className="divide-y divide-white/[0.05]">
+              {groupInfo.members.map((uid: string) => {
+                const name = membersNames[uid]
+                const initial = name ? name[0].toUpperCase() : "?"
+                const isCurrentUser = uid === user?.uid
 
-            {/* ⭐ Salir del grupo */}
-            <button
-              onClick={leaveGroup}
-              className="mt-4 px-3 py-2 bg-red-600 rounded"
-            >
-              Salir del grupo
-            </button>
-          </div>
-        </>
+                return (
+                  <div key={uid} className="flex items-center justify-between px-5 py-3.5">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white/60"
+                        style={{ background: "rgba(255,255,255,0.1)" }}
+                      >
+                        {initial}
+                      </div>
+
+                      {/* Nombre */}
+                      <div>
+                        <p className="text-white text-sm font-medium leading-tight">
+                          {name || "Cargando…"}
+                        </p>
+                        {isCurrentUser && (
+                          <p className="text-white/30 text-[11px]">Tú</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {!isCurrentUser && (
+                      <button
+                        onClick={() => removeMember(uid)}
+                        className="text-red-400/60 hover:text-red-400 text-xs transition-colors"
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* SALIR DEL GRUPO */}
+          <button
+            onClick={leaveGroup}
+            className="w-full py-3 text-sm font-medium rounded-xl transition"
+            style={{
+              color: "rgb(248 113 113)",
+              background: "rgba(239, 68, 68, 0.07)",
+              border: "1px solid rgba(239, 68, 68, 0.14)",
+            }}
+          >
+            Salir del grupo
+          </button>
+
+        </div>
       )}
     </div>
   )

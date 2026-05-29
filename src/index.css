@@ -43,7 +43,7 @@ body {
 }
 
 /* =========================
-   BACKGROUND GLOW
+   BACKGROUND GLOW (subtle depth, no saturated colors)
 ========================= */
 
 body::before {
@@ -51,9 +51,7 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 20%, rgba(168,85,247,0.15), transparent 40%),
-    radial-gradient(circle at 80% 30%, rgba(59,130,246,0.12), transparent 40%),
-    radial-gradient(circle at 50% 80%, rgba(236,72,153,0.08), transparent 50%);
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.03), transparent 60%);
   pointer-events: none;
   z-index: -1;
 }

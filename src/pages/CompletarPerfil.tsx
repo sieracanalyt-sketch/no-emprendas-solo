@@ -4,19 +4,17 @@ import { auth, db } from "../firebase"
 import { doc, updateDoc } from "firebase/firestore"
 
 export default function CompletarPerfil() {
-  const [displayName, setDisplayName] = useState("")
-  const [bio, setBio] = useState("")
-  const [skills, setSkills] = useState("")
-  const [message, setMessage] = useState("")
+  const [nombre, setNombre] = useState("")
+  const [biografia, setBiografia] = useState("")
+  const [proyecto, setProyecto] = useState("")
+  const [mensaje, setMensaje] = useState("")
   const navigate = useNavigate()
 
   const handleSave = async () => {
     const user = auth.currentUser
 
-    console.log("USER ID:", user?.uid)
-
     if (!user) {
-      setMessage("No se encontró el usuario")
+      setMensaje("No se encontró el usuario")
       return
     }
 
@@ -24,46 +22,80 @@ export default function CompletarPerfil() {
       const userRef = doc(db, "users", user.uid)
 
       await updateDoc(userRef, {
-        display_name: displayName,
-        bio,
-        skills
+        nombre,
+        biografia,
+        proyecto,
       })
 
       navigate("/explorar")
-
     } catch (error) {
-      console.log("UPDATE ERROR:", error)
-      setMessage("Error al guardar el perfil")
+      console.error(error)
+      setMensaje("Error al guardar el perfil")
     }
   }
 
   return (
-    <div style={{ maxWidth: 500, margin: "0 auto" }}>
-      <h2>Completa tu perfil</h2>
+    <div className="w-full flex justify-center px-4 mt-10">
+      <div className="w-full max-w-3xl bg-[#111] border border-white/10 rounded-2xl p-10 shadow-xl">
 
-      <input
-        type="text"
-        placeholder="Tu nombre"
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
-      />
+        <h2 className="text-3xl font-bold text-white mb-10 text-center tracking-tight">
+          Completa tu perfil
+        </h2>
 
-      <textarea
-        placeholder="Tu bio"
-        value={bio}
-        onChange={(e) => setBio(e.target.value)}
-      />
+        <div className="space-y-8">
 
-      <input
-        type="text"
-        placeholder="Tus skills"
-        value={skills}
-        onChange={(e) => setSkills(e.target.value)}
-      />
+          <div>
+            <label className="block mb-2 text-gray-400 text-sm font-medium">
+              Nombre
+            </label>
+            <input
+              type="text"
+              placeholder="Tu nombre"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-[#1a1a1d] border border-white/10 focus:border-purple-500 outline-none transition text-white"
+            />
+          </div>
 
-      <button onClick={handleSave}>Guardar</button>
+          <div>
+            <label className="block mb-2 text-gray-400 text-sm font-medium">
+              Biografía
+            </label>
+            <textarea
+              placeholder="Cuéntanos sobre ti"
+              value={biografia}
+              onChange={(e) => setBiografia(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-[#1a1a1d] border border-white/10 focus:border-purple-500 outline-none transition text-white h-32 resize-none"
+            />
+          </div>
 
-      {message && <p>{message}</p>}
+          <div>
+            <label className="block mb-2 text-gray-400 text-sm font-medium">
+              Proyecto
+            </label>
+            <input
+              type="text"
+              placeholder="¿En qué proyecto trabajas?"
+              value={proyecto}
+              onChange={(e) => setProyecto(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-[#1a1a1d] border border-white/10 focus:border-purple-500 outline-none transition text-white"
+            />
+          </div>
+
+        </div>
+
+        {mensaje && (
+          <p className="mt-4 text-red-400 text-sm text-center">{mensaje}</p>
+        )}
+
+        <button
+          onClick={handleSave}
+          className="w-full mt-10 py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold text-lg text-white shadow-lg transition"
+        >
+          Guardar y continuar
+        </button>
+
+      </div>
     </div>
   )
 }

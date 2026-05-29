@@ -113,7 +113,7 @@ export default function Mensajes() {
     <div className="max-w-3xl mx-auto p-6">
 
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-5xl font-bold text-red-500">Tus chats</h2>
+        <h2 className="text-3xl font-bold text-white">Tus chats</h2>
       </div>
 
       {items.length === 0 && (

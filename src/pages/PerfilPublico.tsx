@@ -3,57 +3,100 @@ import { useParams } from "react-router-dom"
 import { db } from "../firebase"
 import { doc, getDoc } from "firebase/firestore"
 
+type UserData = {
+  nombre?: string
+  biografia?: string
+  proyecto?: string
+  buscando?: string[]
+}
+
 export default function PerfilPublico() {
   const { id } = useParams()
-  const [userData, setUserData] = useState<any>(null)
+  const [userData, setUserData] = useState<UserData | null>(null)
 
   useEffect(() => {
+    const cargar = async () => {
+      const snap = await getDoc(doc(db, "users", id!))
+      if (snap.exists()) setUserData(snap.data() as UserData)
+    }
     cargar()
-  }, [])
+  }, [id])
 
-  const cargar = async () => {
-    const ref = doc(db, "users", id!)
-    const snap = await getDoc(ref)
-    if (snap.exists()) setUserData(snap.data())
-  }
-
-  if (!userData) return <p className="text-center text-white mt-10">Cargando...</p>
+  if (!userData)
+    return (
+      <div className="flex items-center justify-center h-48">
+        <p className="text-white/40 text-sm">Cargando…</p>
+      </div>
+    )
 
   return (
-    <div className="w-full max-w-2xl mx-auto mt-10 p-6 bg-gray-900 text-white rounded-2xl shadow-xl border border-gray-700">
+    <div className="max-w-2xl mx-auto px-4 py-8">
 
-      <div className="flex flex-col items-center mb-6">
-        <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-4xl font-bold">
-          {userData.nombre?.charAt(0)?.toUpperCase()}
+      {/* AVATAR + NOMBRE */}
+      <div className="flex items-center gap-5 mb-8">
+        <div
+          className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white/70 shrink-0"
+          style={{ background: "rgba(255,255,255,0.1)" }}
+        >
+          {userData.nombre?.[0]?.toUpperCase() ?? "?"}
         </div>
-        <h2 className="text-3xl font-bold mt-4">{userData.nombre}</h2>
+        <div>
+          <h1 className="text-2xl font-bold text-white">
+            {userData.nombre || "Usuario"}
+          </h1>
+        </div>
       </div>
 
-      <div className="mb-6">
-        <h3 className="text-xl font-semibold mb-2">Biografía</h3>
-        <p className="text-gray-300">{userData.biografia || "Sin biografía"}</p>
-      </div>
+      {/* SECCIONES */}
+      <div
+        className="rounded-xl divide-y overflow-hidden"
+        style={{
+          border: "1px solid rgba(255,255,255,0.07)",
+          divideColor: "rgba(255,255,255,0.06)",
+        }}
+      >
+        <InfoRow label="Biografía" value={userData.biografia || "Sin biografía"} />
+        <InfoRow label="Proyecto" value={userData.proyecto || "Sin proyecto"} />
 
-      <div className="mb-6">
-        <h3 className="text-xl font-semibold mb-2">Proyecto</h3>
-        <p className="text-gray-300">{userData.proyecto || "Sin proyecto"}</p>
-      </div>
-
-      <div className="mb-6">
-        <h3 className="text-xl font-semibold mb-2">Busca</h3>
-        <div className="flex flex-wrap gap-2">
-          {userData.buscando?.length > 0 ? (
-            userData.buscando.map((tag: string, i: number) => (
-              <span key={i} className="bg-blue-600 px-3 py-1 rounded-full text-sm">
-                {tag}
-              </span>
-            ))
+        {/* Busca */}
+        <div
+          className="px-5 py-4"
+          style={{ background: "rgba(255,255,255,0.03)" }}
+        >
+          <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider mb-3">
+            Busca
+          </p>
+          {userData.buscando && userData.buscando.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {userData.buscando.map((tag, i) => (
+                <span
+                  key={i}
+                  className="text-xs text-white px-3 py-1 rounded-full"
+                  style={{
+                    background: "rgba(255,255,255,0.1)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
           ) : (
-            <p className="text-gray-400">No ha especificado nada</p>
+            <p className="text-white/30 text-sm">No ha especificado nada</p>
           )}
         </div>
       </div>
+    </div>
+  )
+}
 
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-5 py-4" style={{ background: "rgba(255,255,255,0.03)" }}>
+      <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider mb-1">
+        {label}
+      </p>
+      <p className="text-white/80 text-sm leading-relaxed">{value}</p>
     </div>
   )
 }

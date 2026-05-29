@@ -8,68 +8,102 @@ export default function AddMembers() {
   const groupId = id as string
   const navigate = useNavigate()
 
-  const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<{ id: string; nombre?: string }[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [currentMembers, setCurrentMembers] = useState<string[]>([])
 
   useEffect(() => {
     const load = async () => {
-      // Cargar info del grupo
-      const infoRef = doc(db, "groups", groupId, "info", "data")
-      const infoSnap = await getDoc(infoRef)
+      const infoSnap = await getDoc(doc(db, "groups", groupId, "info", "data"))
       setCurrentMembers(infoSnap.data()?.members || [])
-
-      // Cargar todos los usuarios
       const snap = await getDocs(collection(db, "users"))
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setUsers(list)
+      setUsers(snap.docs.map((d) => ({ id: d.id, nombre: (d.data() as { nombre?: string }).nombre })))
     }
-
     load()
   }, [groupId])
 
   const toggle = (uid: string) => {
-    setSelected(prev =>
-      prev.includes(uid)
-        ? prev.filter(id => id !== uid)
-        : [...prev, uid]
+    if (currentMembers.includes(uid)) return
+    setSelected((prev) =>
+      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
     )
   }
 
   const addMembers = async () => {
-    const newMembers = [...currentMembers, ...selected]
-
+    if (selected.length === 0) return
     const ref = doc(db, "groups", groupId, "info", "data")
-    await updateDoc(ref, { members: newMembers })
-
+    await updateDoc(ref, { members: [...currentMembers, ...selected] })
     navigate(`/group/${groupId}/info`)
   }
 
-  return (
-    <div className="p-6 text-white">
-      <h1 className="text-2xl font-bold mb-4">Añadir miembros</h1>
+  const available = users.filter((u) => !currentMembers.includes(u.id))
 
-      <div className="flex flex-col gap-2">
-        {users.map(u => (
-          <div
-            key={u.id}
-            onClick={() => toggle(u.id)}
-            className={`p-2 rounded cursor-pointer ${
-              selected.includes(u.id)
-                ? "bg-blue-600"
-                : currentMembers.includes(u.id)
-                ? "bg-gray-700 opacity-50"
-                : "bg-gray-800"
-            }`}
-          >
-            {u.nombre || u.name || "Usuario"}
-          </div>
-        ))}
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8">
+
+      {/* BACK */}
+      <button
+        onClick={() => navigate(`/group/${groupId}/info`)}
+        className="flex items-center gap-1.5 text-white/40 hover:text-white text-sm mb-8 transition-colors"
+      >
+        ← Volver
+      </button>
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">Añadir miembros</h1>
+        <p className="text-white/40 text-sm mt-0.5">
+          {selected.length > 0
+            ? `${selected.length} seleccionado${selected.length !== 1 ? "s" : ""}`
+            : "Selecciona las personas a añadir"}
+        </p>
       </div>
+
+      {available.length === 0 ? (
+        <p className="text-white/40 text-sm">Todos los usuarios ya son miembros.</p>
+      ) : (
+        <div
+          className="rounded-xl overflow-hidden mb-5"
+          style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          {available.map((u, i) => {
+            const isSelected = selected.includes(u.id)
+            return (
+              <div
+                key={u.id}
+                onClick={() => toggle(u.id)}
+                className="flex items-center justify-between px-4 py-3.5 cursor-pointer transition"
+                style={{
+                  background: isSelected
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(255,255,255,0.03)",
+                  borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white/50"
+                    style={{ background: "rgba(255,255,255,0.09)" }}
+                  >
+                    {(u.nombre || "?")[0].toUpperCase()}
+                  </div>
+                  <span className="text-white text-sm font-medium">
+                    {u.nombre || "Usuario"}
+                  </span>
+                </div>
+
+                {isSelected && (
+                  <span className="text-white text-xs font-medium">✓</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <button
         onClick={addMembers}
-        className="mt-4 w-full bg-green-600 p-2 rounded"
+        disabled={selected.length === 0}
+        className="w-full py-3 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition disabled:opacity-30"
       >
         Añadir al grupo
       </button>

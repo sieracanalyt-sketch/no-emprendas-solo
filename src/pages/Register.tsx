@@ -85,7 +85,7 @@ export default function Register() {
 
         <div className="text-center mt-4">
           <p>¿Ya tienes cuenta?</p>
-          <Link to="/login" className="text-blue-600 underline">
+          <Link to="/" className="text-blue-600 underline">
             Inicia sesión aquí
           </Link>
         </div>

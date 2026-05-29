@@ -1,20 +1,11 @@
 import { useEffect, useState } from "react"
 import { db } from "../firebase"
-import {
-  collection,
-  addDoc,
-  doc,
-  setDoc,
-  getDocs
-} from "firebase/firestore"
+import { collection, addDoc, doc, setDoc, getDocs } from "firebase/firestore"
 import { useAuthState } from "react-firebase-hooks/auth"
 import { auth } from "../firebase"
 import { useNavigate } from "react-router-dom"
 
-type User = {
-  id: string
-  nombre?: string
-}
+type User = { id: string; nombre?: string }
 
 export default function CreateGroup() {
   const [user] = useAuthState(auth)
@@ -24,103 +15,158 @@ export default function CreateGroup() {
   const [description, setDescription] = useState("")
   const [users, setUsers] = useState<User[]>([])
   const [selected, setSelected] = useState<string[]>([])
+  const [creating, setCreating] = useState(false)
 
-  // 🔥 Cargar usuarios
   useEffect(() => {
-    const fetchUsers = async () => {
-      const snap = await getDocs(collection(db, "users"))
-
-      const list: User[] = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as any)
-      }))
-
-      setUsers(list)
-    }
-
-    fetchUsers()
+    getDocs(collection(db, "users")).then((snap) =>
+      setUsers(
+        snap.docs.map((d) => ({
+          id: d.id,
+          nombre: (d.data() as { nombre?: string }).nombre,
+        }))
+      )
+    )
   }, [])
 
   const toggleUser = (id: string) => {
     setSelected((prev) =>
-      prev.includes(id)
-        ? prev.filter((u) => u !== id)
-        : [...prev, id]
+      prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id]
     )
   }
 
   const createGroup = async () => {
     if (!name.trim()) return
-
-    const groupRef = await addDoc(collection(db, "groups"), {
-      updatedAt: Date.now()
-    })
-
+    setCreating(true)
+    const groupRef = await addDoc(collection(db, "groups"), { updatedAt: Date.now() })
     await setDoc(doc(db, "groups", groupRef.id, "info", "data"), {
       name,
       description,
-      members: [user!.uid, ...selected]
+      members: [user!.uid, ...selected],
     })
-
     navigate(`/group/${groupRef.id}`)
   }
 
+  const inputStyle: React.CSSProperties = {
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  }
+
   return (
-    <div className="p-6 text-white max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto px-4 py-8">
 
-      <h1 className="text-2xl font-bold mb-6">Crear grupo</h1>
-
-      {/* NAME */}
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Nombre del grupo"
-        className="w-full p-3 mb-4 bg-gray-800 rounded border border-gray-700"
-      />
-
-      {/* DESCRIPTION */}
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Descripción"
-        className="w-full p-3 mb-4 bg-gray-800 rounded border border-gray-700 h-28"
-      />
-
-      {/* USERS */}
-      <h2 className="text-lg font-semibold mb-2">
-        Añadir miembros
-      </h2>
-
-      <div className="bg-gray-900 border border-gray-700 rounded p-3 max-h-60 overflow-y-auto mb-4">
-        {users
-          .filter((u) => u.id !== user?.uid)
-          .map((u) => (
-            <div
-              key={u.id}
-              onClick={() => toggleUser(u.id)}
-              className={`
-                flex justify-between items-center p-2 rounded cursor-pointer
-                hover:bg-gray-800 transition
-                ${selected.includes(u.id) ? "bg-blue-600/30" : ""}
-              `}
-            >
-              <span>{u.nombre || "Usuario"}</span>
-
-              {selected.includes(u.id) && (
-                <span className="text-blue-400 text-sm">✓</span>
-              )}
-            </div>
-          ))}
-      </div>
-
-      {/* BUTTON */}
+      {/* BACK */}
       <button
-        onClick={createGroup}
-        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+        onClick={() => navigate("/grupos")}
+        className="flex items-center gap-1.5 text-white/40 hover:text-white text-sm mb-8 transition-colors"
       >
-        Crear grupo
+        ← Grupos
       </button>
 
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-white">Crear grupo</h1>
+        <p className="text-white/40 text-sm mt-0.5">
+          Configura los detalles y añade miembros
+        </p>
+      </div>
+
+      <div
+        className="rounded-xl p-6 space-y-5 mb-5"
+        style={{
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.07)",
+        }}
+      >
+        {/* Nombre */}
+        <div>
+          <label className="block text-[11px] font-medium text-white/40 uppercase tracking-wider mb-2">
+            Nombre
+          </label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nombre del grupo"
+            className="w-full px-4 py-2.5 rounded-lg text-white text-sm outline-none transition placeholder:text-white/25"
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Descripción */}
+        <div>
+          <label className="block text-[11px] font-medium text-white/40 uppercase tracking-wider mb-2">
+            Descripción <span className="normal-case text-white/20">(opcional)</span>
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe el propósito del grupo…"
+            rows={3}
+            className="w-full px-4 py-2.5 rounded-lg text-white text-sm outline-none transition resize-none placeholder:text-white/25"
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      {/* MIEMBROS */}
+      <div
+        className="rounded-xl overflow-hidden mb-5"
+        style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        <div
+          className="px-4 py-3"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">
+            Añadir miembros
+            {selected.length > 0 && (
+              <span className="ml-2 text-white/60 normal-case">
+                · {selected.length} seleccionado{selected.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </p>
+        </div>
+
+        <div className="max-h-60 overflow-y-auto">
+          {users
+            .filter((u) => u.id !== user?.uid)
+            .map((u, i) => {
+              const isSelected = selected.includes(u.id)
+              return (
+                <div
+                  key={u.id}
+                  onClick={() => toggleUser(u.id)}
+                  className="flex items-center justify-between px-4 py-3 cursor-pointer transition"
+                  style={{
+                    background: isSelected
+                      ? "rgba(255,255,255,0.07)"
+                      : "rgba(255,255,255,0.02)",
+                    borderTop: i > 0 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white/50"
+                      style={{ background: "rgba(255,255,255,0.09)" }}
+                    >
+                      {(u.nombre || "?")[0].toUpperCase()}
+                    </div>
+                    <span className="text-white text-sm">{u.nombre || "Usuario"}</span>
+                  </div>
+                  {isSelected && (
+                    <span className="text-white text-xs">✓</span>
+                  )}
+                </div>
+              )
+            })}
+        </div>
+      </div>
+
+      <button
+        onClick={createGroup}
+        disabled={!name.trim() || creating}
+        className="w-full py-3 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition disabled:opacity-30"
+      >
+        {creating ? "Creando…" : "Crear grupo"}
+      </button>
     </div>
   )
 }
