@@ -166,7 +166,7 @@ export default function GroupChat() {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             placeholder="Escribe un mensaje…"
-            className="flex-1 bg-transparent text-white text-sm outline-none"
+            className="flex-1 min-w-0 bg-transparent text-white text-sm outline-none"
             style={{ caretColor: "white" }}
           />
           <button

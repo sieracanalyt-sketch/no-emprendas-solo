@@ -79,13 +79,21 @@ body::before {
    TRANSITIONS
 ========================= */
 
-* {
+/* Transiciones suaves sólo en elementos no interactivos */
+:not(input):not(textarea):not(select) {
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease,
     color 0.2s ease,
-    transform 0.2s ease,
     opacity 0.2s ease;
+}
+
+/* Garantizar que inputs SIEMPRE sean interactivos */
+input, textarea, select {
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 /* =========================

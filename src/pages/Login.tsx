@@ -48,20 +48,6 @@ export default function Login() {
         overflow: "hidden",
       }}
     >
-      <style>{`
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { overflow: hidden; }
-        input::placeholder { color: #555; }
-        input:focus { border-color: #4a4a4a !important; outline: none; }
-        .google-btn:hover  { background: #f0f0f0 !important; }
-        .submit-btn:hover:not(:disabled) { background: #e8e8e8 !important; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-        @media (max-width: 700px) {
-          .login-cols { flex-direction: column !important; }
-          .login-left { padding: 2.5rem 1.5rem !important; flex: 1 !important; }
-          .login-right { flex: 0 0 180px !important; }
-        }
-      `}</style>
 
       {/* ── Left column: form ───────────────────────────────────────────── */}
       <div
