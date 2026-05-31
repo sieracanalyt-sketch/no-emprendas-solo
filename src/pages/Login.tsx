@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { supabase } from "../supabase"
+import logo from "../assets/logo.png"
 
 export default function Login() {
   const [email, setEmail] = useState("")
@@ -204,15 +205,15 @@ export default function Login() {
           animation: "fadeIn 0.6s ease 0.1s both",
         }}
       >
-        {/*
-          LOGO: coloca aquí tu imagen real.
-          Sustituye el componente <BrandLogo /> por:
-            <img src="/logo.png" alt="No Emprendas Solo" style={{ width: "clamp(130px,16vw,200px)" }} />
-          y pon tu archivo en: src/assets/logo.png  (o public/logo.png)
-        */}
-        <div style={{ width: "clamp(130px, 16vw, 200px)", aspectRatio: "1" }}>
-          <BrandLogo />
-        </div>
+        <img
+          src={logo}
+          alt="No Emprendas Solo"
+          style={{
+            width: "clamp(130px, 16vw, 220px)",
+            height: "auto",
+            objectFit: "contain",
+          }}
+        />
 
         <p
           style={{
@@ -257,17 +258,3 @@ function GoogleIcon() {
   )
 }
 
-// ─── Brand logo SVG (temporal — reemplaza con tu imagen real, ver comentario arriba)
-function BrandLogo() {
-  return (
-    <svg viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }} aria-label="No Emprendas Solo">
-      <circle cx="100" cy="26" r="16" fill="white" />
-      <path d="M32 68 Q66 44 100 44 Q134 44 168 68" stroke="white" strokeWidth="20" strokeLinecap="round" fill="none"/>
-      <path d="M40 74 Q28 118 30 160" stroke="white" strokeWidth="20" strokeLinecap="round" fill="none"/>
-      <path d="M160 74 Q172 118 170 160" stroke="white" strokeWidth="20" strokeLinecap="round" fill="none"/>
-      <path d="M100 62 Q100 120 100 165" stroke="white" strokeWidth="20" strokeLinecap="round" fill="none"/>
-      <circle cx="30" cy="176" r="16" fill="white" />
-      <circle cx="170" cy="176" r="16" fill="white" />
-    </svg>
-  )
-}
