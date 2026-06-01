@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar"
 import { supabase } from "./supabase"
 import { saveUser } from "./lib/saveUser"
 
+import Landing from "./pages/Landing"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
 import Explorar from "./pages/Explorar"
@@ -20,7 +21,10 @@ import AddMembers from "./pages/AddMembers"
 
 export default function App() {
   const location = useLocation()
-  const hideNavbar = location.pathname === "/" || location.pathname === "/register"
+  const hideNavbar =
+    location.pathname === "/" ||
+    location.pathname === "/login" ||
+    location.pathname === "/register"
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -36,7 +40,8 @@ export default function App() {
       {!hideNavbar && <Navbar />}
       <div className="app-container mx-auto">
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
           <Route path="/explorar" element={<Explorar />} />

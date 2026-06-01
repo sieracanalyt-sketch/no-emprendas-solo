@@ -24,7 +24,9 @@ body {
   font-family: Inter, system-ui, -apple-system, sans-serif;
   background: #09090b;
   color: #e5e7eb;
-  overflow-x: hidden;
+  /* `clip` evita scroll horizontal sin romper position:sticky (necesario
+     para las secciones con scroll horizontal de la landing). */
+  overflow-x: clip;
 }
 
 /* ROOT debe comportarse como app container */

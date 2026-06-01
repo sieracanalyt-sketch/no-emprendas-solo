@@ -1,0 +1,104 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   LANDING — animaciones globales (clases con prefijo `nes-` para no chocar)
+   Todo lo que se anima usa transform/opacity → GPU, 60fps.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── TV CRT shutdown (blue pill) ───────────────────────────────────────── */
+@keyframes nes-tv-off {
+  0%   { transform: scaleY(1) scaleX(1);     opacity: 1; filter: brightness(1); }
+  7%   { transform: scaleY(1) scaleX(1);                 filter: brightness(6); }
+  18%  { transform: scaleY(0.022) scaleX(1.05); opacity: 1; filter: brightness(4); }
+  55%  { transform: scaleY(0.022) scaleX(0.55); opacity: 1; filter: brightness(2); }
+  88%  { transform: scaleY(0.022) scaleX(0.08); opacity: 0.85; }
+  100% { transform: scaleY(0) scaleX(0);     opacity: 0; filter: brightness(0); }
+}
+.nes-tv-off { animation: nes-tv-off 1.6s cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+/* ── Glitch reveal (red pill) ──────────────────────────────────────────── */
+@keyframes nes-glitch {
+  0%   { transform: scale(1)    skewX(0deg);   filter: none;                              opacity: 1; }
+  15%  { transform: scale(1.02) skewX(-2deg);  filter: hue-rotate(20deg) saturate(2);     }
+  30%  { transform: scale(0.98) skewX(3deg);   filter: hue-rotate(-30deg) saturate(3) invert(0.1); }
+  45%  { transform: scale(1.05) skewX(-1deg);  filter: brightness(3) contrast(2);         }
+  60%  { transform: scale(1.15) skewX(0deg);   filter: brightness(8) blur(2px);           opacity: 0.8; }
+  80%  { transform: scale(1.3);                filter: brightness(20) blur(8px);          opacity: 0.3; }
+  100% { transform: scale(2);                  filter: brightness(40) blur(16px);         opacity: 0; }
+}
+.nes-glitch { animation: nes-glitch 0.85s cubic-bezier(0.5, 0, 0.75, 0) forwards; }
+
+@keyframes nes-glitch-bars {
+  0%   { opacity: 0; transform: translateX(-100%); }
+  20%  { opacity: 1; transform: translateX(20%); }
+  60%  { opacity: 1; transform: translateX(-30%); }
+  100% { opacity: 0; transform: translateX(120%); }
+}
+.nes-glitch-bar { animation: nes-glitch-bars 0.4s linear; }
+
+/* ── Aura pulse (final CTA) ────────────────────────────────────────────── */
+@keyframes nes-aura {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55),
+                         0 0 30px 4px rgba(239, 68, 68, 0.25),
+                         inset 0 0 18px rgba(255, 255, 255, 0.05); }
+  50%      { box-shadow: 0 0 0 22px rgba(239, 68, 68, 0),
+                         0 0 60px 10px rgba(239, 68, 68, 0.45),
+                         inset 0 0 22px rgba(255, 255, 255, 0.1); }
+}
+.nes-aura { animation: nes-aura 2.2s ease-in-out infinite; }
+
+/* ── Card explode (drag-to-destroy) ────────────────────────────────────── */
+@keyframes nes-explode {
+  0%   { opacity: 1; transform: var(--exit-from, scale(1)); filter: blur(0); }
+  100% { opacity: 0; transform: var(--exit-to,   scale(1.3) rotate(15deg)); filter: blur(8px); }
+}
+.nes-explode { animation: nes-explode 0.55s ease-out forwards; }
+
+/* ── Drift (slow background) ───────────────────────────────────────────── */
+@keyframes nes-drift {
+  from { background-position: 0 0; }
+  to   { background-position: 200px 200px; }
+}
+
+/* ── Generic entrance ──────────────────────────────────────────────────── */
+@keyframes nes-fade-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.nes-fade-up { animation: nes-fade-up 0.7s ease-out both; }
+
+/* ── Brutalist hover ───────────────────────────────────────────────────── */
+.nes-letter {
+  display: inline-block;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s;
+  will-change: transform;
+}
+.nes-letter:hover {
+  transform: translateY(-8px) rotate(-4deg) scale(1.05);
+  color: #ef4444;
+}
+
+/* ── Light beam guide (final CTA) ──────────────────────────────────────── */
+@keyframes nes-beam {
+  0%, 100% { opacity: 0.25; transform: translateY(-10px) scaleY(1); }
+  50%      { opacity: 0.65; transform: translateY(0)     scaleY(1.05); }
+}
+.nes-beam { animation: nes-beam 2.6s ease-in-out infinite; }
+
+/* ── Horizontal scroll wheel hint ──────────────────────────────────────── */
+@keyframes nes-scroll-hint {
+  0%, 100% { transform: translateX(0); opacity: 0.5; }
+  50%      { transform: translateX(10px); opacity: 1; }
+}
+.nes-scroll-hint { animation: nes-scroll-hint 1.6s ease-in-out infinite; }
+
+/* ── Floating cards ambient motion ─────────────────────────────────────── */
+@keyframes nes-float {
+  0%, 100% { transform: translate(0, 0) rotate(var(--rot, 0deg)); }
+  50%      { transform: translate(var(--fx, 0px), var(--fy, -8px)) rotate(calc(var(--rot, 0deg) + 1deg)); }
+}
+.nes-float { animation: nes-float 5s ease-in-out infinite; }
+
+/* ── Magnetic button base ──────────────────────────────────────────────── */
+.nes-magnetic {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
