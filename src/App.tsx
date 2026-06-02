@@ -4,7 +4,6 @@ import Navbar from "./components/Navbar"
 import { supabase } from "./supabase"
 import { saveUser } from "./lib/saveUser"
 
-import Landing from "./pages/Landing"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
 import Explorar from "./pages/Explorar"
@@ -40,7 +39,9 @@ export default function App() {
       {!hideNavbar && <Navbar />}
       <div className="app-container mx-auto">
         <Routes>
-          <Route path="/" element={<Landing />} />
+          {/* Login accesible tanto en "/" como en "/login" para enlaces
+              entrantes desde la landing externa (nes-landing). */}
+          <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
