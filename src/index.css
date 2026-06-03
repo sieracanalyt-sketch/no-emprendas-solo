@@ -1,71 +1,80 @@
 @import "tailwindcss";
 
-/* =========================
-   RESET REAL
-========================= */
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ============================================================
+   LINEAR-STYLE DESIGN TOKENS
+   Paleta técnica: grises fríos, bordes ultra-finos, acento índigo.
+============================================================ */
+:root {
+  --bg: #0c0d0e;            /* fondo general */
+  --surface: #151618;      /* tarjetas / navbar */
+  --surface-2: #121315;    /* sidebar mensajería */
+  --surface-3: #191b1d;    /* burbujas recibidas */
+  --border: rgba(255, 255, 255, 0.05);    /* borde ultra-fino */
+  --border-strong: rgba(255, 255, 255, 0.10);
+  --text: #f7f8f8;         /* texto brillante */
+  --text-dim: #8a8f98;     /* texto gris apagado */
+  --text-dimmer: #62666d;  /* texto terciario */
+  --accent: #5e6ad2;       /* índigo Linear */
+  --accent-blue: #3b82f6;  /* azul eléctrico (focus) */
 }
 
-/* =========================
-   BASE LAYOUT FIX (CLAVE)
-========================= */
+/* ============================================================
+   BASE / RESET
+   IMPORTANTE: va dentro de @layer base para NO pisar las
+   utilidades de Tailwind v4 (que viven en su propia capa).
+   Sin esto, `* { margin/padding:0 }` ganaría a `px-*`/`mx-auto`.
+============================================================ */
+@layer base {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+  }
 
-html,
-body {
-  width: 100%;
-  height: 100%;
+  body {
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--text);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
 }
 
-body {
-  font-family: Inter, system-ui, -apple-system, sans-serif;
-  background: #09090b;
-  color: #e5e7eb;
-  /* `clip` evita scroll horizontal sin romper position:sticky (necesario
-     para las secciones con scroll horizontal de la landing). */
-  overflow-x: clip;
-}
-
-/* ROOT debe comportarse como app container */
-#root {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-}
-
-/* CONTENEDOR GLOBAL (CLAVE PARA CENTRAR TODO) */
-.app-container {
-  width: 100%;
-  max-width: 1200px;
-  min-height: 100vh;
-}
-
-/* =========================
-   BACKGROUND GLOW (subtle depth, no saturated colors)
-========================= */
-
+/* Profundidad sutil del fondo (sin colores saturados) */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.03), transparent 60%);
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(255, 255, 255, 0.025),
+    transparent 55%
+  );
   pointer-events: none;
   z-index: -1;
 }
 
-/* =========================
-   ANIMATIONS
-========================= */
-
+/* ============================================================
+   ANIMACIONES
+============================================================ */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -74,78 +83,98 @@ body::before {
 }
 
 .animate-in {
-  animation: fadeIn 0.4s ease-out;
+  animation: fadeIn 0.35s ease-out;
 }
 
-/* =========================
-   TRANSITIONS
-========================= */
+/* ============================================================
+   HELPERS REUTILIZABLES (estética Linear)
+============================================================ */
 
-/* Transiciones suaves sólo en elementos no interactivos */
+/* Enlaces de navegación: gris apagado → blanco brillante en hover */
+.nav-link {
+  color: var(--text-dim);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.nav-link:hover {
+  color: var(--text);
+}
+
+/* Tarjeta / fila técnica con borde de 1px y hover sutil */
+.row-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.row-card:hover {
+  background: #17191b;
+  border-color: var(--border-strong);
+}
+
+/* Botón minimalista estilo Linear (gradiente interno sutil) */
+.btn-linear {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.btn-linear:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Input de formulario premium con anillo azul en focus */
+.field-input {
+  background: #080710;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field-input::placeholder {
+  color: var(--text-dimmer);
+}
+.field-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.65);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+/* ============================================================
+   TRANSICIONES SUAVES (solo elementos no interactivos)
+============================================================ */
 :not(input):not(textarea):not(select) {
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    opacity 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease, opacity 0.2s ease;
 }
 
-/* Garantizar que inputs SIEMPRE sean interactivos */
-input, textarea, select {
+input,
+textarea,
+select {
   pointer-events: auto;
   user-select: text;
   -webkit-user-select: text;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-/* =========================
-   SCROLLBAR
-========================= */
-
+/* ============================================================
+   SCROLLBAR (fina, técnica)
+============================================================ */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 7px;
+  height: 7px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #0f0f11;
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2f;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 999px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a42;
+  background: rgba(255, 255, 255, 0.16);
 }
 
-/* =========================
-   TYPOGRAPHY
-========================= */
-
-h1, h2, h3 {
-  color: white;
-  font-weight: 600;
-}
-
-/* =========================
-   CARD
-========================= */
-
-.card {
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
-  padding: 20px;
-}
-
-/* =========================
+/* ============================================================
    AUTH (Login / Register) — diseño 2 columnas responsivo
-   .login-left  = formulario | .login-right = logo
-========================= */
-
-/* Tablets y medianas: reducir padding lateral del formulario */
+============================================================ */
 @media (max-width: 1024px) {
   .login-left {
     padding: 2.5rem 2.5rem !important;
@@ -155,7 +184,6 @@ h1, h2, h3 {
   }
 }
 
-/* Móvil: una sola columna. El formulario ocupa el 100% y el logo se oculta. */
 @media (max-width: 768px) {
   .login-left {
     flex: 1 1 100% !important;

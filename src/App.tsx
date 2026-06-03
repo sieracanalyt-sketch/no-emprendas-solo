@@ -35,9 +35,9 @@ export default function App() {
   }, [])
 
   return (
-    <div className="w-full min-h-screen bg-[#09090b] text-white">
+    <div className="w-full min-h-screen bg-[#0c0d0e] text-white">
       {!hideNavbar && <Navbar />}
-      <div className="app-container mx-auto">
+      <div className="w-full">
         <Routes>
           {/* Login accesible tanto en "/" como en "/login" para enlaces
               entrantes desde la landing externa (nes-landing). */}

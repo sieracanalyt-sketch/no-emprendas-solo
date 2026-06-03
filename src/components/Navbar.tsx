@@ -17,34 +17,40 @@ export default function Navbar() {
 
   return (
     <header
-      className="sticky top-0 z-50 w-full"
+      className="sticky top-0 z-50 w-full h-14"
       style={{
-        background: "rgba(9, 9, 11, 0.85)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        background: "rgba(21, 22, 24, 0.72)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
       }}
     >
-      <div className="w-full max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-8">
+      <div className="w-full max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-6">
 
         {/* LOGO */}
         <button
           onClick={() => navigate("/explorar")}
-          className="flex items-center gap-2.5 shrink-0 group"
+          className="flex items-center gap-2.5 shrink-0"
         >
           <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-black"
-            style={{ background: "white" }}
+            className="w-[26px] h-[26px] rounded-md flex items-center justify-center text-xs font-bold text-black"
+            style={{
+              background: "linear-gradient(180deg, #ffffff, #d8d9dc)",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.4)",
+            }}
           >
             N
           </div>
-          <span className="text-white text-sm font-semibold tracking-tight">
+          <span
+            className="text-sm font-semibold tracking-tight"
+            style={{ color: "#f7f8f8" }}
+          >
             NoEmprendasSolo
           </span>
         </button>
 
         {/* CENTER NAV */}
-        <nav className="flex items-center gap-1 flex-1 justify-center">
+        <nav className="flex items-center gap-0.5 flex-1 justify-center">
           <NavItem to="/explorar" label="Explorar" active={isActive("/explorar")} />
           <NavItem to="/chats" label="Mensajes" active={isActive("/chats") || isActive("/chat")} />
           <NavItem to="/grupos" label="Grupos" active={isActive("/grupos") || isActive("/group")} />
@@ -57,17 +63,7 @@ export default function Navbar() {
         {/* RIGHT */}
         <button
           onClick={handleLogout}
-          className="shrink-0 px-4 py-1.5 text-sm font-medium text-white rounded-lg transition-all"
-          style={{
-            background: "rgba(255,255,255,0.08)",
-            border: "1px solid rgba(255,255,255,0.12)",
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.14)"
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"
-          }}
+          className="btn-linear shrink-0 px-3.5 py-1.5 text-[13px] font-medium rounded-md"
         >
           Salir
         </button>
@@ -81,17 +77,11 @@ function NavItem({ to, label, active }: { to: string; label: string; active: boo
   return (
     <Link
       to={to}
-      className="relative px-3 py-1.5 text-sm rounded-md transition-all"
+      className="nav-link relative px-2.5 py-1.5 text-[13px] rounded-md"
       style={{
-        color: active ? "white" : "rgba(255,255,255,0.5)",
-        background: active ? "rgba(255,255,255,0.08)" : "transparent",
+        color: active ? "#f7f8f8" : undefined,
+        background: active ? "rgba(255,255,255,0.06)" : "transparent",
         fontWeight: active ? 500 : 400,
-      }}
-      onMouseEnter={e => {
-        if (!active) (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.85)"
-      }}
-      onMouseLeave={e => {
-        if (!active) (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.5)"
       }}
     >
       {label}

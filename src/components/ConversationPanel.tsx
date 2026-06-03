@@ -256,13 +256,18 @@ export default function ConversationPanel({
     <div className="flex flex-col h-full min-w-0">
       {/* CABECERA */}
       <div
-        className="flex items-center gap-3 px-4 py-3 shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+        className="flex items-center gap-3 px-4 h-14 shrink-0"
+        style={{
+          borderBottom: "1px solid var(--border)",
+          background: "rgba(21, 22, 24, 0.4)",
+          backdropFilter: "blur(8px)",
+        }}
       >
         {onBack && (
           <button
             onClick={onBack}
-            className="md:hidden text-white/50 hover:text-white text-xl leading-none -ml-1 pr-1"
+            className="md:hidden text-xl leading-none -ml-1 pr-1 transition-colors"
+            style={{ color: "var(--text-dim)" }}
             aria-label="Volver"
           >
             ←
@@ -270,20 +275,20 @@ export default function ConversationPanel({
         )}
 
         <div className="relative shrink-0">
-          <Avatar name={headerName} src={headerAvatar} size={38} group={isGroup} />
+          <Avatar name={headerName} src={headerAvatar} size={36} group={isGroup} />
           {target.type === "chat" && otherOnline && (
             <span
               className="absolute bottom-0 right-0 w-3 h-3 rounded-full"
-              style={{ background: "#22c55e", border: "2px solid #111" }}
+              style={{ background: "#22c55e", border: "2px solid var(--bg)" }}
             />
           )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-white font-semibold text-sm leading-tight truncate">
+          <p className="text-white font-semibold text-[14px] leading-tight truncate">
             {headerName || (isGroup ? "Grupo" : "Usuario")}
           </p>
-          <p className="text-white/40 text-xs leading-tight">
+          <p className="text-[12px] leading-tight mt-0.5" style={{ color: "var(--text-dim)" }}>
             {isGroup
               ? `${membersCount} miembro${membersCount !== 1 ? "s" : ""}`
               : otherOnline
@@ -295,11 +300,7 @@ export default function ConversationPanel({
         {isGroup && (
           <button
             onClick={() => navigate(`/group/${target.groupId}/info`)}
-            className="shrink-0 text-white/50 hover:text-white text-xs px-3 py-1.5 rounded-lg transition"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
+            className="btn-linear shrink-0 text-[12px] px-3 py-1.5 rounded-md"
           >
             Opciones
           </button>
@@ -307,10 +308,10 @@ export default function ConversationPanel({
       </div>
 
       {/* MENSAJES */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-1 px-4 py-4">
+      <div className="flex-1 overflow-y-auto flex flex-col gap-1.5 px-4 md:px-6 py-5">
         {messages.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-white/25 text-sm">
+            <p className="text-[13px]" style={{ color: "var(--text-dimmer)" }}>
               No hay mensajes todavía. ¡Escribe el primero!
             </p>
           </div>
@@ -330,18 +331,21 @@ export default function ConversationPanel({
               style={{ marginTop: showSender ? "0.5rem" : 0 }}
             >
               <div
-                className="max-w-[78%] px-3.5 py-2 text-sm"
+                className="max-w-[72%] px-3.5 py-2.5 text-[14px]"
                 style={{
-                  background: isMe ? "#ffffff" : "rgba(255,255,255,0.07)",
-                  color: isMe ? "#09090b" : "#fff",
+                  background: isMe ? "#2f3346" : "var(--surface-3)",
+                  color: isMe ? "#f0f1f5" : "var(--text)",
+                  border: isMe
+                    ? "1px solid rgba(94,106,210,0.25)"
+                    : "1px solid var(--border)",
                   borderRadius: isMe
-                    ? "1rem 1rem 0.25rem 1rem"
-                    : "1rem 1rem 1rem 0.25rem",
+                    ? "0.75rem 0.75rem 0.25rem 0.75rem"
+                    : "0.75rem 0.75rem 0.75rem 0.25rem",
                 }}
               >
                 {showSender && (
                   <p
-                    className="text-[11px] font-semibold mb-0.5"
+                    className="text-[11px] font-semibold mb-1"
                     style={{ color: colorFor(m.from_uid) }}
                   >
                     {senderName}
@@ -354,8 +358,8 @@ export default function ConversationPanel({
                   {m.text}
                 </p>
                 <p
-                  className="text-[10px] mt-1 text-right flex items-center justify-end gap-1"
-                  style={{ opacity: 0.45 }}
+                  className="text-[10px] mt-1.5 text-right flex items-center justify-end gap-1"
+                  style={{ opacity: 0.5 }}
                 >
                   {formatTime(m.created_at)}
                   {isMe && <span title="Enviado">✓</span>}
@@ -369,19 +373,20 @@ export default function ConversationPanel({
 
       {/* ENTRADA */}
       <div
-        className="px-4 py-3 shrink-0"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+        className="px-4 md:px-6 py-3.5 shrink-0"
+        style={{ borderTop: "1px solid var(--border)" }}
       >
         <div
-          className="flex items-end gap-2 px-3 py-2 rounded-2xl"
+          className="flex items-end gap-2 px-3 py-2 rounded-lg"
           style={{
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: "#080710",
+            border: "1px solid var(--border-strong)",
           }}
         >
           <button
             type="button"
-            className="shrink-0 text-white/35 hover:text-white/70 text-lg leading-none pb-1 transition"
+            className="shrink-0 text-lg leading-none pb-1 transition-colors"
+            style={{ color: "var(--text-dimmer)" }}
             title="Adjuntar (próximamente)"
             tabIndex={-1}
           >
@@ -397,14 +402,14 @@ export default function ConversationPanel({
             onKeyDown={onKeyDown}
             rows={1}
             placeholder="Escribe un mensaje…"
-            className="flex-1 min-w-0 bg-transparent text-white text-sm outline-none resize-none py-1 placeholder:text-white/30"
-            style={{ caretColor: "white", maxHeight: 140 }}
+            className="flex-1 min-w-0 bg-transparent text-white text-[14px] outline-none resize-none py-1 placeholder:text-[#62666d]"
+            style={{ caretColor: "var(--accent-blue)", maxHeight: 140 }}
           />
           <button
             onClick={send}
             disabled={!text.trim() || sending}
-            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-black text-base font-bold transition disabled:opacity-25"
-            style={{ background: "#fff" }}
+            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-white text-base font-bold transition disabled:opacity-30"
+            style={{ background: "var(--accent)" }}
             aria-label="Enviar"
           >
             ↑

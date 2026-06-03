@@ -73,7 +73,7 @@ export default function Mensajes() {
   if (!user) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
-        <p className="text-white/40 text-sm">Cargando…</p>
+        <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Cargando…</p>
       </div>
     )
   }
@@ -87,26 +87,27 @@ export default function Mensajes() {
       <aside
         className={`${
           hasSelection ? "hidden md:flex" : "flex"
-        } flex-col w-full md:w-[340px] md:shrink-0 h-full`}
-        style={{ borderRight: "1px solid rgba(255,255,255,0.07)" }}
+        } flex-col w-full md:w-[320px] md:shrink-0 h-full`}
+        style={{
+          background: "var(--surface-2)",
+          borderRight: "1px solid var(--border)",
+        }}
       >
-        {/* Pestañas */}
-        <div className="px-3 pt-3 shrink-0">
-          <div
-            className="flex p-1 rounded-xl gap-1"
-            style={{ background: "rgba(255,255,255,0.04)" }}
-          >
-            <TabButton
-              label="Chats"
-              active={tab === "chats"}
-              onClick={() => navigate("/chats")}
-            />
-            <TabButton
-              label="Grupos"
-              active={tab === "grupos"}
-              onClick={() => navigate("/grupos")}
-            />
-          </div>
+        {/* Pestañas compactas (estilo nativo) */}
+        <div
+          className="flex items-center gap-5 px-4 h-12 shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <TabButton
+            label="Chats"
+            active={tab === "chats"}
+            onClick={() => navigate("/chats")}
+          />
+          <TabButton
+            label="Grupos"
+            active={tab === "grupos"}
+            onClick={() => navigate("/grupos")}
+          />
         </div>
 
         {/* Búsqueda */}
@@ -115,11 +116,7 @@ export default function Mensajes() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tab === "chats" ? "Buscar chats…" : "Buscar grupos…"}
-            className="w-full px-4 py-2.5 rounded-lg text-white text-sm outline-none placeholder:text-white/30"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
+            className="field-input w-full px-3.5 py-2 rounded-md text-[13px]"
           />
         </div>
 
@@ -127,7 +124,7 @@ export default function Mensajes() {
         {tab === "grupos" && (
           <div className="px-3 pb-2 shrink-0">
             <Link to="/create-group">
-              <button className="w-full py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-white/90 transition">
+              <button className="btn-linear w-full py-2 text-[13px] font-medium rounded-md">
                 + Crear grupo
               </button>
             </Link>
@@ -135,7 +132,7 @@ export default function Mensajes() {
         )}
 
         {/* Lista con scroll independiente */}
-        <div className="flex-1 overflow-y-auto px-2 pb-3">
+        <div className="flex-1 overflow-y-auto px-1.5 pb-3">
           {tab === "chats" ? (
             <ChatList
               loading={loadingChats}
@@ -160,6 +157,7 @@ export default function Mensajes() {
         className={`${
           hasSelection ? "flex" : "hidden md:flex"
         } flex-col flex-1 min-w-0 h-full`}
+        style={{ background: "var(--bg)" }}
       >
         {target ? (
           <ConversationPanel
@@ -195,13 +193,22 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className="flex-1 py-2 text-sm font-medium rounded-lg transition"
-      style={{
-        background: active ? "rgba(255,255,255,0.1)" : "transparent",
-        color: active ? "#fff" : "rgba(255,255,255,0.45)",
+      className="relative h-12 text-[13px] font-medium transition-colors"
+      style={{ color: active ? "var(--text)" : "var(--text-dim)" }}
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.color = "var(--text)"
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.color = "var(--text-dim)"
       }}
     >
       {label}
+      {active && (
+        <span
+          className="absolute left-0 right-0 bottom-0 h-[2px] rounded-full"
+          style={{ background: "var(--text)" }}
+        />
+      )}
     </button>
   )
 }
@@ -220,10 +227,10 @@ function ChatList({
   onSelect: (otherUserId: string) => void
 }) {
   if (loading)
-    return <p className="text-white/30 text-sm px-3 py-6 text-center">Cargando…</p>
+    return <p className="text-[13px] px-3 py-6 text-center" style={{ color: "var(--text-dimmer)" }}>Cargando…</p>
   if (items.length === 0)
     return (
-      <p className="text-white/30 text-sm px-3 py-6 text-center">
+      <p className="text-[13px] px-3 py-6 text-center" style={{ color: "var(--text-dimmer)" }}>
         No tienes chats todavía
       </p>
     )
@@ -235,7 +242,7 @@ function ChatList({
           key={c.chatId}
           active={activeId === c.otherUserId}
           onClick={() => onSelect(c.otherUserId)}
-          avatar={<Avatar name={c.name} src={c.avatar} size={44} />}
+          avatar={<Avatar name={c.name} src={c.avatar} size={42} />}
           online={onlineSet.has(c.otherUserId)}
           name={c.name}
           text={c.lastText}
@@ -259,10 +266,10 @@ function GroupList({
   onSelect: (groupId: string) => void
 }) {
   if (loading)
-    return <p className="text-white/30 text-sm px-3 py-6 text-center">Cargando…</p>
+    return <p className="text-[13px] px-3 py-6 text-center" style={{ color: "var(--text-dimmer)" }}>Cargando…</p>
   if (items.length === 0)
     return (
-      <p className="text-white/30 text-sm px-3 py-6 text-center">
+      <p className="text-[13px] px-3 py-6 text-center" style={{ color: "var(--text-dimmer)" }}>
         No perteneces a ningún grupo
       </p>
     )
@@ -274,7 +281,7 @@ function GroupList({
           key={g.id}
           active={activeId === g.id}
           onClick={() => onSelect(g.id)}
-          avatar={<Avatar name={g.name} size={44} group />}
+          avatar={<Avatar name={g.name} size={42} group />}
           name={g.name}
           text={g.lastText}
           time={listTime(g.timestamp)}
@@ -310,11 +317,11 @@ function Row({
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left transition w-full"
-      style={{ background: active ? "rgba(255,255,255,0.08)" : "transparent" }}
+      className="flex items-center gap-3 px-2.5 py-2.5 rounded-md text-left transition w-full"
+      style={{ background: active ? "rgba(255,255,255,0.06)" : "transparent" }}
       onMouseEnter={(e) => {
         if (!active)
-          e.currentTarget.style.background = "rgba(255,255,255,0.04)"
+          e.currentTarget.style.background = "rgba(255,255,255,0.03)"
       }}
       onMouseLeave={(e) => {
         if (!active) e.currentTarget.style.background = "transparent"
@@ -325,7 +332,7 @@ function Row({
         {online && (
           <span
             className="absolute bottom-0 right-0 w-3 h-3 rounded-full"
-            style={{ background: "#22c55e", border: "2px solid #09090b" }}
+            style={{ background: "#22c55e", border: "2px solid var(--surface-2)" }}
           />
         )}
       </div>
@@ -333,19 +340,18 @@ function Row({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <p
-            className={`truncate text-sm ${
-              unread > 0 ? "text-white font-bold" : "text-white font-semibold"
+            className={`truncate text-[14px] ${
+              unread > 0 ? "text-white font-semibold" : "text-white font-medium"
             }`}
           >
             {name}
           </p>
-          <span className="text-[11px] shrink-0 text-white/35">{time}</span>
+          <span className="text-[11px] shrink-0" style={{ color: "var(--text-dimmer)" }}>{time}</span>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <p
-            className={`truncate text-xs ${
-              unread > 0 ? "text-white/70" : "text-white/40"
-            }`}
+            className="truncate text-[12px]"
+            style={{ color: unread > 0 ? "var(--text-dim)" : "var(--text-dimmer)" }}
           >
             {subtitle ? subtitle : text || "—"}
           </p>
@@ -367,15 +373,15 @@ function EmptyState({ tab }: { tab: Tab }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
       <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl mb-4"
-        style={{ background: "rgba(255,255,255,0.05)" }}
+        className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl mb-4"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
         💬
       </div>
-      <p className="text-white/60 text-sm font-medium">
+      <p className="text-[14px] font-medium" style={{ color: "var(--text)" }}>
         {tab === "chats" ? "Tus mensajes" : "Tus grupos"}
       </p>
-      <p className="text-white/30 text-xs mt-1 max-w-xs">
+      <p className="text-[12px] mt-1 max-w-xs" style={{ color: "var(--text-dimmer)" }}>
         Selecciona {tab === "chats" ? "un chat" : "un grupo"} de la lista para
         empezar a conversar
       </p>
