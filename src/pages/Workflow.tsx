@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { supabase } from "../supabase"
+import { useUser } from "../hooks/useUser"
 
 // ════════════════════════════════════════════════════════════════════════════
 // TIPOS / ARQUITECTURA DE DATOS
@@ -9,6 +11,7 @@ type Priority = "Urgente" | "Alta" | "Media" | "Baja"
 type Member = {
   id: string
   nombre: string
+  avatar: string | null
   role: string
 }
 
@@ -18,7 +21,7 @@ type Task = {
   description: string
   priority: Priority
   status: Status
-  assignee: string // member id
+  assignee: string // member id (auth uid)
   blocked: boolean
 }
 
@@ -57,31 +60,14 @@ const PRIORITY_COLOR: Record<Priority, string> = {
 
 const MEMBER_COLORS = ["#5e6ad2", "#3b82f6", "#22c55e", "#ec4899", "#f2994a", "#06b6d4"]
 
-// ── Mock data inicial ────────────────────────────────────────────────────────
-const INITIAL_MEMBERS: Member[] = [
-  { id: "m1", nombre: "Siera", role: "Product Manager" },
-  { id: "m2", nombre: "Guillem Castells", role: "Lead Developer" },
-  { id: "m3", nombre: "Alex Rivera", role: "Growth Marketer" },
-  { id: "m4", nombre: "Marta Lin", role: "Designer" },
-]
-
-const INITIAL_TASKS: Task[] = [
-  { id: "t1", title: "Definir roadmap del MVP", description: "Priorizar features para el primer release público.", priority: "Alta", status: "progress", assignee: "m1", blocked: false },
-  { id: "t2", title: "Integrar autenticación con Supabase", description: "Login, registro y recuperación de sesión.", priority: "Urgente", status: "progress", assignee: "m2", blocked: false },
-  { id: "t3", title: "Diseñar sistema de tokens UI", description: "Paleta, tipografía y componentes base estilo Linear.", priority: "Media", status: "review", assignee: "m4", blocked: false },
-  { id: "t4", title: "Campaña de waitlist", description: "Landing + captación de primeros 500 usuarios.", priority: "Alta", status: "backlog", assignee: "m3", blocked: false },
-  { id: "t5", title: "Migrar mensajería a realtime", description: "Canales de Supabase para chats y grupos.", priority: "Urgente", status: "backlog", assignee: "m2", blocked: true },
-  { id: "t6", title: "Pulir onboarding", description: "Flujo de completar perfil tras el registro.", priority: "Baja", status: "done", assignee: "m1", blocked: false },
-  { id: "t7", title: "Definir métricas de activación", description: "Eventos clave y dashboard de seguimiento.", priority: "Media", status: "backlog", assignee: "m3", blocked: false },
-  { id: "t8", title: "Tablero Kanban del equipo", description: "Vista de flujo de trabajo y asignaciones.", priority: "Alta", status: "review", assignee: "m2", blocked: false },
-]
+const FALLBACK_MEMBER: Member = {
+  id: "",
+  nombre: "Sin asignar",
+  avatar: null,
+  role: "Sin rol",
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const uid = () =>
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : "id-" + Math.random().toString(36).slice(2)
-
 function memberColor(members: Member[], id: string): string {
   const idx = Math.max(0, members.findIndex((m) => m.id === id))
   return MEMBER_COLORS[idx % MEMBER_COLORS.length]
@@ -113,6 +99,26 @@ function MemberAvatar({
 }) {
   const color = memberColor(members, member.id)
   const initial = member.nombre.trim()[0]?.toUpperCase() || "?"
+  const title = `${member.nombre}${member.role !== "Sin rol" ? ` · ${member.role}` : ""}`
+
+  if (member.avatar) {
+    return (
+      <img
+        src={member.avatar}
+        alt={member.nombre}
+        className="shrink-0 object-cover"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "9999px",
+          boxShadow: `0 0 0 1px ${color}66`,
+        }}
+        title={title}
+        referrerPolicy="no-referrer"
+      />
+    )
+  }
+
   return (
     <div
       className="flex items-center justify-center font-semibold shrink-0 text-white"
@@ -124,7 +130,7 @@ function MemberAvatar({
         background: `linear-gradient(135deg, ${color}, ${color}bb)`,
         boxShadow: `0 0 0 1px ${color}55`,
       }}
-      title={`${member.nombre} · ${member.role}`}
+      title={title}
     >
       {initial}
     </div>
@@ -162,8 +168,10 @@ function PriorityTag({ priority }: { priority: Priority }) {
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════════════════════
 export default function Workflow() {
-  const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS)
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS)
+  const [user, userLoading] = useUser()
+  const [members, setMembers] = useState<Member[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
 
   const [focusMember, setFocusMember] = useState<string | null>(null)
   const [roleMenuFor, setRoleMenuFor] = useState<string | null>(null)
@@ -172,25 +180,87 @@ export default function Workflow() {
   const [dragOver, setDragOver] = useState<Status | null>(null)
   const dragId = useRef<string | null>(null)
 
-  // ── Mutaciones de estado ────────────────────────────────────────────────────
-  const setRole = (memberId: string, role: string) => {
-    setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role } : m)))
-    setRoleMenuFor(null)
+  // ── Carga de datos reales (usuarios + roles + tareas) ───────────────────────
+  const loadMembers = async () => {
+    const [{ data: users }, { data: roles }] = await Promise.all([
+      supabase.from("users").select("id, nombre, avatar").order("created_at"),
+      supabase.from("workflow_roles").select("user_id, rol"),
+    ])
+    const roleMap = new Map((roles ?? []).map((r) => [r.user_id, r.rol]))
+    setMembers(
+      (users ?? []).map((u) => ({
+        id: u.id,
+        nombre: u.nombre || "Usuario",
+        avatar: u.avatar ?? null,
+        role: roleMap.get(u.id) ?? "Sin rol",
+      }))
+    )
   }
 
-  const moveTask = (taskId: string, status: Status) =>
+  const loadTasks = async () => {
+    const { data } = await supabase
+      .from("workflow_tasks")
+      .select("id, title, description, priority, status, assignee, blocked")
+      .order("created_at", { ascending: false })
+    setTasks((data as Task[]) ?? [])
+  }
+
+  useEffect(() => {
+    if (userLoading) return
+    let cancelled = false
+    ;(async () => {
+      await Promise.all([loadMembers(), loadTasks()])
+      if (!cancelled) setLoading(false)
+    })()
+
+    // Realtime: tablero colaborativo en vivo
+    const channel = supabase
+      .channel("workflow-board")
+      .on("postgres_changes", { event: "*", schema: "public", table: "workflow_tasks" }, () => loadTasks())
+      .on("postgres_changes", { event: "*", schema: "public", table: "workflow_roles" }, () => loadMembers())
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLoading])
+
+  // ── Mutaciones (optimistas + persistidas en Supabase) ───────────────────────
+  const setRole = async (memberId: string, role: string) => {
+    setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role } : m)))
+    setRoleMenuFor(null)
+    await supabase
+      .from("workflow_roles")
+      .upsert({ user_id: memberId, rol: role, updated_at: new Date().toISOString() })
+  }
+
+  const moveTask = async (taskId: string, status: Status) => {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)))
+    await supabase.from("workflow_tasks").update({ status }).eq("id", taskId)
+  }
 
-  const toggleBlocked = (taskId: string) =>
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, blocked: !t.blocked } : t))
-    )
+  const toggleBlocked = async (taskId: string) => {
+    const current = tasks.find((t) => t.id === taskId)
+    const blocked = !current?.blocked
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, blocked } : t)))
+    await supabase.from("workflow_tasks").update({ blocked }).eq("id", taskId)
+  }
 
-  const deleteTask = (taskId: string) =>
+  const deleteTask = async (taskId: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId))
+    await supabase.from("workflow_tasks").delete().eq("id", taskId)
+  }
 
-  const createTask = (data: Omit<Task, "id">) =>
-    setTasks((prev) => [{ ...data, id: uid() }, ...prev])
+  const createTask = async (data: Omit<Task, "id">) => {
+    const { data: inserted } = await supabase
+      .from("workflow_tasks")
+      .insert(data)
+      .select("id, title, description, priority, status, assignee, blocked")
+      .single()
+    if (inserted) setTasks((prev) => [inserted as Task, ...prev])
+  }
 
   // ── Filtrado (modo enfoque) ─────────────────────────────────────────────────
   const visibleTasks = useMemo(
@@ -198,7 +268,35 @@ export default function Workflow() {
     [tasks, focusMember]
   )
 
-  const memberById = (id: string) => members.find((m) => m.id === id) ?? members[0]
+  const memberById = (id: string) =>
+    members.find((m) => m.id === id) ?? FALLBACK_MEMBER
+
+  // ── Estados de carga / sesión ───────────────────────────────────────────────
+  if (!userLoading && !user) {
+    return (
+      <div
+        className="flex items-center justify-center"
+        style={{ height: "calc(100vh - 3.5rem)" }}
+      >
+        <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>
+          Inicia sesión para ver el flujo de trabajo de tu equipo.
+        </p>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div
+        className="flex items-center justify-center"
+        style={{ height: "calc(100vh - 3.5rem)" }}
+      >
+        <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>
+          Cargando flujo de trabajo…
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 3.5rem)" }}>
@@ -401,6 +499,7 @@ export default function Workflow() {
         <CreateTaskModal
           status={modalStatus}
           members={members}
+          defaultAssignee={user?.id ?? members[0]?.id ?? ""}
           onClose={() => setModalStatus(null)}
           onCreate={(data) => {
             createTask(data)
@@ -707,18 +806,20 @@ function TaskCard({
 function CreateTaskModal({
   status,
   members,
+  defaultAssignee,
   onClose,
   onCreate,
 }: {
   status: Status
   members: Member[]
+  defaultAssignee: string
   onClose: () => void
   onCreate: (data: Omit<Task, "id">) => void
 }) {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [priority, setPriority] = useState<Priority>("Media")
-  const [assignee, setAssignee] = useState(members[0]?.id ?? "")
+  const [assignee, setAssignee] = useState(defaultAssignee || members[0]?.id || "")
 
   const columnLabel = COLUMNS.find((c) => c.status === status)?.label ?? ""
 
