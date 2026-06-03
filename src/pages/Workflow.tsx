@@ -1,965 +1,1689 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  createContext, useCallback, useContext, useEffect,
+  useMemo, useRef, useState,
+} from "react"
+import type { User } from "@supabase/supabase-js"
 import { supabase } from "../supabase"
 import { useUser } from "../hooks/useUser"
 
-// ════════════════════════════════════════════════════════════════════════════
-// TIPOS / ARQUITECTURA DE DATOS
-// ════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// TYPES
+// ══════════════════════════════════════════════════════════════════
+type Tab = "tasks" | "gestion"
 type Status = "backlog" | "progress" | "review" | "done"
 type Priority = "Urgente" | "Alta" | "Media" | "Baja"
-
-type Member = {
-  id: string
-  nombre: string
-  avatar: string | null
-  role: string
-}
-
+type Member = { id: string; nombre: string; avatar: string | null; role: string; joinedAt: string }
 type Task = {
-  id: string
-  title: string
-  description: string
-  priority: Priority
-  status: Status
-  assignee: string // member id (auth uid)
-  blocked: boolean
+  id: string; title: string; description: string
+  priority: Priority; status: Status; assignee: string | null
+  blocked: boolean; due_date: string | null
 }
+type CustomRole = { id: string; name: string; color: string }
+type ActivityEntry = { id: string; text: string; time: Date }
+type AllUser = { id: string; nombre: string; avatar: string | null }
+type Milestone = { id: string; label: string; color: string }
+type Toast = { id: string; type: "error" | "success" | "info"; text: string }
 
-// ── Constantes de configuración ─────────────────────────────────────────────
-const COLUMNS: { status: Status; label: string }[] = [
-  { status: "backlog", label: "Backlog" },
-  { status: "progress", label: "En Progreso" },
-  { status: "review", label: "En Revisión" },
-  { status: "done", label: "Hecho" },
+// ══════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════════════════
+const COLUMNS: { status: Status; label: string; desc: string }[] = [
+  { status: "backlog",  label: "Backlog",     desc: "Ideas y tareas pendientes de priorizar." },
+  { status: "progress", label: "En Progreso", desc: "Objetivos activos en desarrollo ahora mismo." },
+  { status: "review",   label: "En Revisión", desc: "Tareas terminadas esperando feedback o aprobación." },
+  { status: "done",     label: "Completado",  desc: "Hitos alcanzados con éxito por el equipo." },
 ]
-
-const ROLES = [
-  "Product Manager",
-  "Lead Developer",
-  "Growth Marketer",
-  "Designer",
-  "Sin rol",
+const BASE_ROLES = [
+  { name: "Product Manager",  color: "#5e6ad2" },
+  { name: "Lead Developer",   color: "#3b82f6" },
+  { name: "Growth Marketer",  color: "#22c55e" },
+  { name: "Designer",         color: "#ec4899" },
+  { name: "Sin rol",          color: "#8a8f98" },
 ]
-
-const ROLE_COLOR: Record<string, string> = {
-  "Product Manager": "#5e6ad2",
-  "Lead Developer": "#3b82f6",
-  "Growth Marketer": "#22c55e",
-  Designer: "#ec4899",
-  "Sin rol": "#8a8f98",
-}
-
 const PRIORITIES: Priority[] = ["Urgente", "Alta", "Media", "Baja"]
-
 const PRIORITY_COLOR: Record<Priority, string> = {
-  Urgente: "#eb5757",
-  Alta: "#f2994a",
-  Media: "#e2b93b",
-  Baja: "#8a8f98",
+  Urgente: "#eb5757", Alta: "#f2994a", Media: "#e2b93b", Baja: "#8a8f98",
 }
+const MEMBER_COLORS = ["#5e6ad2", "#3b82f6", "#22c55e", "#ec4899", "#f2994a", "#06b6d4", "#a78bfa", "#f472b6"]
+const FALLBACK_MEMBER: Member = { id: "", nombre: "Sin asignar", avatar: null, role: "Sin rol", joinedAt: new Date().toISOString() }
+const CUSTOM_ROLES_KEY  = "nes_custom_roles"
+const MILESTONES_KEY    = "nes_milestones"
+const CRITICAL_ROLES    = ["Lead Developer", "Designer", "Product Manager"]
 
-const MEMBER_COLORS = ["#5e6ad2", "#3b82f6", "#22c55e", "#ec4899", "#f2994a", "#06b6d4"]
-
-const FALLBACK_MEMBER: Member = {
-  id: "",
-  nombre: "Sin asignar",
-  avatar: null,
-  role: "Sin rol",
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function memberColor(members: Member[], id: string): string {
-  const idx = Math.max(0, members.findIndex((m) => m.id === id))
+// ══════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════
+function memberColorById(members: Member[], id: string | null) {
+  if (!id) return MEMBER_COLORS[0]
+  const idx = Math.max(0, members.findIndex(m => m.id === id))
   return MEMBER_COLORS[idx % MEMBER_COLORS.length]
 }
-
+function getRoleColor(allRoles: { name: string; color: string }[], role: string) {
+  return allRoles.find(r => r.name === role)?.color ?? "#8a8f98"
+}
 function useOutsideClick<T extends HTMLElement>(onClose: () => void) {
   const ref = useRef<T>(null)
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
+    document.addEventListener("mousedown", h)
+    return () => document.removeEventListener("mousedown", h)
   }, [onClose])
   return ref
 }
-
-// ════════════════════════════════════════════════════════════════════════════
-// SUBCOMPONENTES VISUALES
-// ════════════════════════════════════════════════════════════════════════════
-function MemberAvatar({
-  member,
-  members,
-  size = 26,
-}: {
-  member: Member
-  members: Member[]
-  size?: number
-}) {
-  const color = memberColor(members, member.id)
-  const initial = member.nombre.trim()[0]?.toUpperCase() || "?"
-  const title = `${member.nombre}${member.role !== "Sin rol" ? ` · ${member.role}` : ""}`
-
-  if (member.avatar) {
-    return (
-      <img
-        src={member.avatar}
-        alt={member.nombre}
-        className="shrink-0 object-cover"
-        style={{
-          width: size,
-          height: size,
-          borderRadius: "9999px",
-          boxShadow: `0 0 0 1px ${color}66`,
-        }}
-        title={title}
-        referrerPolicy="no-referrer"
-      />
-    )
+function isDueSoon(d: string | null) {
+  if (!d) return false
+  const diff = new Date(d).getTime() - Date.now()
+  return diff >= 0 && diff <= 172800000
+}
+function isDueOverdue(d: string | null) {
+  if (!d) return false
+  return new Date(d).getTime() < Date.now()
+}
+function fmtRel(date: Date) {
+  const diff = Date.now() - date.getTime()
+  if (diff < 60000) return "ahora"
+  if (diff < 3600000) return `hace ${Math.floor(diff / 60000)}m`
+  return `hace ${Math.floor(diff / 3600000)}h`
+}
+function heatColor(count: number) {
+  if (count === 0) return "#3b82f6"
+  if (count <= 3)  return "#22c55e"
+  if (count <= 6)  return "#f59e0b"
+  return "#ef4444"
+}
+function crossStrength(a: string, b: string, tasks: Task[]) {
+  let s = 0
+  const statuses: Status[] = ["backlog","progress","review","done"]
+  for (const st of statuses) {
+    const ca = tasks.filter(t => t.assignee === a && t.status === st).length
+    const cb = tasks.filter(t => t.assignee === b && t.status === st).length
+    s += Math.min(ca, cb)
   }
+  return s
+}
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
+}
 
+// ══════════════════════════════════════════════════════════════════
+// CONTEXT
+// ══════════════════════════════════════════════════════════════════
+type WFCtx = {
+  user: User | null
+  members: Member[]; tasks: Task[]; allUsers: AllUser[]
+  allRoles: { name: string; color: string }[]
+  activity: ActivityEntry[]
+  focusMember: string | null; myWorkloadOnly: boolean
+  visibleTasks: Task[]; progress: number; searchResults: Task[]
+  activityOpen: boolean; roleMenuFor: string | null
+  addMenuOpen: boolean; addSelectedUser: string | null
+  createRoleOpen: boolean; modalStatus: Status | null
+  mobileTab: Status; dragOver: Status | null
+  dragId: React.MutableRefObject<string | null>
+  toasts: Toast[]
+  memberById: (id: string | null) => Member
+  openSearch: () => void
+  setFocusMember: (v: string | null) => void
+  setMyWorkloadOnly: (v: boolean) => void
+  setActivityOpen: (v: boolean) => void
+  setRoleMenuFor: (v: string | null) => void
+  setAddMenuOpen: (v: boolean) => void
+  setAddSelectedUser: (v: string | null) => void
+  setCreateRoleOpen: (v: boolean) => void
+  setModalStatus: (v: Status | null) => void
+  setMobileTab: (v: Status) => void
+  setDragOver: (v: Status | null) => void
+  addMember: (userId: string, role: string) => Promise<void>
+  removeMember: (id: string) => Promise<void>
+  setRole: (id: string, role: string) => Promise<void>
+  addCustomRole: (r: CustomRole) => void
+  createTask: (d: Omit<Task, "id">) => Promise<void>
+  moveTask: (id: string, s: Status) => Promise<void>
+  toggleBlocked: (id: string) => Promise<void>
+  deleteTask: (id: string) => Promise<void>
+  exportProject: () => void
+  addToast: (type: Toast["type"], text: string) => void
+  dismissToast: (id: string) => void
+}
+const WFContext = createContext<WFCtx>({} as WFCtx)
+const useWF = () => useContext(WFContext)
+
+// ══════════════════════════════════════════════════════════════════
+// ATOMS
+// ══════════════════════════════════════════════════════════════════
+function MemberAvatar({ member, size = 26 }: { member: Member; size?: number }) {
+  const { members } = useWF()
+  const color = memberColorById(members, member.id)
+  const initial = member.nombre.trim()[0]?.toUpperCase() || "?"
+  if (member.avatar) return (
+    <img src={member.avatar} alt={member.nombre} referrerPolicy="no-referrer"
+      className="shrink-0 object-cover"
+      style={{ width: size, height: size, borderRadius: "9999px", boxShadow: `0 0 0 1px ${color}66` }} />
+  )
   return (
-    <div
-      className="flex items-center justify-center font-semibold shrink-0 text-white"
-      style={{
-        width: size,
-        height: size,
-        fontSize: size * 0.42,
-        borderRadius: "9999px",
-        background: `linear-gradient(135deg, ${color}, ${color}bb)`,
-        boxShadow: `0 0 0 1px ${color}55`,
-      }}
-      title={title}
-    >
+    <div className="flex items-center justify-center font-semibold shrink-0 text-white"
+      style={{ width: size, height: size, fontSize: size * 0.42, borderRadius: "9999px",
+        background: `linear-gradient(135deg,${color},${color}bb)`, boxShadow: `0 0 0 1px ${color}55` }}>
       {initial}
     </div>
   )
 }
-
-function RoleTag({ role, small = false }: { role: string; small?: boolean }) {
-  const c = ROLE_COLOR[role] ?? "#8a8f98"
+function RoleTag({ role, color, small = false }: { role: string; color: string; small?: boolean }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-md font-medium ${
-        small ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"
-      }`}
-      style={{ background: `${c}1a`, color: c, border: `1px solid ${c}33` }}
-    >
-      {role}
-    </span>
+    <span className={`inline-flex items-center rounded-md font-medium ${small ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"}`}
+      style={{ background: `${color}1a`, color, border: `1px solid ${color}33` }}>{role}</span>
   )
 }
-
 function PriorityTag({ priority }: { priority: Priority }) {
   const c = PRIORITY_COLOR[priority]
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
-      style={{ background: `${c}1a`, color: c, border: `1px solid ${c}30` }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />
-      {priority}
+    <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+      style={{ background: `${c}1a`, color: c, border: `1px solid ${c}30` }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />{priority}
     </span>
   )
 }
+function ToastContainer() {
+  const { toasts, dismissToast } = useWF()
+  if (!toasts.length) return null
+  return (
+    <div className="fixed bottom-5 right-5 z-[9998] flex flex-col gap-2 pointer-events-none">
+      {toasts.map(t => {
+        const col = t.type === "error" ? "#eb5757" : t.type === "success" ? "#22c55e" : "#5e6ad2"
+        return (
+          <div key={t.id} className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-[13px] font-medium pointer-events-auto"
+            style={{ background: `${col}18`, border: `1px solid ${col}44`, color: col, backdropFilter: "blur(8px)", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+            <span>{t.type === "error" ? "✕" : t.type === "success" ? "✓" : "ℹ"}</span>
+            {t.text}
+            <button onClick={() => dismissToast(t.id)} className="ml-1 opacity-50 hover:opacity-100 transition-opacity">✕</button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
-// ════════════════════════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL
-// ════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════════════════
 export default function Workflow() {
   const [user, userLoading] = useUser()
-  const [members, setMembers] = useState<Member[]>([])
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [loading, setLoading] = useState(true)
-
+  const [members, setMembers]       = useState<Member[]>([])
+  const [tasks, setTasks]           = useState<Task[]>([])
+  const [allUsers, setAllUsers]     = useState<AllUser[]>([])
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>(() => {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_ROLES_KEY) ?? "[]") } catch { return [] }
+  })
+  const [loading, setLoading]       = useState(true)
+  const [activeTab, setActiveTab]   = useState<Tab>("tasks")
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const [focusMember, setFocusMember] = useState<string | null>(null)
+  const [myWorkloadOnly, setMyWorkloadOnly] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
+  const [activity, setActivity]     = useState<ActivityEntry[]>([])
   const [roleMenuFor, setRoleMenuFor] = useState<string | null>(null)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [addSelectedUser, setAddSelectedUser] = useState<string | null>(null)
+  const [createRoleOpen, setCreateRoleOpen] = useState(false)
   const [modalStatus, setModalStatus] = useState<Status | null>(null)
-  const [mobileTab, setMobileTab] = useState<Status>("backlog")
-  const [dragOver, setDragOver] = useState<Status | null>(null)
+  const [mobileTab, setMobileTab]   = useState<Status>("backlog")
+  const [dragOver, setDragOver]     = useState<Status | null>(null)
+  const [toasts, setToasts]         = useState<Toast[]>([])
   const dragId = useRef<string | null>(null)
 
-  // ── Carga de datos reales (usuarios + roles + tareas) ───────────────────────
-  const loadMembers = async () => {
-    const [{ data: users }, { data: roles }] = await Promise.all([
-      supabase.from("users").select("id, nombre, avatar").order("created_at"),
-      supabase.from("workflow_roles").select("user_id, rol"),
-    ])
-    const roleMap = new Map((roles ?? []).map((r) => [r.user_id, r.rol]))
-    setMembers(
-      (users ?? []).map((u) => ({
-        id: u.id,
-        nombre: u.nombre || "Usuario",
-        avatar: u.avatar ?? null,
-        role: roleMap.get(u.id) ?? "Sin rol",
-      }))
-    )
-  }
+  const allRoles = useMemo(
+    () => [...BASE_ROLES, ...customRoles.map(r => ({ name: r.name, color: r.color }))],
+    [customRoles]
+  )
 
-  const loadTasks = async () => {
-    const { data } = await supabase
-      .from("workflow_tasks")
-      .select("id, title, description, priority, status, assignee, blocked")
+  const addToast = useCallback((type: Toast["type"], text: string) => {
+    const id = crypto.randomUUID()
+    setToasts(prev => [...prev, { id, type, text }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
+  }, [])
+  const dismissToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), [])
+
+  const logActivity = useCallback((text: string) => {
+    setActivity(prev => [{ id: crypto.randomUUID(), text, time: new Date() }, ...prev.slice(0, 19)])
+  }, [])
+
+  // ── Loaders ──
+  const loadMembers = useCallback(async () => {
+    const { data: roles } = await supabase.from("workflow_roles").select("user_id, rol, updated_at")
+    if (!roles || roles.length === 0) { setMembers([]); return }
+    const { data: users } = await supabase.from("users").select("id, nombre, avatar")
+      .in("id", roles.map(r => r.user_id))
+    const map = new Map(roles.map(r => [r.user_id, r]))
+    setMembers((users ?? []).map(u => ({
+      id: u.id, nombre: u.nombre || "Usuario", avatar: u.avatar ?? null,
+      role: map.get(u.id)?.rol ?? "Sin rol",
+      joinedAt: map.get(u.id)?.updated_at ?? new Date().toISOString(),
+    })))
+  }, [])
+
+  const loadTasks = useCallback(async () => {
+    const { data, error } = await supabase.from("workflow_tasks")
+      .select("id,title,description,priority,status,assignee,blocked,due_date")
       .order("created_at", { ascending: false })
+    if (error) { console.error("loadTasks:", error); return }
     setTasks((data as Task[]) ?? [])
-  }
+  }, [])
+
+  const loadAllUsers = useCallback(async () => {
+    const { data } = await supabase.from("users").select("id,nombre,avatar").order("nombre")
+    setAllUsers(data ?? [])
+  }, [])
 
   useEffect(() => {
     if (userLoading) return
     let cancelled = false
     ;(async () => {
-      await Promise.all([loadMembers(), loadTasks()])
+      await Promise.all([loadMembers(), loadTasks(), loadAllUsers()])
       if (!cancelled) setLoading(false)
     })()
-
-    // Realtime: tablero colaborativo en vivo
-    const channel = supabase
-      .channel("workflow-board")
+    const ch = supabase.channel("wf-board")
       .on("postgres_changes", { event: "*", schema: "public", table: "workflow_tasks" }, () => loadTasks())
       .on("postgres_changes", { event: "*", schema: "public", table: "workflow_roles" }, () => loadMembers())
       .subscribe()
+    return () => { cancelled = true; supabase.removeChannel(ch) }
+  }, [userLoading, loadMembers, loadTasks, loadAllUsers])
 
-    return () => {
-      cancelled = true
-      supabase.removeChannel(channel)
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setSearchOpen(v => !v); setSearchQuery("") }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLoading])
+    document.addEventListener("keydown", h)
+    return () => document.removeEventListener("keydown", h)
+  }, [])
 
-  // ── Mutaciones (optimistas + persistidas en Supabase) ───────────────────────
-  const setRole = async (memberId: string, role: string) => {
-    setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role } : m)))
-    setRoleMenuFor(null)
-    await supabase
-      .from("workflow_roles")
-      .upsert({ user_id: memberId, rol: role, updated_at: new Date().toISOString() })
-  }
+  // ── Mutations ──
+  const addMember = useCallback(async (userId: string, role: string) => {
+    const u = allUsers.find(x => x.id === userId)
+    if (!u) return
+    setMembers(prev => [...prev, { id: u.id, nombre: u.nombre || "Usuario", avatar: u.avatar ?? null, role, joinedAt: new Date().toISOString() }])
+    setAddMenuOpen(false); setAddSelectedUser(null)
+    logActivity(`Añadiste a ${u.nombre || "Usuario"} · ${role}`)
+    const { error } = await supabase.from("workflow_roles").upsert({ user_id: userId, rol: role, updated_at: new Date().toISOString() })
+    if (error) addToast("error", "Error al añadir miembro")
+  }, [allUsers, logActivity, addToast])
 
-  const moveTask = async (taskId: string, status: Status) => {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)))
-    await supabase.from("workflow_tasks").update({ status }).eq("id", taskId)
-  }
+  const removeMember = useCallback(async (id: string) => {
+    const m = members.find(x => x.id === id)
+    setMembers(prev => prev.filter(x => x.id !== id)); setRoleMenuFor(null)
+    if (m) logActivity(`Eliminaste a ${m.nombre} del equipo`)
+    const { error } = await supabase.from("workflow_roles").delete().eq("user_id", id)
+    if (error) { addToast("error", "Error al eliminar miembro"); loadMembers() }
+  }, [members, logActivity, addToast, loadMembers])
 
-  const toggleBlocked = async (taskId: string) => {
-    const current = tasks.find((t) => t.id === taskId)
-    const blocked = !current?.blocked
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, blocked } : t)))
-    await supabase.from("workflow_tasks").update({ blocked }).eq("id", taskId)
-  }
+  const setRole = useCallback(async (id: string, role: string) => {
+    setMembers(prev => prev.map(m => m.id === id ? { ...m, role } : m)); setRoleMenuFor(null)
+    const m = members.find(x => x.id === id)
+    if (m) logActivity(`Rol de ${m.nombre} → ${role}`)
+    const { error } = await supabase.from("workflow_roles").upsert({ user_id: id, rol: role, updated_at: new Date().toISOString() })
+    if (error) addToast("error", "Error al actualizar rol")
+  }, [members, logActivity, addToast])
 
-  const deleteTask = async (taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId))
-    await supabase.from("workflow_tasks").delete().eq("id", taskId)
-  }
+  const addCustomRole = useCallback((r: CustomRole) => {
+    const updated = [...customRoles, r]
+    setCustomRoles(updated); localStorage.setItem(CUSTOM_ROLES_KEY, JSON.stringify(updated))
+    logActivity(`Nuevo rol: "${r.name}"`)
+  }, [customRoles, logActivity])
 
-  const createTask = async (data: Omit<Task, "id">) => {
-    const { data: inserted } = await supabase
-      .from("workflow_tasks")
-      .insert(data)
-      .select("id, title, description, priority, status, assignee, blocked")
-      .single()
-    if (inserted) setTasks((prev) => [inserted as Task, ...prev])
-  }
+  // ── FIX: split insert from select; reload tasks after insert ──
+  const createTask = useCallback(async (d: Omit<Task, "id">) => {
+    const { error } = await supabase.from("workflow_tasks").insert(d)
+    if (error) {
+      console.error("createTask error:", error)
+      addToast("error", `Error al crear tarea: ${error.message}`)
+      return
+    }
+    await loadTasks()
+    logActivity(`Creaste "${d.title}"`)
+  }, [logActivity, addToast, loadTasks])
 
-  // ── Filtrado (modo enfoque) ─────────────────────────────────────────────────
-  const visibleTasks = useMemo(
-    () => (focusMember ? tasks.filter((t) => t.assignee === focusMember) : tasks),
-    [tasks, focusMember]
+  const moveTask = useCallback(async (id: string, status: Status) => {
+    const t = tasks.find(x => x.id === id)
+    setTasks(prev => prev.map(x => x.id === id ? { ...x, status } : x))
+    if (t) logActivity(`"${t.title}" → ${COLUMNS.find(c => c.status === status)?.label}`)
+    const { error } = await supabase.from("workflow_tasks").update({ status }).eq("id", id)
+    if (error) { addToast("error", "Error al mover tarea"); loadTasks() }
+  }, [tasks, logActivity, addToast, loadTasks])
+
+  const toggleBlocked = useCallback(async (id: string) => {
+    const t = tasks.find(x => x.id === id); const blocked = !t?.blocked
+    setTasks(prev => prev.map(x => x.id === id ? { ...x, blocked } : x))
+    if (t) logActivity(`${blocked ? "Bloqueaste" : "Desbloqueaste"} "${t.title}"`)
+    const { error } = await supabase.from("workflow_tasks").update({ blocked }).eq("id", id)
+    if (error) { addToast("error", "Error al actualizar tarea"); loadTasks() }
+  }, [tasks, logActivity, addToast, loadTasks])
+
+  const deleteTask = useCallback(async (id: string) => {
+    const t = tasks.find(x => x.id === id)
+    setTasks(prev => prev.filter(x => x.id !== id))
+    if (t) logActivity(`Eliminaste "${t.title}"`)
+    const { error } = await supabase.from("workflow_tasks").delete().eq("id", id)
+    if (error) { addToast("error", "Error al eliminar tarea"); loadTasks() }
+  }, [tasks, logActivity, addToast, loadTasks])
+
+  const exportProject = useCallback(() => {
+    const by = (s: Status) => tasks.filter(t => t.status === s)
+    const fmt = (sym: string, t: Task) =>
+      `- [${sym}] ${t.title}${t.blocked ? " [BLOQUEADO]" : ""}${t.due_date ? ` (vence: ${new Date(t.due_date).toLocaleDateString("es-ES")})` : ""}`
+    const done = tasks.filter(t => t.status === "done").length
+    const pct  = tasks.length ? Math.round((done / tasks.length) * 100) : 0
+    const txt  = [
+      `# Estado del Proyecto — ${new Date().toLocaleDateString("es-ES")}`,
+      `Progreso: ${done}/${tasks.length} tareas (${pct}%)`, "",
+      `## 📋 Backlog (${by("backlog").length})`,   ...by("backlog").map(t => fmt(" ", t)), "",
+      `## 🔄 En Progreso (${by("progress").length})`, ...by("progress").map(t => fmt("~", t)), "",
+      `## 🔍 En Revisión (${by("review").length})`,   ...by("review").map(t => fmt("!", t)), "",
+      `## ✅ Completado (${by("done").length})`,       ...by("done").map(t => fmt("x", t)),
+    ].join("\n")
+    navigator.clipboard.writeText(txt).then(() => {
+      logActivity("Estado exportado al portapapeles ✓")
+      addToast("success", "Resumen copiado al portapapeles")
+    })
+  }, [tasks, logActivity, addToast])
+
+  const visibleTasks = useMemo(() => {
+    if (myWorkloadOnly && user) return tasks.filter(t => t.assignee === user.id)
+    if (focusMember) return tasks.filter(t => t.assignee === focusMember)
+    return tasks
+  }, [tasks, myWorkloadOnly, focusMember, user])
+
+  const progress = tasks.length === 0 ? 0 : Math.round(
+    (tasks.filter(t => t.status === "done").length / tasks.length) * 100
   )
 
-  const memberById = (id: string) =>
-    members.find((m) => m.id === id) ?? FALLBACK_MEMBER
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return tasks.filter(t => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)).slice(0, 8)
+  }, [tasks, searchQuery])
 
-  // ── Estados de carga / sesión ───────────────────────────────────────────────
-  if (!userLoading && !user) {
-    return (
-      <div
-        className="flex items-center justify-center"
-        style={{ height: "calc(100vh - 3.5rem)" }}
-      >
-        <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>
-          Inicia sesión para ver el flujo de trabajo de tu equipo.
-        </p>
-      </div>
-    )
-  }
+  const memberById = useCallback(
+    (id: string | null) => members.find(m => m.id === id) ?? FALLBACK_MEMBER,
+    [members]
+  )
 
-  if (loading) {
-    return (
-      <div
-        className="flex items-center justify-center"
-        style={{ height: "calc(100vh - 3.5rem)" }}
-      >
-        <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>
-          Cargando flujo de trabajo…
-        </p>
-      </div>
-    )
+  if (!userLoading && !user) return (
+    <div className="flex items-center justify-center" style={{ height: "calc(100vh - 3.5rem)" }}>
+      <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Inicia sesión para ver el flujo de trabajo.</p>
+    </div>
+  )
+  if (loading) return (
+    <div className="flex items-center justify-center" style={{ height: "calc(100vh - 3.5rem)" }}>
+      <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Cargando flujo de trabajo…</p>
+    </div>
+  )
+
+  const ctx: WFCtx = {
+    user, members, tasks, allUsers, allRoles, activity,
+    focusMember, myWorkloadOnly, visibleTasks, progress, searchResults,
+    activityOpen, roleMenuFor, addMenuOpen, addSelectedUser, createRoleOpen,
+    modalStatus, mobileTab, dragOver, dragId, toasts, memberById,
+    openSearch: () => { setSearchOpen(true); setSearchQuery("") },
+    setFocusMember, setMyWorkloadOnly, setActivityOpen, setRoleMenuFor,
+    setAddMenuOpen, setAddSelectedUser, setCreateRoleOpen, setModalStatus,
+    setMobileTab, setDragOver,
+    addMember, removeMember, setRole, addCustomRole,
+    createTask, moveTask, toggleBlocked, deleteTask, exportProject,
+    addToast, dismissToast,
   }
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 3.5rem)" }}>
-      {/* ═══════════════ CABECERA + PANEL DE GESTIÓN ═══════════════ */}
-      <header className="shrink-0 px-5 md:px-6 pt-6 pb-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-[22px] font-semibold tracking-tight text-white">
-              Flujo de trabajo
-            </h1>
-            <p className="text-[13px] mt-1" style={{ color: "var(--text-dim)" }}>
-              ¿En qué trabaja cada uno? Gestiona roles y asignaciones del equipo.
-            </p>
+    <WFContext.Provider value={ctx}>
+      <div className="flex flex-col" style={{ height: "calc(100vh - 3.5rem)" }}>
+        {/* ── HEADER ── */}
+        <header className="shrink-0 px-5 md:px-6 pt-5 pb-0">
+          <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+            <div>
+              <h1 className="text-[22px] font-semibold tracking-tight text-white">Flujo de trabajo</h1>
+              <p className="text-[12px] mt-0.5" style={{ color: "var(--text-dim)" }}>
+                Gestiona tareas y conexiones de tu equipo.
+              </p>
+            </div>
+            <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+              {(["tasks","gestion"] as Tab[]).map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className="px-4 py-1.5 rounded-md text-[13px] font-medium transition-all"
+                  style={{
+                    background: activeTab === tab ? "rgba(255,255,255,0.09)" : "transparent",
+                    color: activeTab === tab ? "#fff" : "var(--text-dim)",
+                  }}>
+                  {tab === "tasks" ? "Tareas" : "Gestión"}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+          {tasks.length > 0 && activeTab === "tasks" && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>Progreso global</span>
+                <span className="text-[11px] font-semibold" style={{ color: progress === 100 ? "#22c55e" : "#5e6ad2" }}>{progress}%</span>
+              </div>
+              <div className="h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${progress}%`, background: progress === 100 ? "#22c55e" : "linear-gradient(90deg,#5e6ad2,#3b82f6)" }} />
+              </div>
+            </div>
+          )}
+        </header>
 
-        {/* A) GESTIÓN DE ROLES — avatares del equipo con dropdown de rol */}
-        <div className="mt-5 flex items-center gap-4 flex-wrap">
-          <span
-            className="text-[11px] font-medium uppercase tracking-wider"
-            style={{ color: "var(--text-dimmer)" }}
-          >
-            Equipo
-          </span>
-          <div className="flex items-center gap-2 flex-wrap">
-            {members.map((m) => (
-              <RoleChip
-                key={m.id}
-                member={m}
-                members={members}
-                open={roleMenuFor === m.id}
-                onToggle={() =>
-                  setRoleMenuFor((cur) => (cur === m.id ? null : m.id))
-                }
-                onPick={(role) => setRole(m.id, role)}
-                onClose={() => setRoleMenuFor(null)}
-              />
-            ))}
-          </div>
-        </div>
+        {activeTab === "tasks" ? <TasksView /> : <GestionView />}
 
-        {/* 1) MODO ENFOQUE — filtro por miembro */}
-        <div className="mt-3 flex items-center gap-2.5 flex-wrap">
-          <span
-            className="text-[11px] font-medium uppercase tracking-wider"
-            style={{ color: "var(--text-dimmer)" }}
-          >
-            Enfoque
-          </span>
-          <FocusPill
-            active={focusMember === null}
-            onClick={() => setFocusMember(null)}
-            label="Todos"
-          />
-          {members.map((m) => (
-            <FocusPill
-              key={m.id}
-              active={focusMember === m.id}
-              onClick={() =>
-                setFocusMember((cur) => (cur === m.id ? null : m.id))
-              }
-              label={m.nombre.split(" ")[0]}
-              avatar={<MemberAvatar member={m} members={members} size={18} />}
-            />
+        {searchOpen && (
+          <SearchModal query={searchQuery} onQueryChange={setSearchQuery}
+            onClose={() => { setSearchOpen(false); setSearchQuery("") }} />
+        )}
+        <ToastContainer />
+      </div>
+    </WFContext.Provider>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TASKS VIEW
+// ══════════════════════════════════════════════════════════════════
+function TasksView() {
+  const {
+    user, members, visibleTasks, activityOpen, activity,
+    focusMember, myWorkloadOnly, roleMenuFor, addMenuOpen, addSelectedUser,
+    createRoleOpen, modalStatus, mobileTab, dragOver, dragId,
+    memberById, openSearch, exportProject,
+    setFocusMember, setMyWorkloadOnly, setActivityOpen, setRoleMenuFor,
+    setAddMenuOpen, setAddSelectedUser, setCreateRoleOpen, setModalStatus, setMobileTab, setDragOver,
+    addMember, removeMember, setRole, addCustomRole, createTask, moveTask, toggleBlocked, deleteTask,
+  } = useWF()
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="shrink-0 px-5 md:px-6 pb-3">
+        {/* Member bar */}
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Equipo</span>
+          {members.map(m => (
+            <RoleChip key={m.id} member={m} open={roleMenuFor === m.id}
+              onToggle={() => setRoleMenuFor(roleMenuFor === m.id ? null : m.id)}
+              onPick={r => setRole(m.id, r)} onClose={() => setRoleMenuFor(null)} onRemove={() => removeMember(m.id)} />
           ))}
+          <AddMemberButton open={addMenuOpen}
+            onToggle={() => { setAddMenuOpen(!addMenuOpen); setAddSelectedUser(null) }}
+            onClose={() => { setAddMenuOpen(false); setAddSelectedUser(null) }}
+            selectedUser={addSelectedUser} onSelectUser={setAddSelectedUser}
+            onBack={() => setAddSelectedUser(null)} onAdd={addMember} />
+          <CreateRoleButton open={createRoleOpen} onToggle={() => setCreateRoleOpen(!createRoleOpen)}
+            onClose={() => setCreateRoleOpen(false)} onSave={addCustomRole} />
         </div>
-      </header>
+        {/* Filter bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Vista</span>
+          <button onClick={() => { setMyWorkloadOnly(!myWorkloadOnly); setFocusMember(null) }}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium transition"
+            style={{
+              background: myWorkloadOnly ? "rgba(94,106,210,0.14)" : "var(--surface)",
+              border: myWorkloadOnly ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)",
+              color: myWorkloadOnly ? "#aab2f0" : "var(--text-dim)",
+            }}>Mi carga</button>
+          <FocusPill active={!focusMember && !myWorkloadOnly}
+            onClick={() => { setFocusMember(null); setMyWorkloadOnly(false) }} label="Todos" />
+          {members.map(m => (
+            <FocusPill key={m.id} active={focusMember === m.id && !myWorkloadOnly}
+              onClick={() => { setFocusMember(focusMember === m.id ? null : m.id); setMyWorkloadOnly(false) }}
+              label={m.nombre.split(" ")[0]} avatar={<MemberAvatar member={m} size={18} />} />
+          ))}
+          <div className="ml-auto flex items-center gap-1.5">
+            <ActionBtn onClick={() => setActivityOpen(!activityOpen)} active={activityOpen} label="Actividad" />
+            <ActionBtn onClick={exportProject} label="Exportar" title="Copiar resumen al portapapeles" />
+            <ActionBtn onClick={openSearch} label="Buscar" hint="⌘K" />
+          </div>
+        </div>
+      </div>
 
-      {/* ═══════════════ SELECTOR DE PESTAÑAS (solo móvil) ═══════════════ */}
-      <div
-        className="md:hidden flex shrink-0 px-3 gap-1"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
-        {COLUMNS.map((c) => {
-          const count = visibleTasks.filter((t) => t.status === c.status).length
+      {/* Mobile tabs */}
+      <div className="md:hidden flex shrink-0 px-3 gap-1" style={{ borderBottom: "1px solid var(--border)" }}>
+        {COLUMNS.map(c => {
+          const n = visibleTasks.filter(t => t.status === c.status).length
           const active = mobileTab === c.status
           return (
-            <button
-              key={c.status}
-              onClick={() => setMobileTab(c.status)}
+            <button key={c.status} onClick={() => setMobileTab(c.status)}
               className="relative flex-1 py-2.5 text-[12px] font-medium transition-colors"
-              style={{ color: active ? "var(--text)" : "var(--text-dim)" }}
-            >
-              {c.label}
-              <span className="ml-1 opacity-60">{count}</span>
-              {active && (
-                <span
-                  className="absolute left-2 right-2 bottom-0 h-[2px] rounded-full"
-                  style={{ background: "var(--text)" }}
-                />
-              )}
+              style={{ color: active ? "var(--text)" : "var(--text-dim)" }}>
+              {c.label} <span className="opacity-50">{n}</span>
+              {active && <span className="absolute left-2 right-2 bottom-0 h-[2px] rounded-full" style={{ background: "var(--text)" }} />}
             </button>
           )
         })}
       </div>
 
-      {/* ═══════════════ TABLERO KANBAN ═══════════════ */}
-      <div className="flex-1 min-h-0 px-3 md:px-6 pb-5 pt-3">
-        <div className="h-full md:grid md:grid-cols-4 gap-4 flex flex-col">
-          {COLUMNS.map((col) => {
-            const colTasks = visibleTasks.filter((t) => t.status === col.status)
-            const isDragOver = dragOver === col.status
-            return (
-              <section
-                key={col.status}
-                className={`${
-                  mobileTab === col.status ? "flex" : "hidden"
-                } md:flex flex-col min-h-0 h-full rounded-lg transition-colors`}
-                style={{
-                  background: isDragOver
-                    ? "rgba(94,106,210,0.07)"
-                    : "transparent",
-                  outline: isDragOver
-                    ? "1px dashed rgba(94,106,210,0.4)"
-                    : "1px solid transparent",
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  if (dragOver !== col.status) setDragOver(col.status)
-                }}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node))
-                    setDragOver(null)
-                }}
-                onDrop={() => {
-                  if (dragId.current) moveTask(dragId.current, col.status)
-                  dragId.current = null
-                  setDragOver(null)
-                }}
-              >
-                {/* Cabecera de columna */}
-                <div className="flex items-center justify-between px-2 py-2 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-semibold text-white">
-                      {col.label}
-                    </span>
-                    <span
-                      className="text-[11px] px-1.5 rounded-md"
-                      style={{
-                        color: "var(--text-dim)",
-                        background: "rgba(255,255,255,0.05)",
-                      }}
-                    >
-                      {colTasks.length}
-                    </span>
-                  </div>
-                  {/* 3) Creación rápida */}
-                  <button
-                    onClick={() => setModalStatus(col.status)}
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-[15px] leading-none transition"
-                    style={{ color: "var(--text-dim)" }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.06)"
-                      e.currentTarget.style.color = "#fff"
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent"
-                      e.currentTarget.style.color = "var(--text-dim)"
-                    }}
-                    title="Añadir tarea"
-                  >
-                    +
-                  </button>
-                </div>
-
-                {/* Cuerpo con scroll independiente */}
-                <div className="flex-1 min-h-0 overflow-y-auto px-1.5 pb-2 flex flex-col gap-2">
-                  {colTasks.length === 0 && (
-                    <div
-                      className="text-[12px] text-center py-6 rounded-lg border border-dashed"
-                      style={{
-                        color: "var(--text-dimmer)",
-                        borderColor: "var(--border)",
-                      }}
-                    >
-                      Sin tareas
+      {/* Board + activity */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        <div className="flex-1 min-w-0 px-3 md:px-6 pb-5 pt-3 overflow-hidden">
+          <div className="h-full md:grid md:grid-cols-4 gap-4 flex flex-col">
+            {COLUMNS.map(col => {
+              const colTasks = visibleTasks.filter(t => t.status === col.status)
+              const over = dragOver === col.status
+              return (
+                <section key={col.status}
+                  className={`${mobileTab === col.status ? "flex" : "hidden"} md:flex flex-col min-h-0 h-full rounded-lg transition-all`}
+                  style={{
+                    background: over ? "rgba(94,106,210,0.07)" : "transparent",
+                    outline: over ? "1px dashed rgba(94,106,210,0.4)" : "1px solid transparent",
+                  }}
+                  onDragOver={e => { e.preventDefault(); if (dragOver !== col.status) setDragOver(col.status) }}
+                  onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null) }}
+                  onDrop={() => { if (dragId.current) moveTask(dragId.current, col.status); dragId.current = null; setDragOver(null) }}>
+                  <div className="flex items-center justify-between px-2 py-2 shrink-0">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-semibold text-white">{col.label}</span>
+                        <span className="text-[11px] px-1.5 rounded-md" style={{ color: "var(--text-dim)", background: "rgba(255,255,255,0.05)" }}>
+                          {colTasks.length}
+                        </span>
+                      </div>
+                      <p className="text-[10px] mt-0.5 hidden lg:block" style={{ color: "var(--text-dimmer)" }}>{col.desc}</p>
                     </div>
-                  )}
-                  {colTasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      member={memberById(task.assignee)}
-                      members={members}
-                      onDragStart={() => (dragId.current = task.id)}
-                      onMove={(s) => moveTask(task.id, s)}
-                      onToggleBlocked={() => toggleBlocked(task.id)}
-                      onDelete={() => deleteTask(task.id)}
-                    />
-                  ))}
-                </div>
-              </section>
+                    <button onClick={() => setModalStatus(col.status)}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-[15px] leading-none transition shrink-0"
+                      style={{ color: "var(--text-dim)" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#fff" }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)" }}>
+                      +
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto px-1.5 pb-2 flex flex-col gap-2">
+                    {colTasks.length === 0 && (
+                      <div className="text-[11px] text-center py-5 px-3 rounded-lg border border-dashed"
+                        style={{ color: "var(--text-dimmer)", borderColor: "var(--border)" }}>
+                        {col.desc}
+                      </div>
+                    )}
+                    {colTasks.map(task => (
+                      <TaskCard key={task.id} task={task} member={memberById(task.assignee)}
+                        onDragStart={() => (dragId.current = task.id)}
+                        onMove={s => moveTask(task.id, s)}
+                        onToggleBlocked={() => toggleBlocked(task.id)}
+                        onDelete={() => deleteTask(task.id)} />
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        </div>
+        {activityOpen && <ActivityPanel activity={activity} onClose={() => setActivityOpen(false)} />}
+      </div>
+
+      {modalStatus && (
+        <CreateTaskModal status={modalStatus}
+          defaultAssignee={user?.id ?? members[0]?.id ?? ""}
+          onClose={() => setModalStatus(null)}
+          onCreate={d => { createTask(d); setModalStatus(null) }} />
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
+// GESTIÓN VIEW — Node Graph with 10 features
+// ══════════════════════════════════════════════════════════════════
+function GestionView() {
+  const { members, tasks, allRoles, addMenuOpen, addSelectedUser, roleMenuFor, createRoleOpen,
+    setAddMenuOpen, setAddSelectedUser, setRoleMenuFor, setCreateRoleOpen,
+    addMember, removeMember, setRole, addCustomRole, addToast } = useWF()
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [size, setSize]   = useState({ w: 800, h: 500 })
+  const [hovered, setHovered]       = useState<string | null>(null)
+  const [heatmapMode, setHeatmapMode] = useState(false)
+  const [simDeparture, setSimDeparture] = useState<string | null>(null)
+  const [pitchMode, setPitchMode]   = useState(false)
+  const [metricsOpen, setMetricsOpen] = useState(false)
+  const [timelineSlider, setTimelineSlider] = useState(1)
+  const [lassoSelected, setLassoSelected] = useState(new Set<string>())
+  const [lasso, setLasso] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null)
+  const lassoStart = useRef<{x:number;y:number}|null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{memberId:string;x:number;y:number}|null>(null)
+  const [showAddMS, setShowAddMS]   = useState(false)
+  const [milestones, setMilestones] = useState<Milestone[]>(() => {
+    try { return JSON.parse(localStorage.getItem(MILESTONES_KEY) ?? "[]") } catch { return [] }
+  })
+  const prevIds = useRef(new Set<string>())
+  const [newIds, setNewIds] = useState(new Set<string>())
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const ro = new ResizeObserver(([e]) => {
+      const { width, height } = e.contentRect
+      setSize({ w: width, h: height })
+    })
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const cur = new Set(members.map(m => m.id))
+    const added = members.filter(m => !prevIds.current.has(m.id))
+    if (added.length > 0) {
+      setNewIds(new Set(added.map(m => m.id)))
+      const t = setTimeout(() => setNewIds(new Set()), 700)
+      prevIds.current = cur
+      return () => clearTimeout(t)
+    }
+    prevIds.current = cur
+  }, [members])
+
+  // Timeline: filter members by join date
+  const joinTimes = members.map(m => new Date(m.joinedAt).getTime())
+  const minTime = joinTimes.length > 0 ? Math.min(...joinTimes) : Date.now() - 30 * 86400000
+  const maxTime = Date.now()
+  const cutoff  = minTime + (maxTime - minTime) * timelineSlider
+  const visibleMembers = members.filter(m => new Date(m.joinedAt).getTime() <= cutoff)
+
+  const cx = size.w / 2, cy = size.h / 2
+  const r1 = Math.min(size.w, size.h) * 0.28
+  const r2 = Math.min(size.w, size.h) * 0.44
+
+  const memberPositions = useMemo(() => visibleMembers.map((m, i) => {
+    const angle = (2 * Math.PI * i) / Math.max(1, visibleMembers.length) - Math.PI / 2
+    return { id: m.id, x: cx + r1 * Math.cos(angle), y: cy + r1 * Math.sin(angle) }
+  }), [visibleMembers, cx, cy, r1])
+
+  const msPositions = useMemo(() => milestones.map((ms, i) => {
+    const angle = (2 * Math.PI * i) / Math.max(1, milestones.length) - Math.PI / 6
+    return { id: ms.id, x: cx + r2 * Math.cos(angle), y: cy + r2 * Math.sin(angle) }
+  }), [milestones, cx, cy, r2])
+
+  // Feature 1: Heatmap color
+  const nodeColor = (memberId: string) => {
+    if (heatmapMode) {
+      const count = tasks.filter(t => t.assignee === memberId).length
+      return heatColor(count)
+    }
+    return getRoleColor(allRoles, members.find(m => m.id === memberId)?.role ?? "Sin rol")
+  }
+
+  // Feature 8: Skill gap
+  const currentRoles = new Set(visibleMembers.map(m => m.role))
+  const missingRoles = CRITICAL_ROLES.filter(r => !currentRoles.has(r))
+
+  // Hover data
+  const hoveredMember = members.find(m => m.id === hovered)
+  const hoveredPos    = memberPositions.find(n => n.id === hovered)
+  const hoveredTasks  = hovered ? tasks.filter(t => t.assignee === hovered) : []
+
+  // Lasso handlers
+  const onContainerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as Element).closest("[data-node]")) return
+    if (e.button !== 0) return
+    const rect = containerRef.current!.getBoundingClientRect()
+    const x = e.clientX - rect.left, y = e.clientY - rect.top
+    lassoStart.current = { x, y }
+    setLasso({ x1: x, y1: y, x2: x, y2: y })
+    setLassoSelected(new Set())
+    setCtxMenu(null)
+  }
+  const onContainerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!lassoStart.current) return
+    const rect = containerRef.current!.getBoundingClientRect()
+    setLasso({ x1: lassoStart.current.x, y1: lassoStart.current.y, x2: e.clientX - rect.left, y2: e.clientY - rect.top })
+  }
+  const onContainerMouseUp = () => {
+    if (!lasso) { lassoStart.current = null; return }
+    const lx1 = Math.min(lasso.x1, lasso.x2), lx2 = Math.max(lasso.x1, lasso.x2)
+    const ly1 = Math.min(lasso.y1, lasso.y2), ly2 = Math.max(lasso.y1, lasso.y2)
+    const inRect = memberPositions.filter(n => n.x >= lx1 && n.x <= lx2 && n.y >= ly1 && n.y <= ly2)
+    if (inRect.length > 0) setLassoSelected(new Set(inRect.map(n => n.id)))
+    setLasso(null)
+    lassoStart.current = null
+  }
+
+  const addMilestone = (label: string, color: string) => {
+    const ms: Milestone = { id: crypto.randomUUID(), label, color }
+    const updated = [...milestones, ms]
+    setMilestones(updated)
+    localStorage.setItem(MILESTONES_KEY, JSON.stringify(updated))
+    setShowAddMS(false)
+  }
+  const removeMilestone = (id: string) => {
+    const updated = milestones.filter(m => m.id !== id)
+    setMilestones(updated)
+    localStorage.setItem(MILESTONES_KEY, JSON.stringify(updated))
+  }
+
+  const handleBulkRole = async (role: string) => {
+    for (const id of Array.from(lassoSelected)) await setRole(id, role)
+    setLassoSelected(new Set())
+  }
+
+  const graphContent = (fullscreen = false) => {
+    const w = fullscreen ? window.innerWidth  : size.w
+    const h = fullscreen ? window.innerHeight : size.h
+    const fcx = w / 2, fcy = h / 2
+    const fr1 = Math.min(w, h) * 0.28
+    const fr2 = Math.min(w, h) * 0.44
+    const fMemberPos = visibleMembers.map((m, i) => {
+      const angle = (2 * Math.PI * i) / Math.max(1, visibleMembers.length) - Math.PI / 2
+      return { id: m.id, x: fcx + fr1 * Math.cos(angle), y: fcy + fr1 * Math.sin(angle) }
+    })
+    const fMsPos = milestones.map((ms, i) => {
+      const angle = (2 * Math.PI * i) / Math.max(1, milestones.length) - Math.PI / 6
+      return { id: ms.id, x: fcx + fr2 * Math.cos(angle), y: fcy + fr2 * Math.sin(angle) }
+    })
+
+    return (
+      <>
+        <style>{`
+          @keyframes wf-float{0%,100%{transform:translate(-50%,-50%) translateY(0px)}50%{transform:translate(-50%,-50%) translateY(-5px)}}
+          @keyframes wf-pop{0%{transform:translate(-50%,-50%) scale(0);opacity:0}65%{transform:translate(-50%,-50%) scale(1.2);opacity:1}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+          @keyframes wf-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,106,210,0.3),0 0 0 0 rgba(94,106,210,0.1)}50%{box-shadow:0 0 0 12px rgba(94,106,210,0.07),0 0 0 24px rgba(94,106,210,0.02)}}
+          @keyframes wf-depart{to{opacity:0.2;filter:grayscale(1)}}
+          @keyframes wf-diamond-pulse{0%,100%{opacity:0.7}50%{opacity:1}}
+        `}</style>
+
+        {/* SVG lines */}
+        <svg className="absolute inset-0 pointer-events-none" width={w} height={h}>
+          <defs>
+            <filter id="wf-glow"><feGaussianBlur stdDeviation="2.5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="wf-glow-red"><feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          {/* Center to milestones */}
+          {fMsPos.map(({ id, x, y }) => {
+            const ms = milestones.find(m => m.id === id)!
+            return <line key={`c-ms-${id}`} x1={fcx} y1={fcy} x2={x} y2={y}
+              stroke={ms.color} strokeWidth={0.5} strokeOpacity={0.25} strokeDasharray="3 4" />
+          })}
+
+          {/* Center to members */}
+          {fMemberPos.map(({ id, x, y }) => {
+            const isHov = hovered === id
+            const isDep = simDeparture === id
+            const color = nodeColor(id)
+            const isOrphan = isDep ? false : simDeparture !== null && tasks.filter(t => t.assignee === id).length > 0
+            const lineColor = isDep ? "rgba(235,87,87,0.7)" : isOrphan ? "rgba(235,87,87,0.5)" : isHov ? color : "rgba(255,255,255,0.07)"
+            return (
+              <line key={`c-${id}`} x1={fcx} y1={fcy} x2={x} y2={y}
+                stroke={lineColor} strokeWidth={isHov || isDep ? 1.5 : 0.7}
+                filter={(isHov || isDep) ? "url(#wf-glow)" : undefined}
+                style={{ transition: "stroke 0.3s,stroke-width 0.25s" }} />
             )
           })}
+
+          {/* Cross-member connections (Feature 3) */}
+          {fMemberPos.map((a, i) => fMemberPos.slice(i + 1).map(b => {
+            const strength = crossStrength(a.id, b.id, tasks)
+            const opacity  = Math.max(0.03, Math.min(0.22, 0.03 + strength * 0.06))
+            const width    = 0.4 + Math.min(strength, 5) * 0.25
+            return (
+              <line key={`${a.id}-${b.id}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+                stroke="rgba(255,255,255,1)" strokeOpacity={opacity} strokeWidth={width}
+                style={{ transition: "stroke-opacity 0.5s" }} />
+            )
+          }))}
+
+          {/* Lasso rect */}
+          {lasso && (
+            <rect x={Math.min(lasso.x1, lasso.x2)} y={Math.min(lasso.y1, lasso.y2)}
+              width={Math.abs(lasso.x2 - lasso.x1)} height={Math.abs(lasso.y2 - lasso.y1)}
+              fill="rgba(94,106,210,0.07)" stroke="rgba(94,106,210,0.5)" strokeWidth={1} strokeDasharray="4 3" />
+          )}
+
+          {/* Milestone diamonds */}
+          {fMsPos.map(({ id, x, y }) => {
+            const ms = milestones.find(m => m.id === id)!
+            const s = 10
+            return (
+              <g key={`ms-${id}`}>
+                <polygon points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
+                  fill={`${ms.color}22`} stroke={ms.color} strokeWidth={1.5}
+                  style={{ animation: "wf-diamond-pulse 3s ease-in-out infinite" }} />
+                <text x={x} y={y + s + 13} textAnchor="middle" fontSize={10} fill={ms.color} fontFamily="Inter,sans-serif" fontWeight={600}>
+                  {ms.label}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+
+        {/* Center node */}
+        <div className="absolute flex flex-col items-center justify-center z-10"
+          style={{ left: fcx, top: fcy, transform: "translate(-50%,-50%)",
+            width: 76, height: 76, borderRadius: "9999px",
+            background: "linear-gradient(135deg,rgba(94,106,210,0.22),rgba(59,130,246,0.14))",
+            border: "1.5px solid rgba(94,106,210,0.5)", animation: "wf-pulse 3s ease-in-out infinite" }}>
+          <span className="text-[11px] font-semibold text-white text-center leading-tight px-2">Proyecto</span>
+        </div>
+
+        {/* Member nodes */}
+        {fMemberPos.map(({ id, x, y }, idx) => {
+          const m = members.find(x => x.id === id)!
+          const color   = nodeColor(id)
+          const isNew   = newIds.has(id)
+          const isHov   = hovered === id
+          const isDep   = simDeparture === id
+          const isSel   = lassoSelected.has(id)
+          const initial = m.nombre.trim()[0]?.toUpperCase() || "?"
+          const mTasks  = tasks.filter(t => t.assignee === id)
+          return (
+            <div key={id} data-node className="absolute flex flex-col items-center gap-1 cursor-pointer z-20"
+              style={{
+                left: x, top: y,
+                opacity: isDep ? 0.25 : 1,
+                filter: isDep ? "grayscale(1)" : "none",
+                transition: "opacity 0.5s, filter 0.5s",
+                animation: isNew
+                  ? "wf-pop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards"
+                  : `wf-float ${3.5 + idx * 0.4}s ease-in-out ${idx * 0.3}s infinite`,
+              }}
+              onMouseEnter={() => setHovered(id)}
+              onMouseLeave={() => setHovered(null)}
+              onContextMenu={e => { e.preventDefault(); setCtxMenu({ memberId: id, x: e.clientX, y: e.clientY }) }}>
+              {m.avatar ? (
+                <img src={m.avatar} alt={m.nombre} referrerPolicy="no-referrer" className="object-cover"
+                  style={{ width: 48, height: 48, borderRadius: "9999px",
+                    border: `2px solid ${isSel ? "#5e6ad2" : isHov ? color : color + "60"}`,
+                    boxShadow: isSel ? `0 0 0 3px rgba(94,106,210,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
+                    transition: "border-color 0.25s,box-shadow 0.25s", transform: "translate(-50%,-50%)" }} />
+              ) : (
+                <div className="flex items-center justify-center font-semibold text-white"
+                  style={{ width: 48, height: 48, fontSize: 18, borderRadius: "9999px",
+                    background: `linear-gradient(135deg,${color},${color}99)`,
+                    border: `2px solid ${isSel ? "#5e6ad2" : isHov ? color : color + "55"}`,
+                    boxShadow: isSel ? `0 0 0 3px rgba(94,106,210,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
+                    transition: "border-color 0.25s,box-shadow 0.25s", transform: "translate(-50%,-50%)" }}>
+                  {initial}
+                </div>
+              )}
+              <div className="flex flex-col items-center gap-0.5" style={{ transform: "translateX(-50%) translateY(14px)" }}>
+                <span className="text-[12px] font-medium text-white whitespace-nowrap" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>
+                  {m.nombre.split(" ")[0]}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md whitespace-nowrap"
+                  style={{ background: `${color}22`, color, border: `1px solid ${color}44`, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+                  {heatmapMode ? `${mTasks.length} tareas` : m.role}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+
+        {/* Glassmorphism hover tooltip (Feature 7) */}
+        {hovered && hoveredMember && hoveredPos && (
+          <div className="absolute pointer-events-none z-40 rounded-xl p-3.5 w-56"
+            style={{
+              left: Math.min(Math.max(8, hoveredPos.x + (hoveredPos.x > fcx ? 60 : -228)), w - 228),
+              top:  Math.max(8, Math.min(hoveredPos.y - 80, h - 200)),
+              background: "rgba(13,14,16,0.92)", backdropFilter: "blur(16px)",
+              border: `1px solid ${nodeColor(hovered)}44`,
+              boxShadow: `0 12px 40px rgba(0,0,0,0.7),0 0 0 1px ${nodeColor(hovered)}18`,
+            }}>
+            <div className="flex items-center gap-2.5 mb-2.5">
+              <MemberAvatar member={hoveredMember} size={32} />
+              <div>
+                <p className="text-[13px] font-semibold text-white leading-tight">{hoveredMember.nombre}</p>
+                <RoleTag role={hoveredMember.role} color={getRoleColor(allRoles, hoveredMember.role)} small />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mb-2.5 text-[11px]" style={{ color: "var(--text-dimmer)" }}>
+              <span>📅 Unido {fmtDate(hoveredMember.joinedAt)}</span>
+            </div>
+            <div className="flex gap-3 mb-2 text-[11px]">
+              <div className="text-center">
+                <div className="text-[15px] font-bold text-white">{hoveredTasks.length}</div>
+                <div style={{ color: "var(--text-dimmer)" }}>tareas</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[15px] font-bold text-white">{hoveredTasks.filter(t => t.status === "done").length}</div>
+                <div style={{ color: "var(--text-dimmer)" }}>hechas</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[15px] font-bold" style={{ color: "#f2994a" }}>{hoveredTasks.filter(t => t.blocked).length}</div>
+                <div style={{ color: "var(--text-dimmer)" }}>bloq.</div>
+              </div>
+            </div>
+            {hoveredTasks.length > 0 && (
+              <div className="flex flex-col gap-1">
+                {hoveredTasks.slice(0, 3).map(t => (
+                  <div key={t.id} className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PRIORITY_COLOR[t.priority] }} />
+                    <span className="text-[11px] truncate" style={{ color: "var(--text-dim)" }}>{t.title}</span>
+                  </div>
+                ))}
+                {hoveredTasks.length > 3 && <span className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>+{hoveredTasks.length - 3} más</span>}
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    )
+  }
+
+  // Metrics computed (Feature 5)
+  const doneTasks    = tasks.filter(t => t.status === "done").length
+  const blockedTasks = tasks.filter(t => t.blocked).length
+  const velocity     = tasks.length > 0 ? Math.round((doneTasks / tasks.length) * 100) : 0
+  const blockedRatio = tasks.length > 0 ? Math.round((blockedTasks / tasks.length) * 100) : 0
+  const uniqueRoles  = new Set(members.map(m => m.role)).size
+  const roleBalance  = members.length > 0 ? Math.round((uniqueRoles / members.length) * 100) : 0
+
+  const sliderLabel = () => {
+    if (timelineSlider >= 0.999) return "Ahora"
+    return new Date(cutoff).toLocaleDateString("es-ES", { month: "short", year: "numeric" })
+  }
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      {/* Controls bar */}
+      <div className="shrink-0 px-5 md:px-6 py-2.5 flex items-center gap-2 flex-wrap"
+        style={{ borderBottom: "1px solid var(--border)" }}>
+        <span className="text-[11px] font-medium uppercase tracking-wider mr-1" style={{ color: "var(--text-dimmer)" }}>Equipo</span>
+        {members.map(m => (
+          <RoleChip key={m.id} member={m} open={roleMenuFor === m.id}
+            onToggle={() => setRoleMenuFor(roleMenuFor === m.id ? null : m.id)}
+            onPick={r => setRole(m.id, r)} onClose={() => setRoleMenuFor(null)} onRemove={() => removeMember(m.id)} />
+        ))}
+        <AddMemberButton open={addMenuOpen}
+          onToggle={() => { setAddMenuOpen(!addMenuOpen); setAddSelectedUser(null) }}
+          onClose={() => { setAddMenuOpen(false); setAddSelectedUser(null) }}
+          selectedUser={addSelectedUser} onSelectUser={setAddSelectedUser}
+          onBack={() => setAddSelectedUser(null)} onAdd={addMember} />
+        <CreateRoleButton open={createRoleOpen} onToggle={() => setCreateRoleOpen(!createRoleOpen)}
+          onClose={() => setCreateRoleOpen(false)} onSave={addCustomRole} />
+
+        <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+          {/* Feature 1: Heatmap */}
+          <GBtn active={heatmapMode} onClick={() => setHeatmapMode(!heatmapMode)}
+            title="Capa de calor de carga">🌡 Heatmap</GBtn>
+          {/* Feature 5: Metrics */}
+          <GBtn active={metricsOpen} onClick={() => setMetricsOpen(!metricsOpen)}>📊 Métricas</GBtn>
+          {/* Feature 4: Milestones */}
+          <GBtn onClick={() => setShowAddMS(true)}>🏁 Hito</GBtn>
+          {/* Feature 10: Pitch mode */}
+          <GBtn onClick={() => setPitchMode(true)} title="Modo presentación">▶ Pitch</GBtn>
         </div>
       </div>
 
-      {/* ═══════════════ MODAL CREAR TAREA ═══════════════ */}
-      {modalStatus && (
-        <CreateTaskModal
-          status={modalStatus}
-          members={members}
-          defaultAssignee={user?.id ?? members[0]?.id ?? ""}
-          onClose={() => setModalStatus(null)}
-          onCreate={(data) => {
-            createTask(data)
-            setModalStatus(null)
-          }}
-        />
+      {/* Skill gap alert (Feature 8) */}
+      {missingRoles.length > 0 && members.length > 0 && (
+        <div className="shrink-0 mx-5 mt-2.5 px-3 py-2 rounded-lg flex items-center gap-2.5"
+          style={{ background: "rgba(242,153,74,0.09)", border: "1px solid rgba(242,153,74,0.28)" }}>
+          <span className="text-[13px]">⚠️</span>
+          <span className="text-[12px]" style={{ color: "#f2994a" }}>
+            <strong>Perfiles faltantes en el equipo:</strong> {missingRoles.join(", ")}
+          </span>
+        </div>
       )}
-    </div>
-  )
-}
 
-// ════════════════════════════════════════════════════════════════════════════
-// A) CHIP DE MIEMBRO + DROPDOWN DE ROL
-// ════════════════════════════════════════════════════════════════════════════
-function RoleChip({
-  member,
-  members,
-  open,
-  onToggle,
-  onPick,
-  onClose,
-}: {
-  member: Member
-  members: Member[]
-  open: boolean
-  onToggle: () => void
-  onPick: (role: string) => void
-  onClose: () => void
-}) {
-  const ref = useOutsideClick<HTMLDivElement>(onClose)
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={onToggle}
-        className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full transition"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-        }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.borderColor = "var(--border-strong)")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.borderColor = "var(--border)")
-        }
-      >
-        <MemberAvatar member={member} members={members} size={22} />
-        <span className="text-[12px] font-medium text-white">
-          {member.nombre.split(" ")[0]}
-        </span>
-        <RoleTag role={member.role} small />
-      </button>
+      {/* Main area: graph + optional metrics panel */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        {/* Graph */}
+        <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden select-none"
+          style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%,rgba(94,106,210,0.05) 0%,transparent 70%)", cursor: lassoStart.current ? "crosshair" : "default" }}
+          onMouseDown={onContainerMouseDown}
+          onMouseMove={onContainerMouseMove}
+          onMouseUp={onContainerMouseUp}>
 
-      {open && (
-        <div
-          className="absolute left-0 top-full mt-2 z-30 w-56 rounded-lg p-1.5 animate-in"
-          style={{
-            background: "#17191b",
-            border: "1px solid var(--border-strong)",
-            boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-          }}
-        >
-          <p
-            className="px-2 py-1.5 text-[11px] uppercase tracking-wider"
-            style={{ color: "var(--text-dimmer)" }}
-          >
-            Asignar rol · {member.nombre}
-          </p>
-          {ROLES.map((role) => {
-            const active = role === member.role
-            return (
-              <button
-                key={role}
-                onClick={() => onPick(role)}
-                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md transition text-left"
-                style={{ background: active ? "rgba(255,255,255,0.05)" : "transparent" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(255,255,255,0.05)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = active
-                    ? "rgba(255,255,255,0.05)"
-                    : "transparent")
-                }
-              >
-                <RoleTag role={role} />
-                {active && <span style={{ color: ROLE_COLOR[role] }}>✓</span>}
-              </button>
-            )
-          })}
+          {members.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(94,106,210,0.1)", border: "1px dashed rgba(94,106,210,0.35)" }}>
+                <span style={{ fontSize: 26 }}>🌐</span>
+              </div>
+              <p className="text-[14px] font-medium text-white">Mapa vacío</p>
+              <p className="text-[12px]" style={{ color: "var(--text-dim)" }}>Añade miembros al equipo para ver el grafo de conexiones.</p>
+            </div>
+          ) : graphContent()}
+
+          {/* Context menu (Feature 2) */}
+          {ctxMenu && (
+            <CtxMenuPanel x={ctxMenu.x} y={ctxMenu.y} memberId={ctxMenu.memberId}
+              simDeparture={simDeparture}
+              onSimulate={() => { setSimDeparture(simDeparture === ctxMenu.memberId ? null : ctxMenu.memberId); setCtxMenu(null) }}
+              onRemove={() => { removeMember(ctxMenu.memberId); setCtxMenu(null) }}
+              onClose={() => setCtxMenu(null)} />
+          )}
+        </div>
+
+        {/* Metrics panel (Feature 5) */}
+        {metricsOpen && (
+          <div className="shrink-0 w-60 flex flex-col border-l" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
+            <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+              <span className="text-[12px] font-semibold text-white">Radar de rendimiento</span>
+              <button onClick={() => setMetricsOpen(false)} className="text-[12px] transition" style={{ color: "var(--text-dim)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+              <MetricBar label="Velocidad de cierre" value={velocity} color="#22c55e" desc={`${doneTasks}/${tasks.length} tareas completas`} />
+              <MetricBar label="Ratio de bloqueos" value={blockedRatio} color="#f2994a" desc={`${blockedTasks} bloqueadas`} invert />
+              <MetricBar label="Equilibrio de roles" value={roleBalance} color="#5e6ad2" desc={`${uniqueRoles} roles / ${members.length} miembros`} />
+              <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
+                <p className="text-[11px] font-medium text-white mb-2">Distribución de carga</p>
+                {members.map(m => {
+                  const count = tasks.filter(t => t.assignee === m.id).length
+                  const pct   = tasks.length > 0 ? (count / tasks.length) * 100 : 0
+                  const col   = heatColor(count)
+                  return (
+                    <div key={m.id} className="mb-1.5">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px]" style={{ color: "var(--text-dim)" }}>{m.nombre.split(" ")[0]}</span>
+                        <span className="text-[10px] font-medium" style={{ color: col }}>{count}</span>
+                      </div>
+                      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: col }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Timeline slider (Feature 6) */}
+      {members.length > 0 && (
+        <div className="shrink-0 px-6 py-3 flex items-center gap-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <span className="text-[10px] uppercase tracking-wider whitespace-nowrap" style={{ color: "var(--text-dimmer)" }}>Línea de tiempo</span>
+          <span className="text-[10px] whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{fmtDate(new Date(minTime).toISOString())}</span>
+          <input type="range" min={0} max={1} step={0.001} value={timelineSlider}
+            onChange={e => setTimelineSlider(parseFloat(e.target.value))}
+            className="flex-1 accent-[#5e6ad2]" style={{ height: 4 }} />
+          <span className="text-[10px] whitespace-nowrap min-w-[44px] text-right" style={{ color: timelineSlider >= 0.999 ? "#5e6ad2" : "var(--text-dim)" }}>
+            {sliderLabel()}
+          </span>
+          {timelineSlider < 0.999 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap"
+              style={{ background: "rgba(94,106,210,0.14)", color: "#aab2f0", border: "1px solid rgba(94,106,210,0.35)" }}>
+              {visibleMembers.length}/{members.length}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Bulk action bar (Feature 9) */}
+      {lassoSelected.size > 0 && (
+        <div className="shrink-0 px-5 py-2.5 flex items-center gap-3 flex-wrap" style={{ borderTop: "1px solid var(--border)", background: "rgba(94,106,210,0.06)" }}>
+          <span className="text-[12px] font-medium" style={{ color: "#aab2f0" }}>
+            {lassoSelected.size} miembro{lassoSelected.size !== 1 ? "s" : ""} seleccionado{lassoSelected.size !== 1 ? "s" : ""}
+          </span>
+          <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>Asignar rol:</span>
+          <select onChange={e => e.target.value && handleBulkRole(e.target.value)} defaultValue=""
+            className="field-input px-2 py-1 rounded-md text-[12px]">
+            <option value="" disabled>Seleccionar rol…</option>
+            {allRoles.map(r => <option key={r.name} value={r.name}>{r.name}</option>)}
+          </select>
+          <button onClick={() => setLassoSelected(new Set())}
+            className="px-2.5 py-1 rounded-md text-[12px] transition" style={{ color: "var(--text-dim)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
+            Deseleccionar
+          </button>
+        </div>
+      )}
+
+      {/* Simulation banner (Feature 2) */}
+      {simDeparture && (
+        <div className="shrink-0 px-5 py-2 flex items-center gap-3 flex-wrap" style={{ borderTop: "1px solid rgba(235,87,87,0.3)", background: "rgba(235,87,87,0.06)" }}>
+          <span className="text-[12px]" style={{ color: "#eb5757" }}>
+            ⚡ Simulación de baja: <strong>{members.find(m => m.id === simDeparture)?.nombre ?? "Miembro"}</strong>.
+            Las tareas de este miembro quedarían sin responsable.
+          </span>
+          <button onClick={() => setSimDeparture(null)}
+            className="ml-auto px-2.5 py-1 rounded-md text-[12px] font-medium transition"
+            style={{ background: "rgba(235,87,87,0.15)", border: "1px solid rgba(235,87,87,0.35)", color: "#eb5757" }}>
+            Finalizar simulación
+          </button>
+        </div>
+      )}
+
+      {/* Add milestone modal (Feature 4) */}
+      {showAddMS && <MilestoneModal onSave={addMilestone} onClose={() => setShowAddMS(false)} />}
+
+      {/* Pitch mode (Feature 10) */}
+      {pitchMode && (
+        <div className="fixed inset-0 z-[9999] overflow-hidden select-none"
+          style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%,rgba(94,106,210,0.08) 0%,#0c0d0e 70%)" }}>
+          <button onClick={() => setPitchMode(false)}
+            className="absolute top-5 right-5 z-10 px-3 py-1.5 rounded-lg text-[12px] font-medium transition"
+            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-dim)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
+            ✕ Salir
+          </button>
+          <div className="absolute top-5 left-5 text-[11px] uppercase tracking-widest font-semibold" style={{ color: "rgba(94,106,210,0.7)" }}>
+            Flujo de trabajo · Presentación
+          </div>
+          <div className="w-full h-full relative">
+            {graphContent(true)}
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 1) PASTILLA DE MODO ENFOQUE
-// ════════════════════════════════════════════════════════════════════════════
-function FocusPill({
-  active,
-  onClick,
-  label,
-  avatar,
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-  avatar?: React.ReactNode
+// ── Metric bar helper ──
+function MetricBar({ label, value, color, desc, invert = false }: {
+  label: string; value: number; color: string; desc: string; invert?: boolean
+}) {
+  const display = invert ? Math.max(0, 100 - value) : value
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px] font-medium text-white">{label}</span>
+        <span className="text-[12px] font-bold" style={{ color }}>{value}%</span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ background: "rgba(255,255,255,0.05)" }}>
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${display}%`, background: color }} />
+      </div>
+      <p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{desc}</p>
+    </div>
+  )
+}
+
+// ── Gestión button ──
+function GBtn({ children, onClick, active = false, title }: {
+  children: React.ReactNode; onClick: () => void; active?: boolean; title?: string
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
+    <button onClick={onClick} title={title}
+      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition"
       style={{
         background: active ? "rgba(94,106,210,0.14)" : "var(--surface)",
-        border: active
-          ? "1px solid rgba(94,106,210,0.45)"
-          : "1px solid var(--border)",
+        border: active ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)",
         color: active ? "#aab2f0" : "var(--text-dim)",
       }}
-    >
-      {avatar ?? (
-        <span
-          className="w-2 h-2 rounded-full"
-          style={{ background: active ? "#5e6ad2" : "var(--text-dimmer)" }}
-        />
+      onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+      onMouseLeave={e => (e.currentTarget.style.color = active ? "#aab2f0" : "var(--text-dim)")}>
+      {children}
+    </button>
+  )
+}
+
+// ── Context menu (right-click on node) ──
+function CtxMenuPanel({ x, y, memberId, simDeparture, onSimulate, onRemove, onClose }: {
+  x: number; y: number; memberId: string; simDeparture: string | null
+  onSimulate: () => void; onRemove: () => void; onClose: () => void
+}) {
+  const ref = useOutsideClick<HTMLDivElement>(onClose)
+  const { members } = useWF()
+  const m = members.find(x => x.id === memberId)
+  return (
+    <div ref={ref} className="fixed z-50 w-52 rounded-lg p-1.5"
+      style={{ top: y, left: x, background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.6)" }}>
+      <p className="px-2 py-1.5 text-[11px] font-semibold text-white truncate">{m?.nombre ?? "Miembro"}</p>
+      <div className="h-px my-1" style={{ background: "var(--border)" }} />
+      <button onClick={onSimulate}
+        className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition"
+        style={{ color: simDeparture === memberId ? "#22c55e" : "#f2994a" }}
+        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+        {simDeparture === memberId ? "✓ Finalizar simulación" : "⚡ Simular baja"}
+      </button>
+      <div className="h-px my-1" style={{ background: "var(--border)" }} />
+      <button onClick={onRemove}
+        className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition"
+        style={{ color: "rgba(235,87,87,0.8)" }}
+        onMouseEnter={e => (e.currentTarget.style.background = "rgba(235,87,87,0.08)")}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+        Quitar del equipo
+      </button>
+    </div>
+  )
+}
+
+// ── Milestone modal (Feature 4) ──
+function MilestoneModal({ onSave, onClose }: { onSave: (label: string, color: string) => void; onClose: () => void }) {
+  const [label, setLabel] = useState("")
+  const [color, setColor] = useState("#f59e0b")
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose()
+    document.addEventListener("keydown", h)
+    return () => document.removeEventListener("keydown", h)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[20vh]"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)" }} onMouseDown={onClose}>
+      <div className="w-72 rounded-xl p-4" onMouseDown={e => e.stopPropagation()}
+        style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
+        <h3 className="text-[14px] font-semibold text-white mb-3">Nuevo hito</h3>
+        <input autoFocus value={label} onChange={e => setLabel(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && label.trim() && onSave(label.trim(), color)}
+          placeholder="Nombre del hito…" className="field-input w-full px-3 py-2 rounded-md text-[13px] mb-3" />
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-[11px]" style={{ color: "var(--text-dim)" }}>Color</span>
+          <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-7 h-7 rounded cursor-pointer bg-transparent border-0" />
+          <span className="text-[11px] px-2 py-0.5 rounded-md font-medium"
+            style={{ background: `${color}22`, color, border: `1px solid ${color}44` }}>{label || "Vista previa"}</span>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-1.5 rounded-md text-[12px] transition" style={{ color: "var(--text-dim)", border: "1px solid var(--border)" }}>Cancelar</button>
+          <button onClick={() => label.trim() && onSave(label.trim(), color)} disabled={!label.trim()}
+            className="flex-1 py-1.5 rounded-md text-[12px] font-semibold transition disabled:opacity-40"
+            style={{ background: color, color: "#fff" }}>Crear hito</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SHARED COMPONENTS
+// ══════════════════════════════════════════════════════════════════
+function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
+  member: Member; open: boolean
+  onToggle: () => void; onPick: (r: string) => void; onClose: () => void; onRemove: () => void
+}) {
+  const { allRoles } = useWF()
+  const ref = useOutsideClick<HTMLDivElement>(onClose)
+  const color = getRoleColor(allRoles, member.role)
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={onToggle} className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full transition"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)")}
+        onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
+        <MemberAvatar member={member} size={22} />
+        <span className="text-[12px] font-medium text-white">{member.nombre.split(" ")[0]}</span>
+        <RoleTag role={member.role} color={color} small />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-30 w-56 rounded-lg p-1.5"
+          style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.5)" }}>
+          <p className="px-2 py-1.5 text-[11px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Rol · {member.nombre.split(" ")[0]}</p>
+          {allRoles.map(r => {
+            const active = r.name === member.role
+            return (
+              <button key={r.name} onClick={() => onPick(r.name)}
+                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md transition text-left"
+                style={{ background: active ? "rgba(255,255,255,0.05)" : "transparent" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                onMouseLeave={e => (e.currentTarget.style.background = active ? "rgba(255,255,255,0.05)" : "transparent")}>
+                <RoleTag role={r.name} color={r.color} />
+                {active && <span style={{ color: r.color, fontSize: 12 }}>✓</span>}
+              </button>
+            )
+          })}
+          <div className="my-1 h-px" style={{ background: "var(--border)" }} />
+          <button onClick={onRemove} className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition"
+            style={{ color: "rgba(235,87,87,0.8)" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(235,87,87,0.08)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Quitar del equipo</button>
+        </div>
       )}
+    </div>
+  )
+}
+
+function AddMemberButton({ open, onToggle, onClose, selectedUser, onSelectUser, onBack, onAdd }: {
+  open: boolean; onToggle: () => void; onClose: () => void
+  selectedUser: string | null; onSelectUser: (id: string) => void
+  onBack: () => void; onAdd: (userId: string, role: string) => Promise<void>
+}) {
+  const { allUsers, members, allRoles } = useWF()
+  const ref = useOutsideClick<HTMLDivElement>(onClose)
+  const available = allUsers.filter(u => !members.some(m => m.id === u.id))
+  const picked = selectedUser ? allUsers.find(u => u.id === selectedUser) : null
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={onToggle} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium transition"
+        style={{ background: open ? "rgba(94,106,210,0.14)" : "var(--surface)", border: open ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)", color: open ? "#aab2f0" : "var(--text-dim)" }}>
+        + Añadir
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-30 w-60 rounded-lg p-1.5"
+          style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.5)" }}>
+          {available.length === 0 ? (
+            <p className="px-2 py-3 text-[12px] text-center" style={{ color: "var(--text-dim)" }}>Todos los usuarios ya están en el equipo</p>
+          ) : picked && selectedUser ? (
+            <>
+              <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
+                <button onClick={onBack} className="text-[11px] transition" style={{ color: "var(--text-dim)" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>← Volver</button>
+                <span className="text-[12px] font-medium text-white truncate">{picked.nombre}</span>
+              </div>
+              <p className="px-2 py-1 text-[11px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Selecciona un rol</p>
+              {allRoles.map(r => (
+                <button key={r.name} onClick={() => onAdd(selectedUser, r.name)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition text-left"
+                  style={{ background: "transparent" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <RoleTag role={r.name} color={r.color} />
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              <p className="px-2 py-1.5 text-[11px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Añadir al equipo</p>
+              {available.map((u, idx) => {
+                const color = MEMBER_COLORS[idx % MEMBER_COLORS.length]
+                return (
+                  <button key={u.id} onClick={() => onSelectUser(u.id)}
+                    className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition text-left"
+                    style={{ background: "transparent" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    {u.avatar ? (
+                      <img src={u.avatar} alt={u.nombre} className="w-6 h-6 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-semibold shrink-0" style={{ background: color }}>
+                        {(u.nombre || "?")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-[13px] text-white truncate">{u.nombre}</span>
+                  </button>
+                )
+              })}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CreateRoleButton({ open, onToggle, onClose, onSave }: {
+  open: boolean; onToggle: () => void; onClose: () => void; onSave: (r: CustomRole) => void
+}) {
+  const [name, setName]   = useState("")
+  const [color, setColor] = useState("#a78bfa")
+  const ref = useOutsideClick<HTMLDivElement>(onClose)
+  const save = () => {
+    if (!name.trim()) return
+    onSave({ id: crypto.randomUUID(), name: name.trim(), color })
+    setName(""); setColor("#a78bfa"); onClose()
+  }
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={onToggle} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium transition"
+        style={{ background: open ? "rgba(167,139,250,0.12)" : "var(--surface)", border: open ? "1px solid rgba(167,139,250,0.4)" : "1px solid var(--border)", color: open ? "#c4b5fd" : "var(--text-dim)" }}>
+        + Crear rol
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-30 w-56 rounded-lg p-3"
+          style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.5)" }}>
+          <p className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--text-dimmer)" }}>Nuevo rol</p>
+          <input autoFocus value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && save()}
+            placeholder="Nombre del rol…" className="field-input w-full px-2.5 py-1.5 rounded-md text-[13px] mb-2" />
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[11px]" style={{ color: "var(--text-dim)" }}>Color</span>
+            <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-7 h-7 rounded cursor-pointer border-0 bg-transparent" />
+            <span className="text-[11px] px-2 py-0.5 rounded-md font-medium"
+              style={{ background: `${color}1a`, color, border: `1px solid ${color}33` }}>{name || "Vista previa"}</span>
+          </div>
+          <button onClick={save} disabled={!name.trim()} className="w-full py-1.5 rounded-md text-[12px] font-semibold transition disabled:opacity-40"
+            style={{ background: color, color: "#fff" }}>Crear</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FocusPill({ active, onClick, label, avatar }: {
+  active: boolean; onClick: () => void; label: string; avatar?: React.ReactNode
+}) {
+  return (
+    <button onClick={onClick} className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
+      style={{ background: active ? "rgba(94,106,210,0.14)" : "var(--surface)", border: active ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)", color: active ? "#aab2f0" : "var(--text-dim)" }}>
+      {avatar ?? <span className="w-2 h-2 rounded-full" style={{ background: active ? "#5e6ad2" : "var(--text-dimmer)" }} />}
       {label}
     </button>
   )
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// B) TARJETA DE TAREA
-// ════════════════════════════════════════════════════════════════════════════
-function TaskCard({
-  task,
-  member,
-  members,
-  onDragStart,
-  onMove,
-  onToggleBlocked,
-  onDelete,
-}: {
-  task: Task
-  member: Member
-  members: Member[]
-  onDragStart: () => void
-  onMove: (s: Status) => void
-  onToggleBlocked: () => void
-  onDelete: () => void
+function ActionBtn({ onClick, label, hint, title, active }: {
+  onClick: () => void; label: string; hint?: string; title?: string; active?: boolean
+}) {
+  return (
+    <button onClick={onClick} title={title} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium transition"
+      style={{ background: active ? "rgba(255,255,255,0.07)" : "var(--surface)", border: "1px solid var(--border)", color: active ? "#fff" : "var(--text-dim)" }}
+      onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+      onMouseLeave={e => (e.currentTarget.style.color = active ? "#fff" : "var(--text-dim)")}>
+      <span className="hidden sm:inline">{label}</span>
+      {hint && <span className="text-[10px] opacity-40 hidden md:inline">{hint}</span>}
+    </button>
+  )
+}
+
+function TaskCard({ task, member, onDragStart, onMove, onToggleBlocked, onDelete }: {
+  task: Task; member: Member
+  onDragStart: () => void; onMove: (s: Status) => void
+  onToggleBlocked: () => void; onDelete: () => void
 }) {
   const [menu, setMenu] = useState(false)
   const ref = useOutsideClick<HTMLDivElement>(() => setMenu(false))
-
+  const soon    = isDueSoon(task.due_date)
+  const overdue = isDueOverdue(task.due_date)
+  const borderColor = task.blocked ? "rgba(242,153,74,0.45)"
+    : overdue ? "rgba(235,87,87,0.4)" : soon ? "rgba(242,153,74,0.3)" : "var(--border)"
+  const glowStyle = soon || overdue
+    ? { boxShadow: `0 0 0 1px ${overdue ? "rgba(235,87,87,0.15)" : "rgba(242,153,74,0.12)"}` } : {}
   return (
-    <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = "move"
-        onDragStart()
-      }}
-      className="group relative rounded-lg p-3 cursor-grab active:cursor-grabbing animate-in"
-      style={{
-        background: "var(--surface)",
-        border: task.blocked
-          ? "1px solid rgba(242,153,74,0.45)"
-          : "1px solid var(--border)",
-        boxShadow: task.blocked ? "0 0 0 1px rgba(242,153,74,0.12)" : undefined,
-      }}
-    >
-      {/* Fila superior: prioridad + menú */}
+    <div draggable onDragStart={e => { e.dataTransfer.effectAllowed = "move"; onDragStart() }}
+      className="group relative rounded-lg p-3 cursor-grab active:cursor-grabbing"
+      style={{ background: "var(--surface)", border: `1px solid ${borderColor}`, ...glowStyle }}>
       <div className="flex items-center justify-between gap-2 mb-2">
         <PriorityTag priority={task.priority} />
         <div className="relative" ref={ref}>
-          <button
-            onClick={() => setMenu((v) => !v)}
+          <button onClick={() => setMenu(v => !v)}
             className="w-6 h-6 -mr-1 rounded-md flex items-center justify-center text-[15px] leading-none opacity-0 group-hover:opacity-100 transition"
             style={{ color: "var(--text-dim)" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "rgba(255,255,255,0.06)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "transparent")
-            }
-            aria-label="Opciones de tarea"
-          >
-            ⋯
-          </button>
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>⋯</button>
           {menu && (
-            <div
-              className="absolute right-0 top-full mt-1 z-30 w-48 rounded-lg p-1.5 animate-in"
-              style={{
-                background: "#17191b",
-                border: "1px solid var(--border-strong)",
-                boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-              }}
-            >
-              <p
-                className="px-2 py-1 text-[10px] uppercase tracking-wider"
-                style={{ color: "var(--text-dimmer)" }}
-              >
-                Mover a
-              </p>
-              {COLUMNS.map((c) => (
-                <button
-                  key={c.status}
-                  onClick={() => {
-                    onMove(c.status)
-                    setMenu(false)
-                  }}
+            <div className="absolute right-0 top-full mt-1 z-30 w-48 rounded-lg p-1.5"
+              style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.5)" }}>
+              <p className="px-2 py-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Mover a</p>
+              {COLUMNS.map(c => (
+                <button key={c.status} onClick={() => { onMove(c.status); setMenu(false) }}
                   disabled={c.status === task.status}
-                  className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition disabled:opacity-40"
+                  className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition disabled:opacity-35"
                   style={{ color: "var(--text)" }}
-                  onMouseEnter={(e) => {
-                    if (c.status !== task.status)
-                      e.currentTarget.style.background = "rgba(255,255,255,0.05)"
-                  }}
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                >
-                  {c.label}
-                </button>
+                  onMouseEnter={e => { if (c.status !== task.status) e.currentTarget.style.background = "rgba(255,255,255,0.05)" }}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>{c.label}</button>
               ))}
               <div className="my-1 h-px" style={{ background: "var(--border)" }} />
-              <button
-                onClick={() => {
-                  onToggleBlocked()
-                  setMenu(false)
-                }}
+              <button onClick={() => { onToggleBlocked(); setMenu(false) }}
                 className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition"
                 style={{ color: task.blocked ? "#22c55e" : "#f2994a" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(255,255,255,0.05)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                 {task.blocked ? "Desbloquear" : "Marcar bloqueado"}
               </button>
-              <button
-                onClick={() => {
-                  onDelete()
-                  setMenu(false)
-                }}
+              <button onClick={() => { onDelete(); setMenu(false) }}
                 className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition"
                 style={{ color: "rgba(235,87,87,0.85)" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(235,87,87,0.1)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                Eliminar
-              </button>
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(235,87,87,0.1)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Eliminar</button>
             </div>
           )}
         </div>
       </div>
-
-      {/* Título + descripción */}
-      <p className="text-[13.5px] font-medium text-white leading-snug">
-        {task.title}
-      </p>
+      <p className="text-[13.5px] font-medium text-white leading-snug">{task.title}</p>
       {task.description && (
-        <p
-          className="text-[12px] mt-1 leading-relaxed line-clamp-2"
-          style={{ color: "var(--text-dim)" }}
-        >
-          {task.description}
-        </p>
+        <p className="text-[12px] mt-1 leading-relaxed line-clamp-2" style={{ color: "var(--text-dim)" }}>{task.description}</p>
       )}
-
-      {/* 2) Indicador de bloqueo */}
-      {task.blocked && (
-        <div
-          className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium"
-          style={{
-            background: "rgba(242,153,74,0.12)",
-            color: "#f2994a",
-            border: "1px solid rgba(242,153,74,0.3)",
-          }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#f2994a" }} />
-          Bloqueado · necesita ayuda
+      {task.due_date && (
+        <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium"
+          style={{ background: overdue ? "rgba(235,87,87,0.12)" : "rgba(242,153,74,0.1)", color: overdue ? "#eb5757" : "#f2994a", border: `1px solid ${overdue ? "rgba(235,87,87,0.3)" : "rgba(242,153,74,0.25)"}` }}>
+          {overdue ? "⏰ Vencida" : "📅"} {new Date(task.due_date).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
         </div>
       )}
-
-      {/* Fila inferior: assignee a la derecha */}
+      {task.blocked && (
+        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium"
+          style={{ background: "rgba(242,153,74,0.12)", color: "#f2994a", border: "1px solid rgba(242,153,74,0.3)" }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#f2994a" }} />Bloqueado
+        </div>
+      )}
       <div className="flex items-center justify-end mt-3">
-        <MemberAvatar member={member} members={members} size={24} />
+        <MemberAvatar member={member} size={24} />
       </div>
     </div>
   )
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 3) MODAL DE CREACIÓN DE TAREA
-// ════════════════════════════════════════════════════════════════════════════
-function CreateTaskModal({
-  status,
-  members,
-  defaultAssignee,
-  onClose,
-  onCreate,
-}: {
-  status: Status
-  members: Member[]
-  defaultAssignee: string
-  onClose: () => void
-  onCreate: (data: Omit<Task, "id">) => void
+function CreateTaskModal({ status, defaultAssignee, onClose, onCreate }: {
+  status: Status; defaultAssignee: string
+  onClose: () => void; onCreate: (d: Omit<Task, "id">) => void
 }) {
-  const [title, setTitle] = useState("")
+  const { members } = useWF()
+  const [title, setTitle]           = useState("")
   const [description, setDescription] = useState("")
-  const [priority, setPriority] = useState<Priority>("Media")
-  const [assignee, setAssignee] = useState(defaultAssignee || members[0]?.id || "")
-
-  const columnLabel = COLUMNS.find((c) => c.status === status)?.label ?? ""
-
+  const [priority, setPriority]     = useState<Priority>("Media")
+  const [assignee, setAssignee]     = useState(defaultAssignee || members[0]?.id || "")
+  const [dueDate, setDueDate]       = useState("")
   const submit = () => {
     if (!title.trim()) return
-    onCreate({
-      title: title.trim(),
-      description: description.trim(),
-      priority,
-      status,
-      assignee,
-      blocked: false,
-    })
+    onCreate({ title: title.trim(), description: description.trim(), priority, status, assignee: assignee || null, blocked: false, due_date: dueDate || null })
   }
-
   useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose()
-    document.addEventListener("keydown", onEsc)
-    return () => document.removeEventListener("keydown", onEsc)
+    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose()
+    document.addEventListener("keydown", h)
+    return () => document.removeEventListener("keydown", h)
   }, [onClose])
-
+  const colLabel = COLUMNS.find(c => c.status === status)?.label ?? ""
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh]"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }}
-      onMouseDown={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-xl p-5 animate-in"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border-strong)",
-          boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh]"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }} onMouseDown={onClose}>
+      <div className="w-full max-w-md rounded-xl p-5"
+        style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}
+        onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[15px] font-semibold text-white">Nueva tarea</h3>
-          <span
-            className="text-[11px] px-2 py-0.5 rounded-md"
-            style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}
-          >
-            {columnLabel}
-          </span>
+          <span className="text-[11px] px-2 py-0.5 rounded-md" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}>{colLabel}</span>
         </div>
-
-        <input
-          autoFocus
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder="Título de la tarea"
-          className="field-input w-full px-3.5 py-2 rounded-md text-[14px] mb-3"
-        />
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          placeholder="Descripción corta…"
-          className="field-input w-full px-3.5 py-2.5 rounded-md text-[14px] resize-none leading-relaxed mb-4"
-        />
-
-        {/* Prioridad */}
-        <p
-          className="text-[11px] font-medium uppercase tracking-wider mb-1.5"
-          style={{ color: "var(--text-dimmer)" }}
-        >
-          Prioridad
-        </p>
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {PRIORITIES.map((p) => {
-            const active = priority === p
-            const c = PRIORITY_COLOR[p]
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()} placeholder="Título de la tarea"
+          className="field-input w-full px-3.5 py-2 rounded-md text-[14px] mb-3" />
+        <textarea value={description} onChange={e => setDescription(e.target.value)}
+          rows={2} placeholder="Descripción corta…"
+          className="field-input w-full px-3.5 py-2 rounded-md text-[13px] resize-none leading-relaxed mb-3" />
+        <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "var(--text-dimmer)" }}>Prioridad</p>
+        <div className="flex gap-2 mb-3 flex-wrap">
+          {PRIORITIES.map(p => {
+            const c = PRIORITY_COLOR[p]; const active = priority === p
             return (
-              <button
-                key={p}
-                onClick={() => setPriority(p)}
+              <button key={p} onClick={() => setPriority(p)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition"
-                style={{
-                  background: active ? `${c}1f` : "rgba(255,255,255,0.03)",
-                  color: active ? c : "var(--text-dim)",
-                  border: `1px solid ${active ? `${c}55` : "var(--border)"}`,
-                }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />
-                {p}
+                style={{ background: active ? `${c}1f` : "rgba(255,255,255,0.03)", color: active ? c : "var(--text-dim)", border: `1px solid ${active ? `${c}55` : "var(--border)"}` }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />{p}
               </button>
             )
           })}
         </div>
-
-        {/* Asignar a */}
-        <p
-          className="text-[11px] font-medium uppercase tracking-wider mb-1.5"
-          style={{ color: "var(--text-dimmer)" }}
-        >
-          Asignar a
-        </p>
-        <div className="flex gap-2 mb-5 flex-wrap">
-          {members.map((m) => {
-            const active = assignee === m.id
-            return (
-              <button
-                key={m.id}
-                onClick={() => setAssignee(m.id)}
-                className="flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
-                style={{
-                  background: active ? "rgba(94,106,210,0.14)" : "rgba(255,255,255,0.03)",
-                  border: active
-                    ? "1px solid rgba(94,106,210,0.45)"
-                    : "1px solid var(--border)",
-                  color: active ? "#aab2f0" : "var(--text-dim)",
-                }}
-              >
-                <MemberAvatar member={m} members={members} size={18} />
-                {m.nombre.split(" ")[0]}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Acciones */}
+        {members.length > 0 && (
+          <>
+            <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "var(--text-dimmer)" }}>Asignar a</p>
+            <div className="flex gap-2 mb-3 flex-wrap">
+              {members.map(m => {
+                const active = assignee === m.id
+                return (
+                  <button key={m.id} onClick={() => setAssignee(m.id)}
+                    className="flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
+                    style={{ background: active ? "rgba(94,106,210,0.14)" : "rgba(255,255,255,0.03)", border: active ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)", color: active ? "#aab2f0" : "var(--text-dim)" }}>
+                    <MemberAvatar member={m} size={18} />{m.nombre.split(" ")[0]}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+        <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "var(--text-dimmer)" }}>Fecha límite (opcional)</p>
+        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+          className="field-input w-full px-3.5 py-2 rounded-md text-[13px] mb-5" style={{ colorScheme: "dark" }} />
         <div className="flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-3.5 py-2 rounded-md text-[13px] font-medium transition"
-            style={{ color: "var(--text-dim)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={submit}
-            disabled={!title.trim()}
-            className="px-4 py-2 rounded-md text-[13px] font-semibold bg-white text-black transition hover:bg-white/90 disabled:opacity-40"
-          >
+          <button onClick={onClose} className="px-3.5 py-2 rounded-md text-[13px] font-medium transition" style={{ color: "var(--text-dim)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>Cancelar</button>
+          <button onClick={submit} disabled={!title.trim()}
+            className="px-4 py-2 rounded-md text-[13px] font-semibold bg-white text-black transition hover:bg-white/90 disabled:opacity-40">
             Crear tarea
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function SearchModal({ query, onQueryChange, onClose }: {
+  query: string; onQueryChange: (v: string) => void; onClose: () => void
+}) {
+  const { searchResults, members } = useWF()
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    inputRef.current?.focus()
+    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose()
+    document.addEventListener("keydown", h)
+    return () => document.removeEventListener("keydown", h)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh]"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(3px)" }} onMouseDown={onClose}>
+      <div className="w-full max-w-lg rounded-xl overflow-hidden"
+        style={{ background: "#131416", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 60px rgba(0,0,0,0.7)" }}
+        onMouseDown={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+          <span style={{ color: "var(--text-dim)", fontSize: 14 }}>🔍</span>
+          <input ref={inputRef} value={query} onChange={e => onQueryChange(e.target.value)}
+            placeholder="Buscar tareas…" className="flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-[var(--text-dimmer)]" />
+          <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}>Esc</span>
+        </div>
+        <div className="max-h-72 overflow-y-auto">
+          {!query.trim() && <p className="text-[12px] text-center py-8" style={{ color: "var(--text-dimmer)" }}>Escribe para buscar tareas…</p>}
+          {query.trim() && searchResults.length === 0 && <p className="text-[12px] text-center py-8" style={{ color: "var(--text-dimmer)" }}>Sin resultados para "{query}"</p>}
+          {searchResults.map(t => {
+            const col = COLUMNS.find(c => c.status === t.status)
+            const m   = members.find(x => x.id === t.assignee)
+            const c   = PRIORITY_COLOR[t.priority]
+            return (
+              <div key={t.id} className="flex items-center gap-3 px-4 py-2.5 cursor-default"
+                style={{ borderBottom: "1px solid var(--border)" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-white truncate">{t.title}</p>
+                  {t.description && <p className="text-[11px] truncate" style={{ color: "var(--text-dim)" }}>{t.description}</p>}
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md shrink-0" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}>{col?.label}</span>
+                {m && <span className="text-[11px] shrink-0" style={{ color: "var(--text-dimmer)" }}>{m.nombre.split(" ")[0]}</span>}
+              </div>
+            )
+          })}
+        </div>
+        {searchResults.length > 0 && <p className="text-[10px] text-center py-2" style={{ color: "var(--text-dimmer)" }}>{searchResults.length} resultado{searchResults.length !== 1 ? "s" : ""}</p>}
+      </div>
+    </div>
+  )
+}
+
+function ActivityPanel({ activity, onClose }: { activity: ActivityEntry[]; onClose: () => void }) {
+  return (
+    <div className="shrink-0 w-64 flex flex-col border-l overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
+      <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+        <span className="text-[12px] font-semibold text-white">Actividad reciente</span>
+        <button onClick={onClose} className="w-5 h-5 flex items-center justify-center rounded text-[13px] transition" style={{ color: "var(--text-dim)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {activity.length === 0 ? (
+          <p className="text-[11px] text-center py-8" style={{ color: "var(--text-dimmer)" }}>Aún no hay actividad en esta sesión.</p>
+        ) : (
+          <div className="flex flex-col">
+            {activity.map(a => (
+              <div key={a.id} className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+                <p className="text-[12px] text-white leading-snug">{a.text}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-dimmer)" }}>{fmtRel(a.time)}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
