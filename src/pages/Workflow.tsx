@@ -33,22 +33,61 @@ const COLUMNS: { status: Status; label: string; desc: string }[] = [
   { status: "review",   label: "En Revisión", desc: "Tareas terminadas esperando feedback o aprobación." },
   { status: "done",     label: "Completado",  desc: "Hitos alcanzados con éxito por el equipo." },
 ]
-const BASE_ROLES = [
-  { name: "Product Manager",  color: "#5e6ad2" },
-  { name: "Lead Developer",   color: "#3b82f6" },
-  { name: "Growth Marketer",  color: "#22c55e" },
-  { name: "Designer",         color: "#ec4899" },
-  { name: "Sin rol",          color: "#8a8f98" },
+// ── 50+ roles organizados por categoría ──
+const ROLE_CATEGORIES = [
+  { label: "Negocio",            emoji: "🏢", color: "#5e6ad2", roles: ["CEO / Fundador","Director General","COO / Operaciones","Responsable de Producto","Estratega de Negocio","Inversor / Business Angel","Asesor Empresarial","Director Comercial","Responsable de Ventas","Ejecutivo de Cuentas","Director de Expansión","Jefe de Proyecto","Responsable de Alianzas","CFO / Finanzas"] },
+  { label: "Tecnología",         emoji: "💻", color: "#3b82f6", roles: ["Desarrollador Full Stack","Desarrollador Frontend","Desarrollador Backend","Desarrollador Móvil","Arquitecto de Software","DevOps / Infraestructura","Ingeniero de Datos","Científico de Datos","Experto en IA / ML","Seguridad Informática","QA / Control de Calidad","CTO / Director Técnico","Administrador de Sistemas","Experto en Blockchain","Ingeniero de Software"] },
+  { label: "Diseño",             emoji: "🎨", color: "#ec4899", roles: ["Diseñador UX / UI","Diseñador Gráfico","Diseñador de Producto","Diseñador de Marca","Motion Designer","Ilustrador / Artista","Director Creativo","Diseñador Web","Fotógrafo / Videógrafo","Diseñador de Experiencias"] },
+  { label: "Marketing y Ventas", emoji: "📢", color: "#22c55e", roles: ["Director de Marketing","Especialista en Growth","Community Manager","Responsable de RRSS","SEO / SEM","Creador de Contenido","Director de Marca","Copywriter / Redactor","Email Marketing","Responsable de PR","Influencer / Creator","Publicidad Digital","Representante de Ventas"] },
+  { label: "Legal y Finanzas",   emoji: "⚖️", color: "#f59e0b", roles: ["Abogado / Asesor Legal","Gestor Financiero","Contable / Asesor Fiscal","Responsable de RRHH","Asesor de Cumplimiento","Analista Financiero","Director Financiero"] },
+  { label: "Otros",              emoji: "✨", color: "#8a8f98", roles: ["Mentor / Coach","Consultor Independiente","Investigador / Académico","Estudiante / En formación","Freelancer","Sin rol definido"] },
 ]
+const ALL_ROLES_FLAT = ROLE_CATEGORIES.flatMap(c => c.roles.map(name => ({ name, color: c.color, category: c.label })))
+const MAIN_QUICK_ROLES = [
+  { name: "Negocio",     color: "#5e6ad2", emoji: "🏢", desc: "Estrategia, producto y operaciones" },
+  { name: "Tecnología",  color: "#3b82f6", emoji: "💻", desc: "Desarrollo, datos e infraestructura" },
+  { name: "Creatividad", color: "#ec4899", emoji: "🎨", desc: "Diseño, marketing y contenido"       },
+]
+// Cuestionario de descubrimiento de rol
+const QUIZ_AREAS = [
+  { value: "negocio",     label: "Dirijo, decido y gestiono el negocio", emoji: "🏢" },
+  { value: "tecnologia",  label: "Construyo, programo y resuelvo técnico", emoji: "💻" },
+  { value: "diseno",      label: "Diseño y creo visualmente", emoji: "🎨" },
+  { value: "marketing",   label: "Vendo, conecto y comunico", emoji: "📢" },
+  { value: "legal",       label: "Gestiono lo legal y financiero", emoji: "⚖️" },
+]
+const QUIZ_LEVELS = [
+  { value: "junior", label: "Estoy empezando / Aprendiendo", emoji: "🌱" },
+  { value: "mid",    label: "Tengo experiencia media",       emoji: "🚀" },
+  { value: "senior", label: "Soy senior / Experto",          emoji: "⭐" },
+]
+const ROLE_SUGGESTIONS: Record<string, string[]> = {
+  "negocio-junior":    ["Jefe de Proyecto","Responsable de Ventas","Ejecutivo de Cuentas"],
+  "negocio-mid":       ["Responsable de Producto","Director Comercial","Estratega de Negocio"],
+  "negocio-senior":    ["CEO / Fundador","Director General","COO / Operaciones"],
+  "tecnologia-junior": ["Desarrollador Frontend","Desarrollador Backend","QA / Control de Calidad"],
+  "tecnologia-mid":    ["Desarrollador Full Stack","Desarrollador Móvil","Ingeniero de Datos"],
+  "tecnologia-senior": ["CTO / Director Técnico","Arquitecto de Software","Experto en IA / ML"],
+  "diseno-junior":     ["Diseñador Gráfico","Diseñador Web","Ilustrador / Artista"],
+  "diseno-mid":        ["Diseñador UX / UI","Diseñador de Producto","Diseñador de Marca"],
+  "diseno-senior":     ["Director Creativo","Diseñador de Experiencias","Motion Designer"],
+  "marketing-junior":  ["Community Manager","Creador de Contenido","Copywriter / Redactor"],
+  "marketing-mid":     ["Especialista en Growth","SEO / SEM","Responsable de RRSS"],
+  "marketing-senior":  ["Director de Marketing","Director de Marca","Responsable de PR"],
+  "legal-junior":      ["Contable / Asesor Fiscal","Analista Financiero","Responsable de RRHH"],
+  "legal-mid":         ["Gestor Financiero","Abogado / Asesor Legal","Asesor de Cumplimiento"],
+  "legal-senior":      ["Director Financiero","CFO / Finanzas","Asesor Empresarial"],
+}
+
 const PRIORITIES: Priority[] = ["Urgente", "Alta", "Media", "Baja"]
 const PRIORITY_COLOR: Record<Priority, string> = {
   Urgente: "#eb5757", Alta: "#f2994a", Media: "#e2b93b", Baja: "#8a8f98",
 }
 const MEMBER_COLORS = ["#5e6ad2", "#3b82f6", "#22c55e", "#ec4899", "#f2994a", "#06b6d4", "#a78bfa", "#f472b6"]
-const FALLBACK_MEMBER: Member = { id: "", nombre: "Sin asignar", avatar: null, role: "Sin rol", joinedAt: new Date().toISOString() }
+const FALLBACK_MEMBER: Member = { id: "", nombre: "Sin asignar", avatar: null, role: "Sin rol definido", joinedAt: new Date().toISOString() }
 const CUSTOM_ROLES_KEY  = "nes_custom_roles"
 const MILESTONES_KEY    = "nes_milestones"
-const CRITICAL_ROLES    = ["Lead Developer", "Designer", "Product Manager"]
+const CRITICAL_ROLES    = ["CTO / Director Técnico", "Diseñador UX / UI", "Responsable de Producto"]
 
 // ══════════════════════════════════════════════════════════════════
 // HELPERS
@@ -233,7 +272,7 @@ export default function Workflow() {
   const dragId = useRef<string | null>(null)
 
   const allRoles = useMemo(
-    () => [...BASE_ROLES, ...customRoles.map(r => ({ name: r.name, color: r.color }))],
+    () => [...ALL_ROLES_FLAT.map(r => ({ name: r.name, color: r.color })), ...customRoles.map(r => ({ name: r.name, color: r.color }))],
     [customRoles]
   )
 
@@ -434,6 +473,13 @@ export default function Workflow() {
 
   return (
     <WFContext.Provider value={ctx}>
+      <style>{`
+        @keyframes wf-pop{0%{transform:translate(-50%,-50%) scale(0);opacity:0}65%{transform:translate(-50%,-50%) scale(1.06);opacity:1}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+        @keyframes modal-pop{0%{opacity:0;transform:scale(0.92) translateY(8px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+        @keyframes wf-float{0%,100%{transform:translate(-50%,-50%) translateY(0px)}50%{transform:translate(-50%,-50%) translateY(-5px)}}
+        @keyframes wf-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,106,210,0.3),0 0 0 0 rgba(94,106,210,0.1)}50%{box-shadow:0 0 0 12px rgba(94,106,210,0.07),0 0 0 24px rgba(94,106,210,0.02)}}
+        @keyframes wf-diamond-pulse{0%,100%{opacity:0.7}50%{opacity:1}}
+      `}</style>
       <div className="flex flex-col" style={{ height: "calc(100vh - 3.5rem)" }}>
         {/* ── HEADER ── */}
         <header className="shrink-0 px-5 md:px-6 pt-5 pb-0">
@@ -1273,6 +1319,275 @@ function MilestoneModal({ onSave, onClose }: { onSave: (label: string, color: st
 }
 
 // ══════════════════════════════════════════════════════════════════
+// ALL ROLES MODAL — cuestionario + buscador lateral
+// ══════════════════════════════════════════════════════════════════
+function AllRolesModal({ onPick, onClose, currentRole = "" }: {
+  onPick: (role: string) => void; onClose: () => void; currentRole?: string
+}) {
+  const [step, setStep] = useState<"q1" | "q2" | "result">("q1")
+  const [area, setArea]   = useState("")
+  const [level, setLevel] = useState("")
+  const [search, setSearch]     = useState("")
+  const [catFilter, setCatFilter] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose()
+    document.addEventListener("keydown", h)
+    return () => document.removeEventListener("keydown", h)
+  }, [onClose])
+
+  useEffect(() => { if (step === "q1") inputRef.current?.focus() }, [step])
+
+  const suggestions = area && level ? (ROLE_SUGGESTIONS[`${area}-${level}`] ?? []) : []
+  const filteredRoles = ALL_ROLES_FLAT.filter(r =>
+    r.name.toLowerCase().includes(search.toLowerCase()) &&
+    (!catFilter || r.category === catFilter)
+  )
+
+  const handle = (role: string) => { onPick(role); onClose() }
+
+  return (
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center px-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }}
+      onMouseDown={onClose}>
+      <div className="w-full max-w-2xl flex rounded-2xl overflow-hidden"
+        style={{ background: "#131416", border: "1px solid rgba(255,255,255,0.1)",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.85)", maxHeight: "82vh",
+          animation: "modal-pop 0.28s cubic-bezier(0.34,1.2,0.64,1) both" }}
+        onMouseDown={e => e.stopPropagation()}>
+
+        {/* ── LEFT: Cuestionario ── */}
+        <div className="flex-1 flex flex-col p-5 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <div>
+              <h2 className="text-[16px] font-semibold text-white">Encuentra tu rol</h2>
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-dimmer)" }}>Responde 2 preguntas y te recomendamos el perfil ideal.</p>
+            </div>
+            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-[13px] transition shrink-0"
+              style={{ color: "var(--text-dim)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
+          </div>
+
+          {/* Step indicator */}
+          <div className="flex gap-1.5 mb-4 shrink-0">
+            {(["q1","q2","result"] as const).map((s, i) => (
+              <div key={s} className="flex-1 h-0.5 rounded-full transition-all duration-400"
+                style={{ background: s === step || (step === "result" && i <= 2) ? "#5e6ad2" : "rgba(255,255,255,0.1)" }} />
+            ))}
+          </div>
+
+          {/* Q1 */}
+          {step === "q1" && (
+            <div className="flex flex-col gap-2 flex-1">
+              <p className="text-[14px] font-medium text-white mb-1">¿Cuál describe mejor lo que haces?</p>
+              {QUIZ_AREAS.map(opt => (
+                <button key={opt.value} onClick={() => { setArea(opt.value); setStep("q2") }}
+                  className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition group"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(94,106,210,0.1)"; e.currentTarget.style.borderColor = "rgba(94,106,210,0.35)" }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
+                  <span style={{ fontSize: 20 }}>{opt.emoji}</span>
+                  <span className="text-[13px] text-white">{opt.label}</span>
+                  <span className="ml-auto text-[12px] opacity-0 group-hover:opacity-100 transition" style={{ color: "#5e6ad2" }}>→</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Q2 */}
+          {step === "q2" && (
+            <div className="flex flex-col gap-2 flex-1">
+              <button onClick={() => setStep("q1")} className="flex items-center gap-1.5 mb-2 text-[11px] transition w-fit"
+                style={{ color: "var(--text-dim)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
+                ← Volver
+              </button>
+              <p className="text-[14px] font-medium text-white mb-1">¿Cuál es tu nivel de experiencia?</p>
+              {QUIZ_LEVELS.map(opt => (
+                <button key={opt.value} onClick={() => { setLevel(opt.value); setStep("result") }}
+                  className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition group"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(94,106,210,0.1)"; e.currentTarget.style.borderColor = "rgba(94,106,210,0.35)" }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
+                  <span style={{ fontSize: 20 }}>{opt.emoji}</span>
+                  <span className="text-[13px] text-white">{opt.label}</span>
+                  <span className="ml-auto text-[12px] opacity-0 group-hover:opacity-100 transition" style={{ color: "#5e6ad2" }}>→</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Result */}
+          {step === "result" && (
+            <div className="flex flex-col flex-1">
+              <button onClick={() => setStep("q2")} className="flex items-center gap-1.5 mb-3 text-[11px] transition w-fit"
+                style={{ color: "var(--text-dim)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
+                ← Volver
+              </button>
+              <p className="text-[11px] uppercase tracking-wider mb-2.5" style={{ color: "var(--text-dimmer)" }}>✨ Roles recomendados para ti</p>
+              <div className="flex flex-col gap-2">
+                {suggestions.map((name, i) => {
+                  const r = ALL_ROLES_FLAT.find(x => x.name === name)
+                  const isCurrent = name === currentRole
+                  return (
+                    <button key={name} onClick={() => handle(name)}
+                      className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition group"
+                      style={{ background: isCurrent ? `${r?.color ?? "#5e6ad2"}14` : "rgba(255,255,255,0.03)", border: `1px solid ${isCurrent ? (r?.color ?? "#5e6ad2") + "40" : "var(--border)"}`, animationDelay: `${i * 60}ms` }}
+                      onMouseEnter={e => { e.currentTarget.style.background = `${r?.color ?? "#5e6ad2"}14`; e.currentTarget.style.borderColor = `${r?.color ?? "#5e6ad2"}40` }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isCurrent ? `${r?.color ?? "#5e6ad2"}14` : "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = isCurrent ? `${r?.color ?? "#5e6ad2"}40` : "var(--border)" }}>
+                      <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold text-white"
+                        style={{ background: r?.color ?? "#5e6ad2" }}>{i + 1}</span>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-white">{name}</p>
+                        <p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{r?.category}</p>
+                      </div>
+                      <span className="ml-auto text-[11px] font-medium opacity-0 group-hover:opacity-100 transition px-2 py-0.5 rounded-md"
+                        style={{ background: `${r?.color ?? "#5e6ad2"}22`, color: r?.color ?? "#5e6ad2" }}>
+                        {isCurrent ? "✓ Actual" : "Seleccionar"}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <button onClick={() => { setStep("q1"); setArea(""); setLevel("") }}
+                className="mt-4 text-[11px] transition self-start"
+                style={{ color: "var(--text-dimmer)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "var(--text-dim)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dimmer)")}>
+                ↺ Repetir cuestionario
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT: Buscador lateral ── */}
+        <div className="w-60 shrink-0 flex flex-col border-l" style={{ borderColor: "var(--border)", background: "rgba(255,255,255,0.015)" }}>
+          <div className="p-3 shrink-0">
+            <input ref={inputRef} value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar entre todos los roles…"
+              className="field-input w-full px-2.5 py-1.5 rounded-md text-[12px]" />
+          </div>
+          {/* Category chips */}
+          <div className="flex flex-wrap gap-1 px-3 pb-2.5 shrink-0">
+            <button onClick={() => setCatFilter(null)}
+              className="text-[10px] px-2 py-0.5 rounded-full transition"
+              style={{ background: !catFilter ? "rgba(255,255,255,0.1)" : "transparent", color: !catFilter ? "#fff" : "var(--text-dimmer)", border: "1px solid var(--border)" }}>
+              Todos
+            </button>
+            {ROLE_CATEGORIES.map(c => (
+              <button key={c.label} onClick={() => setCatFilter(catFilter === c.label ? null : c.label)}
+                className="text-[10px] px-2 py-0.5 rounded-full transition"
+                style={{ background: catFilter === c.label ? `${c.color}22` : "transparent", color: catFilter === c.label ? c.color : "var(--text-dimmer)", border: `1px solid ${catFilter === c.label ? c.color + "44" : "var(--border)"}` }}>
+                {c.emoji} {c.label}
+              </button>
+            ))}
+          </div>
+          <div className="text-[10px] px-3 pb-1.5 shrink-0" style={{ color: "var(--text-dimmer)" }}>
+            {filteredRoles.length} rol{filteredRoles.length !== 1 ? "es" : ""}
+          </div>
+          {/* Role list */}
+          <div className="flex-1 overflow-y-auto">
+            {ROLE_CATEGORIES.filter(c => !catFilter || c.label === catFilter).map(cat => {
+              const roles = cat.roles.filter(r => r.toLowerCase().includes(search.toLowerCase()))
+              if (roles.length === 0) return null
+              return (
+                <div key={cat.label}>
+                  {!catFilter && (
+                    <div className="px-3 py-1.5 flex items-center gap-1.5 sticky top-0" style={{ background: "#131416" }}>
+                      <span style={{ fontSize: 11 }}>{cat.emoji}</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: cat.color }}>{cat.label}</span>
+                    </div>
+                  )}
+                  {roles.map(name => {
+                    const isCurrent = name === currentRole
+                    return (
+                      <button key={name} onClick={() => handle(name)}
+                        className="w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 transition group"
+                        style={{ background: isCurrent ? `${cat.color}10` : "transparent" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = `${cat.color}10`)}
+                        onMouseLeave={e => (e.currentTarget.style.background = isCurrent ? `${cat.color}10` : "transparent")}>
+                        <span className="text-[12px] text-white truncate">{name}</span>
+                        {isCurrent
+                          ? <span className="text-[10px] shrink-0" style={{ color: cat.color }}>✓</span>
+                          : <span className="text-[10px] shrink-0 opacity-0 group-hover:opacity-100 transition" style={{ color: "var(--text-dimmer)" }}>→</span>
+                        }
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Mini role picker para AddMemberButton ──
+function AddMemberRolePicker({ userName, onBack, onPick }: {
+  userName: string; onBack: () => void; onPick: (role: string) => void
+}) {
+  const [search, setSearch] = useState("")
+  const [showAll, setShowAll] = useState(false)
+
+  return (
+    <>
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <button onClick={onBack} className="text-[11px] transition" style={{ color: "var(--text-dim)" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>← Volver</button>
+        <span className="text-[12px] font-medium text-white truncate">{userName}</span>
+      </div>
+      {/* Search */}
+      <div className="px-2 pb-1.5">
+        <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar rol…" className="field-input w-full px-2.5 py-1.5 rounded-md text-[12px]" />
+      </div>
+      {search ? (
+        <div className="max-h-48 overflow-y-auto pb-1.5">
+          {ALL_ROLES_FLAT.filter(r => r.name.toLowerCase().includes(search.toLowerCase())).slice(0, 10).map(r => (
+            <button key={r.name} onClick={() => onPick(r.name)}
+              className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left transition"
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+              <span className="text-[12px] text-white">{r.name}</span>
+              <span className="text-[10px] shrink-0" style={{ color: "var(--text-dimmer)" }}>{r.category}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <>
+          <p className="px-2.5 pt-0.5 pb-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Roles principales</p>
+          <div className="px-2 pb-2 flex flex-col gap-1">
+            {MAIN_QUICK_ROLES.map(r => (
+              <button key={r.name} onClick={() => onPick(r.name)}
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${r.color}14`; e.currentTarget.style.borderColor = `${r.color}40` }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
+                <span style={{ fontSize: 18 }}>{r.emoji}</span>
+                <div><p className="text-[12px] font-semibold text-white">{r.name}</p><p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{r.desc}</p></div>
+              </button>
+            ))}
+          </div>
+          <div className="border-t" style={{ borderColor: "var(--border)" }}>
+            <button onClick={() => setShowAll(true)}
+              className="w-full flex items-center justify-between px-3 py-2 text-[12px] font-medium transition"
+              style={{ color: "#aab2f0" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(94,106,210,0.08)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+              Ver todos los roles (+{ALL_ROLES_FLAT.length}) <span>→</span>
+            </button>
+          </div>
+        </>
+      )}
+      {showAll && <AllRolesModal onPick={onPick} onClose={() => setShowAll(false)} />}
+    </>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ══════════════════════════════════════════════════════════════════
 function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
@@ -1281,7 +1596,12 @@ function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
 }) {
   const { allRoles } = useWF()
   const ref = useOutsideClick<HTMLDivElement>(onClose)
+  const [search, setSearch] = useState("")
+  const [showAll, setShowAll] = useState(false)
   const color = getRoleColor(allRoles, member.role)
+
+  const handlePick = (name: string) => { onPick(name); setSearch(""); setShowAll(false) }
+
   return (
     <div className="relative" ref={ref}>
       <button onClick={onToggle} className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full transition"
@@ -1293,29 +1613,77 @@ function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
         <RoleTag role={member.role} color={color} small />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-30 w-56 rounded-lg p-1.5"
-          style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.5)" }}>
-          <p className="px-2 py-1.5 text-[11px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Rol · {member.nombre.split(" ")[0]}</p>
-          {allRoles.map(r => {
-            const active = r.name === member.role
-            return (
-              <button key={r.name} onClick={() => onPick(r.name)}
-                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md transition text-left"
-                style={{ background: active ? "rgba(255,255,255,0.05)" : "transparent" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-                onMouseLeave={e => (e.currentTarget.style.background = active ? "rgba(255,255,255,0.05)" : "transparent")}>
-                <RoleTag role={r.name} color={r.color} />
-                {active && <span style={{ color: r.color, fontSize: 12 }}>✓</span>}
-              </button>
-            )
-          })}
-          <div className="my-1 h-px" style={{ background: "var(--border)" }} />
-          <button onClick={onRemove} className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition"
-            style={{ color: "rgba(235,87,87,0.8)" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(235,87,87,0.08)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Quitar del equipo</button>
+        <div className="absolute left-0 top-full mt-2 z-30 w-64 rounded-xl overflow-hidden"
+          style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 40px rgba(0,0,0,0.6)" }}>
+          {/* Search */}
+          <div className="px-2.5 pt-2.5 pb-1.5">
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar rol…"
+              className="field-input w-full px-2.5 py-1.5 rounded-md text-[12px]" />
+          </div>
+          {search ? (
+            /* Search results */
+            <div className="max-h-52 overflow-y-auto pb-1.5">
+              {ALL_ROLES_FLAT.filter(r => r.name.toLowerCase().includes(search.toLowerCase())).slice(0, 12).map(r => (
+                <button key={r.name} onClick={() => handlePick(r.name)}
+                  className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left transition"
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <span className="text-[12px] text-white">{r.name}</span>
+                  <span className="text-[10px] shrink-0" style={{ color: "var(--text-dimmer)" }}>{r.category}</span>
+                </button>
+              ))}
+              {ALL_ROLES_FLAT.filter(r => r.name.toLowerCase().includes(search.toLowerCase())).length === 0 && (
+                <p className="text-center py-4 text-[12px]" style={{ color: "var(--text-dimmer)" }}>Sin resultados</p>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* 3 roles principales */}
+              <p className="px-2.5 pt-1 pb-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Roles principales</p>
+              <div className="px-2 pb-2 flex flex-col gap-1">
+                {MAIN_QUICK_ROLES.map(r => {
+                  const active = member.role === r.name
+                  return (
+                    <button key={r.name} onClick={() => handlePick(r.name)}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition"
+                      style={{ background: active ? `${r.color}18` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? r.color + "40" : "var(--border)"}` }}
+                      onMouseEnter={e => (e.currentTarget.style.background = `${r.color}14`)}
+                      onMouseLeave={e => (e.currentTarget.style.background = active ? `${r.color}18` : "rgba(255,255,255,0.03)")}>
+                      <span style={{ fontSize: 18 }}>{r.emoji}</span>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-semibold" style={{ color: active ? r.color : "#fff" }}>{r.name}</p>
+                        <p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{r.desc}</p>
+                      </div>
+                      {active && <span className="ml-auto text-[11px]" style={{ color: r.color }}>✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
+              {/* Ver todos */}
+              <div className="border-t" style={{ borderColor: "var(--border)" }}>
+                <button onClick={() => { setShowAll(true); onClose() }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-[12px] font-medium transition"
+                  style={{ color: "#aab2f0" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(94,106,210,0.08)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  Ver todos los roles (+{ALL_ROLES_FLAT.length})
+                  <span style={{ fontSize: 11 }}>→</span>
+                </button>
+              </div>
+            </>
+          )}
+          {/* Quitar del equipo */}
+          <div className="border-t" style={{ borderColor: "var(--border)" }}>
+            <button onClick={onRemove} className="w-full text-left px-2.5 py-2 text-[12px] transition"
+              style={{ color: "rgba(235,87,87,0.8)" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(235,87,87,0.08)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Quitar del equipo</button>
+          </div>
         </div>
       )}
+      {/* Modal de todos los roles */}
+      {showAll && <AllRolesModal currentRole={member.role} onPick={handlePick} onClose={() => setShowAll(false)} />}
     </div>
   )
 }
@@ -1341,23 +1709,11 @@ function AddMemberButton({ open, onToggle, onClose, selectedUser, onSelectUser, 
           {available.length === 0 ? (
             <p className="px-2 py-3 text-[12px] text-center" style={{ color: "var(--text-dim)" }}>Todos los usuarios ya están en el equipo</p>
           ) : picked && selectedUser ? (
-            <>
-              <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
-                <button onClick={onBack} className="text-[11px] transition" style={{ color: "var(--text-dim)" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>← Volver</button>
-                <span className="text-[12px] font-medium text-white truncate">{picked.nombre}</span>
-              </div>
-              <p className="px-2 py-1 text-[11px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Selecciona un rol</p>
-              {allRoles.map(r => (
-                <button key={r.name} onClick={() => onAdd(selectedUser, r.name)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition text-left"
-                  style={{ background: "transparent" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                  <RoleTag role={r.name} color={r.color} />
-                </button>
-              ))}
-            </>
+            <AddMemberRolePicker
+              userName={picked.nombre}
+              onBack={onBack}
+              onPick={role => onAdd(selectedUser, role)}
+            />
           ) : (
             <>
               <p className="px-2 py-1.5 text-[11px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Añadir al equipo</p>
