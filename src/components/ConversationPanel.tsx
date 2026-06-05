@@ -3,7 +3,11 @@ import type { User } from "@supabase/supabase-js"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../supabase"
 import { setLastRead } from "../lib/reads"
+import { uploadChatMedia, type AttachmentKind, type UploadResult } from "../lib/uploadMedia"
+import { useAudioRecorder } from "../hooks/useAudioRecorder"
 import Avatar from "./Avatar"
+import MessageAttachment, { type Attachment } from "./MessageAttachment"
+import CallModal, { type CallInfo } from "./CallModal"
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -14,18 +18,24 @@ export type ConversationTarget =
 
 type Msg = {
   id: string
-  text: string
+  text: string | null
   from_uid: string
   created_at: string
+  attachment_url?: string | null
+  attachment_type?: AttachmentKind | null
+  attachment_name?: string | null
+  attachment_size?: number | null
+  duration?: number | null
 }
+
+const MSG_COLS =
+  "id, text, from_uid, created_at, attachment_url, attachment_type, attachment_name, attachment_size, duration"
 
 type Props = {
   target: ConversationTarget
   user: User
   online: Set<string>
-  /** Se invoca al abrir/recibir/enviar para refrescar las listas (no leídos, orden) */
   onActivity?: () => void
-  /** Volver a la lista (solo visible en móvil) */
   onBack?: () => void
 }
 
@@ -51,24 +61,26 @@ function formatTime(iso: string): string {
   })
 }
 
+function attOf(m: Msg): Attachment | null {
+  if (!m.attachment_url || !m.attachment_type) return null
+  return {
+    url: m.attachment_url,
+    type: m.attachment_type,
+    name: m.attachment_name,
+    size: m.attachment_size,
+    duration: m.duration,
+  }
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Componente
 // ──────────────────────────────────────────────────────────────────────────────
-export default function ConversationPanel({
-  target,
-  user,
-  online,
-  onActivity,
-  onBack,
-}: Props) {
+export default function ConversationPanel({ target, user, online, onActivity, onBack }: Props) {
   const navigate = useNavigate()
 
   const isGroup = target.type === "group"
   const chatId = useMemo(
-    () =>
-      target.type === "chat"
-        ? [user.id, target.otherUserId].sort().join("_")
-        : "",
+    () => (target.type === "chat" ? [user.id, target.otherUserId].sort().join("_") : ""),
     [target, user.id]
   )
 
@@ -80,13 +92,18 @@ export default function ConversationPanel({
   const [messages, setMessages] = useState<Msg[]>([])
   const [text, setText] = useState("")
   const [sending, setSending] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [call, setCall] = useState<CallInfo | null>(null)
 
-  // Cabecera (chat: otro usuario | grupo: nombre + miembros)
+  // Cabecera
   const [headerName, setHeaderName] = useState("")
   const [headerAvatar, setHeaderAvatar] = useState<string | null>(null)
   const [membersCount, setMembersCount] = useState(0)
   const [memberNames, setMemberNames] = useState<Record<string, string>>({})
+  const [memberAvatars, setMemberAvatars] = useState<Record<string, string | null>>({})
 
+  const recorder = useAudioRecorder()
+  const fileRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
@@ -122,12 +139,17 @@ export default function ConversationPanel({
         if (group.members?.length) {
           const { data: usersData } = await supabase
             .from("users")
-            .select("id, nombre")
+            .select("id, nombre, avatar")
             .in("id", group.members)
           if (cancelled) return
-          const map: Record<string, string> = {}
-          for (const u of usersData ?? []) map[u.id] = u.nombre || "Usuario"
-          setMemberNames(map)
+          const names: Record<string, string> = {}
+          const avatars: Record<string, string | null> = {}
+          for (const u of usersData ?? []) {
+            names[u.id] = u.nombre || "Usuario"
+            avatars[u.id] = u.avatar ?? null
+          }
+          setMemberNames(names)
+          setMemberAvatars(avatars)
         }
       }
     }
@@ -144,7 +166,7 @@ export default function ConversationPanel({
 
     supabase
       .from(table)
-      .select("id, text, from_uid, created_at")
+      .select(MSG_COLS)
       .eq(filterCol, filterVal)
       .order("created_at", { ascending: true })
       .then(({ data }) => {
@@ -159,12 +181,7 @@ export default function ConversationPanel({
       .channel(`conv-${filterVal}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table,
-          filter: `${filterCol}=eq.${filterVal}`,
-        },
+        { event: "INSERT", schema: "public", table, filter: `${filterCol}=eq.${filterVal}` },
         (payload) => {
           appendUnique(payload.new as Msg)
           scrollToBottom("smooth")
@@ -188,56 +205,108 @@ export default function ConversationPanel({
     el.style.height = "auto"
     el.style.height = Math.min(el.scrollHeight, 140) + "px"
   }
-
   useEffect(() => {
     if (text === "") autoGrow()
   }, [text])
 
-  // ── Enviar ──────────────────────────────────────────────────────────────────
+  // ── Inserción genérica (texto y/o adjunto) ───────────────────────────────────
+  const insertMessage = async (payload: {
+    text: string | null
+    attachment?: UploadResult
+  }) => {
+    const att = payload.attachment
+    const base: Record<string, unknown> = {
+      text: payload.text,
+      from_uid: user.id,
+      attachment_url: att?.url ?? null,
+      attachment_type: att?.type ?? null,
+      attachment_name: att?.name ?? null,
+      attachment_size: att?.size ?? null,
+      duration: att?.duration ?? null,
+    }
+
+    if (target.type === "group") {
+      const { data: inserted } = await supabase
+        .from("group_messages")
+        .insert({ ...base, group_id: target.groupId })
+        .select(MSG_COLS)
+        .single()
+      if (inserted) appendUnique(inserted as Msg)
+      await supabase
+        .from("groups")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", target.groupId)
+    } else {
+      const sorted = [user.id, target.otherUserId].sort()
+      await supabase.from("chats").upsert({
+        id: chatId,
+        user1_id: sorted[0],
+        user2_id: sorted[1],
+        updated_at: new Date().toISOString(),
+      })
+      const { data: inserted } = await supabase
+        .from("messages")
+        .insert({ ...base, chat_id: chatId, to_uid: target.otherUserId })
+        .select(MSG_COLS)
+        .single()
+      if (inserted) appendUnique(inserted as Msg)
+    }
+    scrollToBottom("smooth")
+    setLastRead(convKey)
+    onActivity?.()
+  }
+
+  // ── Enviar texto ──────────────────────────────────────────────────────────────
   const send = async () => {
     const body = text.trim()
     if (!body || sending) return
     setSending(true)
     setText("")
     requestAnimationFrame(autoGrow)
-
     try {
-      if (target.type === "group") {
-        const { data: inserted } = await supabase
-          .from("group_messages")
-          .insert({ group_id: target.groupId, text: body, from_uid: user.id })
-          .select("id, text, from_uid, created_at")
-          .single()
-        if (inserted) appendUnique(inserted as Msg)
-        await supabase
-          .from("groups")
-          .update({ updated_at: new Date().toISOString() })
-          .eq("id", target.groupId)
-      } else {
-        const sorted = [user.id, target.otherUserId].sort()
-        await supabase.from("chats").upsert({
-          id: chatId,
-          user1_id: sorted[0],
-          user2_id: sorted[1],
-          updated_at: new Date().toISOString(),
-        })
-        const { data: inserted } = await supabase
-          .from("messages")
-          .insert({
-            chat_id: chatId,
-            text: body,
-            from_uid: user.id,
-            to_uid: target.otherUserId,
-          })
-          .select("id, text, from_uid, created_at")
-          .single()
-        if (inserted) appendUnique(inserted as Msg)
-      }
-      scrollToBottom("smooth")
-      setLastRead(convKey)
-      onActivity?.()
+      await insertMessage({ text: body })
     } finally {
       setSending(false)
+    }
+  }
+
+  // ── Enviar adjunto (imagen / archivo / audio) ────────────────────────────────
+  const sendAttachment = async (
+    blob: Blob,
+    meta: { name: string; kind?: AttachmentKind; duration?: number }
+  ) => {
+    setUploading(true)
+    try {
+      const up = await uploadChatMedia(blob, {
+        userId: user.id,
+        name: meta.name,
+        kind: meta.kind,
+        duration: meta.duration,
+      })
+      await insertMessage({ text: null, attachment: up })
+    } catch (e) {
+      console.error(e)
+      alert("No se pudo subir el archivo. Inténtalo de nuevo.")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = "" // permite re-seleccionar el mismo archivo
+    if (file) sendAttachment(file, { name: file.name })
+  }
+
+  // ── Audio ─────────────────────────────────────────────────────────────────────
+  const stopAndSendAudio = async () => {
+    const res = await recorder.stop()
+    if (res) {
+      await sendAttachment(res.blob, {
+        name: `nota-de-voz-${Date.now()}.webm`,
+        kind: "audio",
+        duration: res.duration,
+      })
     }
   }
 
@@ -248,8 +317,8 @@ export default function ConversationPanel({
     }
   }
 
-  const otherOnline =
-    target.type === "chat" && online.has(target.otherUserId)
+  const otherOnline = target.type === "chat" && online.has(target.otherUserId)
+  const recording = recorder.state === "recording"
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -266,7 +335,7 @@ export default function ConversationPanel({
         {onBack && (
           <button
             onClick={onBack}
-            className="md:hidden text-xl leading-none -ml-1 pr-1 transition-colors"
+            className="md:hidden text-xl leading-none -ml-1 pr-1"
             style={{ color: "var(--text-dim)" }}
             aria-label="Volver"
           >
@@ -297,10 +366,28 @@ export default function ConversationPanel({
           </p>
         </div>
 
+        {/* Llamadas de voz / vídeo */}
+        <button
+          onClick={() => setCall({ type: "voice", peerName: headerName, peerAvatar: headerAvatar, direction: "outgoing" })}
+          className="shrink-0 w-9 h-9 rounded-md flex items-center justify-center text-[15px] btn-linear"
+          title="Llamada de voz"
+          aria-label="Llamada de voz"
+        >
+          📞
+        </button>
+        <button
+          onClick={() => setCall({ type: "video", peerName: headerName, peerAvatar: headerAvatar, direction: "outgoing" })}
+          className="shrink-0 w-9 h-9 rounded-md flex items-center justify-center text-[15px] btn-linear"
+          title="Videollamada"
+          aria-label="Videollamada"
+        >
+          🎥
+        </button>
+
         {isGroup && (
           <button
             onClick={() => navigate(`/group/${target.groupId}/info`)}
-            className="btn-linear shrink-0 text-[12px] px-3 py-1.5 rounded-md"
+            className="btn-linear shrink-0 text-[12px] px-3 py-1.5 rounded-md hidden sm:block"
           >
             Opciones
           </button>
@@ -320,50 +407,72 @@ export default function ConversationPanel({
         {messages.map((m, i) => {
           const isMe = m.from_uid === user.id
           const prev = messages[i - 1]
-          const showSender =
-            isGroup && !isMe && (!prev || prev.from_uid !== m.from_uid)
+          const showSender = isGroup && !isMe && (!prev || prev.from_uid !== m.from_uid)
           const senderName = memberNames[m.from_uid] || "Usuario"
+          const att = attOf(m)
+          const hasText = !!(m.text && m.text.trim())
 
           return (
             <div
               key={m.id}
-              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-              style={{ marginTop: showSender ? "0.5rem" : 0 }}
+              className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+              style={{ marginTop: showSender ? "0.6rem" : 0 }}
             >
-              <div
-                className="max-w-[72%] px-3.5 py-2.5 text-[14px]"
-                style={{
-                  background: isMe ? "#2f3346" : "var(--surface-3)",
-                  color: isMe ? "#f0f1f5" : "var(--text)",
-                  border: isMe
-                    ? "1px solid rgba(94,106,210,0.25)"
-                    : "1px solid var(--border)",
-                  borderRadius: isMe
-                    ? "0.75rem 0.75rem 0.25rem 0.75rem"
-                    : "0.75rem 0.75rem 0.75rem 0.25rem",
-                }}
-              >
-                {showSender && (
-                  <p
-                    className="text-[11px] font-semibold mb-1"
-                    style={{ color: colorFor(m.from_uid) }}
-                  >
+              {/* Remitente (avatar + nombre) ENCIMA de la burbuja — minimalista */}
+              {showSender && (
+                <div className="flex items-center gap-1.5 mb-1 ml-1">
+                  <Avatar name={senderName} src={memberAvatars[m.from_uid]} size={18} />
+                  <span className="text-[11px] font-semibold" style={{ color: colorFor(m.from_uid) }}>
                     {senderName}
-                  </p>
+                  </span>
+                </div>
+              )}
+
+              <div
+                className="max-w-[78%] flex flex-col gap-1.5"
+                style={{ alignItems: isMe ? "flex-end" : "flex-start" }}
+              >
+                {att && <MessageAttachment att={att} />}
+
+                {(hasText || !att) && (
+                  <div
+                    className="px-3.5 py-2.5 text-[14px]"
+                    style={{
+                      background: isMe ? "#2f3346" : "var(--surface-3)",
+                      color: isMe ? "#f0f1f5" : "var(--text)",
+                      border: isMe
+                        ? "1px solid rgba(94,106,210,0.25)"
+                        : "1px solid var(--border)",
+                      borderRadius: isMe
+                        ? "0.75rem 0.75rem 0.25rem 0.75rem"
+                        : "0.75rem 0.75rem 0.75rem 0.25rem",
+                    }}
+                  >
+                    {hasText && (
+                      <p
+                        className="leading-relaxed"
+                        style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                      >
+                        {m.text}
+                      </p>
+                    )}
+                    <p
+                      className="text-[10px] mt-1.5 text-right flex items-center justify-end gap-1"
+                      style={{ opacity: 0.5 }}
+                    >
+                      {formatTime(m.created_at)}
+                      {isMe && <span title="Enviado">✓</span>}
+                    </p>
+                  </div>
                 )}
-                <p
-                  className="leading-relaxed"
-                  style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-                >
-                  {m.text}
-                </p>
-                <p
-                  className="text-[10px] mt-1.5 text-right flex items-center justify-end gap-1"
-                  style={{ opacity: 0.5 }}
-                >
-                  {formatTime(m.created_at)}
-                  {isMe && <span title="Enviado">✓</span>}
-                </p>
+
+                {/* Hora suelta cuando solo hay adjunto */}
+                {att && !hasText && (
+                  <span className="text-[10px] px-1" style={{ color: "var(--text-dimmer)" }}>
+                    {formatTime(m.created_at)}
+                    {isMe && " ✓"}
+                  </span>
+                )}
               </div>
             </div>
           )
@@ -372,50 +481,111 @@ export default function ConversationPanel({
       </div>
 
       {/* ENTRADA */}
-      <div
-        className="px-4 md:px-6 py-3.5 shrink-0"
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        <div
-          className="flex items-end gap-2 px-3 py-2 rounded-lg"
-          style={{
-            background: "#080710",
-            border: "1px solid var(--border-strong)",
-          }}
-        >
-          <button
-            type="button"
-            className="shrink-0 text-lg leading-none pb-1 transition-colors"
-            style={{ color: "var(--text-dimmer)" }}
-            title="Adjuntar (próximamente)"
-            tabIndex={-1}
+      <div className="px-4 md:px-6 py-3.5 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+        <input ref={fileRef} type="file" hidden onChange={onPickFile} />
+
+        {recording ? (
+          // ── Barra de grabación ──────────────────────────────────────────────
+          <div
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
+            style={{ background: "#080710", border: "1px solid var(--border-strong)" }}
           >
-            +
-          </button>
-          <textarea
-            ref={taRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value)
-              autoGrow()
-            }}
-            onKeyDown={onKeyDown}
-            rows={1}
-            placeholder="Escribe un mensaje…"
-            className="flex-1 min-w-0 bg-transparent text-white text-[14px] outline-none resize-none py-1 placeholder:text-[#62666d]"
-            style={{ caretColor: "var(--accent-blue)", maxHeight: 140 }}
-          />
-          <button
-            onClick={send}
-            disabled={!text.trim() || sending}
-            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-white text-base font-bold transition disabled:opacity-30"
-            style={{ background: "var(--accent)" }}
-            aria-label="Enviar"
+            <button
+              onClick={recorder.cancel}
+              className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
+              style={{ color: "#eb5757" }}
+              title="Cancelar"
+            >
+              🗑
+            </button>
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#eb5757", animation: "fadeIn 1s infinite alternate" }} />
+            <span className="text-[13px] tabular-nums shrink-0" style={{ color: "var(--text)" }}>
+              {Math.floor(recorder.seconds / 60)}:{String(recorder.seconds % 60).padStart(2, "0")}
+            </span>
+            <div className="flex items-center gap-[2px] flex-1 h-6 overflow-hidden">
+              {Array.from({ length: 40 }).map((_, i) => (
+                <span
+                  key={i}
+                  className="rounded-full"
+                  style={{
+                    width: 2,
+                    height: 4 + recorder.level * 20 * (0.4 + ((i * 13) % 7) / 10),
+                    background: "var(--accent)",
+                    opacity: 0.85,
+                  }}
+                />
+              ))}
+            </div>
+            <button
+              onClick={stopAndSendAudio}
+              className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-white"
+              style={{ background: "var(--accent)" }}
+              title="Enviar nota de voz"
+            >
+              ↑
+            </button>
+          </div>
+        ) : (
+          // ── Entrada normal ──────────────────────────────────────────────────
+          <div
+            className="flex items-end gap-2 px-3 py-2 rounded-lg"
+            style={{ background: "#080710", border: "1px solid var(--border-strong)" }}
           >
-            ↑
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-lg transition disabled:opacity-40"
+              style={{ color: "var(--text-dim)" }}
+              title="Adjuntar imagen o archivo"
+            >
+              {uploading ? "…" : "📎"}
+            </button>
+            <textarea
+              ref={taRef}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value)
+                autoGrow()
+              }}
+              onKeyDown={onKeyDown}
+              rows={1}
+              placeholder="Escribe un mensaje…"
+              className="flex-1 min-w-0 bg-transparent text-white text-[14px] outline-none resize-none py-1 placeholder:text-[#62666d]"
+              style={{ caretColor: "var(--accent-blue)", maxHeight: 140 }}
+            />
+            {text.trim() ? (
+              <button
+                onClick={send}
+                disabled={sending}
+                className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-white text-base font-bold transition disabled:opacity-30"
+                style={{ background: "var(--accent)" }}
+                aria-label="Enviar"
+              >
+                ↑
+              </button>
+            ) : (
+              <button
+                onClick={recorder.start}
+                className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-lg transition"
+                style={{ color: "var(--text-dim)" }}
+                title="Grabar nota de voz"
+                aria-label="Grabar nota de voz"
+              >
+                🎙️
+              </button>
+            )}
+          </div>
+        )}
+        {recorder.error && (
+          <p className="text-[11px] mt-1.5" style={{ color: "#eb5757" }}>
+            {recorder.error}
+          </p>
+        )}
       </div>
+
+      {/* Modal de llamada */}
+      {call && <CallModal call={call} onEnd={() => setCall(null)} />}
     </div>
   )
 }

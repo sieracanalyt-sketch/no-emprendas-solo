@@ -7,6 +7,7 @@ import ConversationPanel, {
   type ConversationTarget,
 } from "../components/ConversationPanel"
 import Avatar from "../components/Avatar"
+import NextMeetingWidget from "../components/NextMeetingWidget"
 
 type Tab = "chats" | "grupos"
 
@@ -149,6 +150,11 @@ export default function Mensajes() {
               onSelect={(groupId) => navigate(`/group/${groupId}`)}
             />
           )}
+        </div>
+
+        {/* Widget próxima reunión (T1-20) */}
+        <div className="px-3 py-3 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+          <NextMeetingWidget user={user} />
         </div>
       </aside>
 

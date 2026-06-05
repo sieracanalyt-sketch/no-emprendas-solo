@@ -52,8 +52,13 @@ export default function Navbar() {
         {/* CENTER NAV */}
         <nav className="flex items-center gap-0.5 flex-1 justify-center">
           <NavItem to="/explorar" label="Explorar" active={isActive("/explorar")} />
-          <NavItem to="/chats" label="Mensajes" active={isActive("/chats") || isActive("/chat")} />
-          <NavItem to="/grupos" label="Grupos" active={isActive("/grupos") || isActive("/group")} />
+          {/* "Grupos" vive ahora dentro de Mensajes (pestaña interna): se elimina
+              de la navbar superior para evitar redundancia. */}
+          <NavItem
+            to="/chats"
+            label="Mensajes"
+            active={isActive("/chats") || isActive("/chat") || isActive("/grupos") || isActive("/group")}
+          />
           <NavItem to="/workflow" label="Workflow" active={isActive("/workflow")} />
           <NavItem to="/foros" label="Foros" active={isActive("/foros")} />
           <NavItem to="/calendario" label="Calendario" active={isActive("/calendario")} />
