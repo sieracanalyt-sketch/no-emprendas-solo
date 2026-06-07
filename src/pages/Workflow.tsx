@@ -5,11 +5,18 @@ import {
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "../supabase"
 import { useUser } from "../hooks/useUser"
+import {
+  QUADRANTS, QUADRANT_BY_ID, deriveQuadrant,
+  priorityForQuadrant, isUrgentQuadrant, type Quadrant,
+} from "../lib/eisenhower"
+import {
+  dayKey, loadPlan, savePlan, runAutoclean, type MyDayPlan,
+} from "../lib/myDay"
 
 // ══════════════════════════════════════════════════════════════════
 // TYPES
 // ══════════════════════════════════════════════════════════════════
-type Tab = "tasks" | "gestion"
+type Tab = "tasks" | "prioridades" | "gestion"
 type Status = "backlog" | "progress" | "review" | "done"
 type Priority = "Urgente" | "Alta" | "Media" | "Baja"
 type Member = { id: string; nombre: string; avatar: string | null; role: string; joinedAt: string }
@@ -17,6 +24,7 @@ type Task = {
   id: string; title: string; description: string
   priority: Priority; status: Status; assignee: string | null
   blocked: boolean; due_date: string | null
+  eisenhower_quadrant: number | null
 }
 type CustomRole = { id: string; name: string; color: string }
 type ActivityEntry = { id: string; text: string; time: Date }
@@ -178,6 +186,7 @@ type WFCtx = {
   addCustomRole: (r: CustomRole) => void
   createTask: (d: Omit<Task, "id">) => Promise<void>
   moveTask: (id: string, s: Status) => Promise<void>
+  setTaskQuadrant: (id: string, q: Quadrant) => Promise<void>
   toggleBlocked: (id: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   exportProject: () => void
@@ -303,7 +312,7 @@ export default function Workflow() {
 
   const loadTasks = useCallback(async () => {
     const { data, error } = await supabase.from("workflow_tasks")
-      .select("id,title,description,priority,status,assignee,blocked,due_date")
+      .select("id,title,description,priority,status,assignee,blocked,due_date,eisenhower_quadrant")
       .order("created_at", { ascending: false })
     if (error) { console.error("loadTasks:", error); return }
     setTasks((data as Task[]) ?? [])
@@ -389,6 +398,21 @@ export default function Workflow() {
     if (error) { addToast("error", "Error al mover tarea"); loadTasks() }
   }, [tasks, logActivity, addToast, loadTasks])
 
+  // ── Matriz de Eisenhower: arrastrar a un cuadrante actualiza el Kanban ──
+  // (espejo sincronizado). Persiste el cuadrante explícito + ajusta prioridad,
+  // y saca del Backlog las que pasan a un cuadrante urgente.
+  const setTaskQuadrant = useCallback(async (id: string, q: Quadrant) => {
+    const t = tasks.find(x => x.id === id)
+    if (!t || deriveQuadrant(t) === q && t.eisenhower_quadrant === q) return
+    const priority = priorityForQuadrant(q)
+    const status: Status = isUrgentQuadrant(q) && t.status === "backlog" ? "progress" : t.status
+    setTasks(prev => prev.map(x => x.id === id ? { ...x, priority, status, eisenhower_quadrant: q } : x))
+    logActivity(`"${t.title}" → ${QUADRANT_BY_ID[q].title}`)
+    const { error } = await supabase.from("workflow_tasks")
+      .update({ priority, status, eisenhower_quadrant: q }).eq("id", id)
+    if (error) { addToast("error", "Error al priorizar tarea"); loadTasks() }
+  }, [tasks, logActivity, addToast, loadTasks])
+
   const toggleBlocked = useCallback(async (id: string) => {
     const t = tasks.find(x => x.id === id); const blocked = !t?.blocked
     setTasks(prev => prev.map(x => x.id === id ? { ...x, blocked } : x))
@@ -467,7 +491,7 @@ export default function Workflow() {
     setAddMenuOpen, setAddSelectedUser, setCreateRoleOpen, setModalStatus,
     setMobileTab, setDragOver,
     addMember, removeMember, setRole, addCustomRole,
-    createTask, moveTask, toggleBlocked, deleteTask, exportProject,
+    createTask, moveTask, setTaskQuadrant, toggleBlocked, deleteTask, exportProject,
     addToast, dismissToast,
   }
 
@@ -492,14 +516,14 @@ export default function Workflow() {
             </div>
             <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
               style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              {(["tasks","gestion"] as Tab[]).map(tab => (
+              {(["tasks","prioridades","gestion"] as Tab[]).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className="px-4 py-1.5 rounded-md text-[13px] font-medium transition-all"
                   style={{
                     background: activeTab === tab ? "rgba(255,255,255,0.09)" : "transparent",
                     color: activeTab === tab ? "#fff" : "var(--text-dim)",
                   }}>
-                  {tab === "tasks" ? "Tareas" : "Gestión"}
+                  {tab === "tasks" ? "Tareas" : tab === "prioridades" ? "Prioridades" : "Gestión"}
                 </button>
               ))}
             </div>
@@ -518,7 +542,9 @@ export default function Workflow() {
           )}
         </header>
 
-        {activeTab === "tasks" ? <TasksView /> : <GestionView />}
+        {activeTab === "tasks" ? <TasksView />
+          : activeTab === "prioridades" ? <PrioridadesView />
+          : <GestionView />}
 
         {searchOpen && (
           <SearchModal query={searchQuery} onQueryChange={setSearchQuery}
@@ -1897,7 +1923,7 @@ function CreateTaskModal({ status, defaultAssignee, onClose, onCreate }: {
   const [dueDate, setDueDate]       = useState("")
   const submit = () => {
     if (!title.trim()) return
-    onCreate({ title: title.trim(), description: description.trim(), priority, status, assignee: assignee || null, blocked: false, due_date: dueDate || null })
+    onCreate({ title: title.trim(), description: description.trim(), priority, status, assignee: assignee || null, blocked: false, due_date: dueDate || null, eisenhower_quadrant: null })
   }
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === "Escape" && onClose()
@@ -2041,6 +2067,331 @@ function ActivityPanel({ activity, onClose }: { activity: ActivityEntry[]; onClo
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PRIORIDADES VIEW — Matriz de Eisenhower (espejo del Kanban) + Mi Día
+// ══════════════════════════════════════════════════════════════════
+function PrioridadesView() {
+  const {
+    visibleTasks, memberById, setTaskQuadrant, moveTask, dragId,
+    myWorkloadOnly, focusMember, setMyWorkloadOnly, setFocusMember,
+  } = useWF()
+  const [dragOverQ, setDragOverQ] = useState<Quadrant | null>(null)
+  const [miDiaOpen, setMiDiaOpen] = useState(false)
+
+  const active = useMemo(() => visibleTasks.filter(t => t.status !== "done"), [visibleTasks])
+  const doneCount = visibleTasks.length - active.length
+  const filtering = myWorkloadOnly || !!focusMember
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      {/* Toolbar */}
+      <div className="shrink-0 px-5 md:px-6 pb-3 flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>
+          Matriz de Eisenhower
+        </span>
+        <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>
+          · arrastra entre cuadrantes para repriorizar
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <button onClick={() => { setMyWorkloadOnly(!myWorkloadOnly); setFocusMember(null) }}
+            className="px-2.5 py-1 rounded-full text-[12px] font-medium transition"
+            style={{
+              background: myWorkloadOnly ? "rgba(94,106,210,0.14)" : "var(--surface)",
+              border: myWorkloadOnly ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)",
+              color: myWorkloadOnly ? "#aab2f0" : "var(--text-dim)",
+            }}>Mi carga</button>
+          <button onClick={() => setMiDiaOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold transition"
+            style={{ background: "linear-gradient(180deg,#5e6ad2,#4d59c4)", color: "#fff", boxShadow: "0 2px 8px rgba(94,106,210,0.35)" }}>
+            ☀ Mi Día
+          </button>
+        </div>
+      </div>
+
+      {/* Matriz 2×2 */}
+      <div className="flex-1 min-h-0 px-3 md:px-6 pb-4 overflow-hidden">
+        <div className="h-full grid grid-cols-1 sm:grid-cols-2 grid-rows-[repeat(4,minmax(0,1fr))] sm:grid-rows-2 gap-3">
+          {QUADRANTS.map(meta => {
+            const items = active.filter(t => deriveQuadrant(t) === meta.q)
+            const over = dragOverQ === meta.q
+            return (
+              <section key={meta.q}
+                onDragOver={e => { e.preventDefault(); if (dragOverQ !== meta.q) setDragOverQ(meta.q) }}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverQ(null) }}
+                onDrop={() => { if (dragId.current) setTaskQuadrant(dragId.current, meta.q); dragId.current = null; setDragOverQ(null) }}
+                className="relative flex flex-col min-h-0 rounded-xl overflow-hidden transition-all"
+                style={{
+                  background: over ? `${meta.color}14` : "var(--surface)",
+                  border: `1px solid ${over ? `${meta.color}88` : "var(--border)"}`,
+                  boxShadow: over ? `inset 0 0 0 1px ${meta.color}55, 0 0 0 3px ${meta.color}22` : "none",
+                }}>
+                {/* franja de color superior */}
+                <div className="h-[3px] shrink-0" style={{ background: `linear-gradient(90deg, ${meta.color}, ${meta.color}33)` }} />
+                <header className="flex items-start justify-between gap-2 px-3.5 pt-3 pb-2 shrink-0">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px]">{meta.emoji}</span>
+                      <span className="text-[13px] font-semibold text-white truncate">{meta.title}</span>
+                      <span className="text-[10px] px-1.5 rounded-md shrink-0"
+                        style={{ color: meta.color, background: `${meta.color}1a`, border: `1px solid ${meta.color}33` }}>
+                        {items.length}
+                      </span>
+                    </div>
+                    <p className="text-[10.5px] mt-0.5" style={{ color: "var(--text-dimmer)" }}>{meta.subtitle}</p>
+                  </div>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 hidden lg:inline"
+                    style={{ color: meta.color, background: `${meta.color}12` }}>{meta.action}</span>
+                </header>
+                <div className="flex-1 min-h-0 overflow-y-auto px-2.5 pb-2.5 flex flex-col gap-2">
+                  {items.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-[11px] text-center rounded-lg border border-dashed py-4"
+                      style={{ color: "var(--text-dimmer)", borderColor: "var(--border)" }}>
+                      Suelta tareas aquí
+                    </div>
+                  ) : items.map(task => (
+                    <MatrixCard key={task.id} task={task} member={memberById(task.assignee)} accent={meta.color}
+                      onDragStart={() => (dragId.current = task.id)}
+                      onComplete={() => moveTask(task.id, "done")} />
+                  ))}
+                </div>
+              </section>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="shrink-0 px-5 md:px-6 pb-3 flex items-center gap-3 text-[11px]" style={{ color: "var(--text-dimmer)" }}>
+        <span>{active.length} activa{active.length !== 1 ? "s" : ""}</span>
+        <span>·</span>
+        <span>{doneCount} completada{doneCount !== 1 ? "s" : ""}</span>
+        {filtering && <><span>·</span><span style={{ color: "#aab2f0" }}>vista filtrada</span></>}
+      </div>
+
+      {miDiaOpen && <MiDiaPanel onClose={() => setMiDiaOpen(false)} />}
+    </div>
+  )
+}
+
+function MatrixCard({ task, member, accent, onDragStart, onComplete }: {
+  task: Task; member: Member; accent: string
+  onDragStart: () => void; onComplete: () => void
+}) {
+  const overdue = isDueOverdue(task.due_date)
+  const soon = isDueSoon(task.due_date)
+  return (
+    <div draggable onDragStart={e => { e.dataTransfer.effectAllowed = "move"; onDragStart() }}
+      className="group relative rounded-lg p-2.5 cursor-grab active:cursor-grabbing"
+      style={{ background: "#17191b", border: `1px solid ${task.blocked ? "rgba(242,153,74,0.45)" : "var(--border)"}` }}>
+      <div className="flex items-start gap-2">
+        <span className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PRIORITY_COLOR[task.priority] }} />
+        <p className="flex-1 text-[12.5px] font-medium text-white leading-snug line-clamp-2">{task.title}</p>
+        <button onClick={onComplete} title="Completar"
+          className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] opacity-0 group-hover:opacity-100 transition"
+          style={{ border: "1px solid var(--border-strong)", color: "var(--text-dim)" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(34,197,94,0.15)"; e.currentTarget.style.color = "#22c55e"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.4)" }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}>
+          ✓
+        </button>
+      </div>
+      <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center gap-1.5">
+          {(overdue || soon) && (
+            <span className="text-[9.5px] font-medium px-1.5 py-0.5 rounded"
+              style={{ background: overdue ? "rgba(235,87,87,0.12)" : "rgba(242,153,74,0.1)", color: overdue ? "#eb5757" : "#f2994a" }}>
+              {overdue ? "Vencida" : "Pronto"}
+            </span>
+          )}
+          {task.blocked && <span className="text-[9.5px] font-medium px-1.5 py-0.5 rounded" style={{ background: "rgba(242,153,74,0.12)", color: "#f2994a" }}>Bloqueada</span>}
+        </div>
+        <div style={{ boxShadow: `0 0 0 1.5px ${accent}33`, borderRadius: 9999 }}>
+          <MemberAvatar member={member} size={20} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Slide-over "Mi Día" con autolimpieza de residuos ──
+function MiDiaPanel({ onClose }: { onClose: () => void }) {
+  const { user, tasks, memberById, moveTask, addToast } = useWF()
+  const uid = user?.id ?? "anon"
+  const [plan, setPlan] = useState<MyDayPlan>(() => loadPlan(uid))
+  const [shown, setShown] = useState(false)
+  const cleaned = useRef(false)
+
+  useEffect(() => {
+    const r = requestAnimationFrame(() => setShown(true))
+    const h = (e: KeyboardEvent) => e.key === "Escape" && close()
+    document.addEventListener("keydown", h)
+    return () => { cancelAnimationFrame(r); document.removeEventListener("keydown", h) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const close = () => { setShown(false); setTimeout(onClose, 260) }
+
+  const persist = (p: MyDayPlan) => { setPlan(p); savePlan(uid, p) }
+
+  const applyRotation = (basePlan: MyDayPlan, label: string) => {
+    const res = runAutoclean(basePlan, tasks.map(t => ({ id: t.id, priority: t.priority, status: t.status, due_date: t.due_date, eisenhower_quadrant: t.eisenhower_quadrant })), dayKey())
+    persist(res.plan)
+    res.toBacklog.forEach(id => { const t = tasks.find(x => x.id === id); if (t && t.status !== "backlog") moveTask(id, "backlog") })
+    if (res.changed) {
+      const c = res.plan.carried.length, d = res.toBacklog.length
+      addToast("info", `${label} · ${c} arrastrada${c !== 1 ? "s" : ""}, ${d} al backlog`)
+    }
+  }
+
+  // Autolimpieza al abrir (una vez): rota el plan si es de un día anterior.
+  useEffect(() => {
+    if (cleaned.current) return
+    cleaned.current = true
+    if (plan.date !== dayKey()) applyRotation(plan, "Mi Día actualizado")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const simulateNewDay = () => {
+    const y = new Date(); y.setDate(y.getDate() - 1)
+    applyRotation({ ...plan, date: dayKey(y) }, "Simulación de nuevo día")
+  }
+
+  const addToDay = (id: string) => { if (!plan.ids.includes(id)) persist({ ...plan, ids: [...plan.ids, id] }) }
+  const removeFromDay = (id: string) => persist({ date: plan.date, ids: plan.ids.filter(x => x !== id), carried: plan.carried.filter(x => x !== id) })
+  const complete = (id: string) => { moveTask(id, "done"); removeFromDay(id) }
+
+  const planTasks = plan.ids
+    .map(id => tasks.find(t => t.id === id))
+    .filter((t): t is Task => !!t && t.status !== "done")
+  const pool = user ? tasks.filter(t => t.assignee === user.id && t.status !== "done" && !plan.ids.includes(t.id)) : []
+  const groups = QUADRANTS
+    .map(meta => ({ meta, items: planTasks.filter(t => deriveQuadrant(t) === meta.q) }))
+    .filter(g => g.items.length > 0)
+
+  const today = new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })
+
+  return (
+    <div className="fixed inset-0 z-[60]" aria-modal>
+      <div onMouseDown={close} className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.5)", opacity: shown ? 1 : 0, transition: "opacity 0.26s ease" }} />
+      <aside
+        className="absolute top-0 right-0 h-full w-full max-w-[380px] flex flex-col"
+        style={{
+          background: "var(--surface-2)", borderLeft: "1px solid var(--border-strong)",
+          transform: shown ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 0.28s cubic-bezier(0.22,0.61,0.36,1)",
+          willChange: "transform", boxShadow: "-24px 0 60px rgba(0,0,0,0.5)",
+        }}>
+        <header className="shrink-0 px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-[16px] font-semibold text-white flex items-center gap-2">☀ Mi Día</h3>
+              <p className="text-[12px] mt-0.5 capitalize" style={{ color: "var(--text-dim)" }}>{today}</p>
+            </div>
+            <button onClick={close} className="w-7 h-7 rounded-md flex items-center justify-center text-[14px] transition"
+              style={{ color: "var(--text-dim)" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#fff" }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)" }}>✕</button>
+          </div>
+          <div className="flex items-center gap-3 mt-3 text-[11px]" style={{ color: "var(--text-dimmer)" }}>
+            <span><span className="text-white font-semibold">{planTasks.length}</span> en tu día</span>
+            {plan.carried.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full" style={{ background: "rgba(242,153,74,0.12)", color: "#f2994a" }}>
+                {plan.carried.length} arrastrada{plan.carried.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        </header>
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+          {planTasks.length === 0 && (
+            <div className="text-[12px] text-center py-8 px-4 rounded-lg border border-dashed"
+              style={{ color: "var(--text-dimmer)", borderColor: "var(--border)" }}>
+              Tu día está vacío. Añade tareas desde abajo para enfocarte hoy.
+            </div>
+          )}
+          {groups.map(({ meta, items }) => (
+            <div key={meta.q}>
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
+                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: meta.color }}>{meta.title}</span>
+                <span className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{meta.subtitle}</span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {items.map(t => {
+                  const carried = plan.carried.includes(t.id)
+                  return (
+                    <div key={t.id} className="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                      <button onClick={() => complete(t.id)} title="Completar"
+                        className="shrink-0 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] transition"
+                        style={{ border: "1.5px solid var(--border-strong)", color: "transparent" }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.color = "#22c55e" }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.color = "transparent" }}>✓</button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12.5px] text-white leading-snug truncate">{t.title}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {carried && (
+                            <span className="text-[9px] font-medium px-1.5 py-px rounded"
+                              style={{ background: "rgba(242,153,74,0.14)", color: "#f2994a", border: "1px solid rgba(242,153,74,0.3)" }}>
+                              ↪ Arrastrada
+                            </span>
+                          )}
+                          <span className="text-[10px]" style={{ color: PRIORITY_COLOR[t.priority] }}>{t.priority}</span>
+                        </div>
+                      </div>
+                      <MemberAvatar member={memberById(t.assignee)} size={18} />
+                      <button onClick={() => removeFromDay(t.id)} title="Quitar de hoy"
+                        className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition"
+                        style={{ color: "var(--text-dimmer)" }}
+                        onMouseEnter={e => (e.currentTarget.style.color = "#eb5757")}
+                        onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dimmer)")}>×</button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+
+          {pool.length > 0 && (
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider mb-2 px-1" style={{ color: "var(--text-dimmer)" }}>
+                Añadir a hoy
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {pool.slice(0, 12).map(t => {
+                  const meta = QUADRANT_BY_ID[deriveQuadrant(t)]
+                  return (
+                    <button key={t.id} onClick={() => addToDay(t.id)}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition"
+                      style={{ background: "transparent", border: "1px dashed var(--border)" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "var(--border)" }}>
+                      <span className="shrink-0 w-[18px] h-[18px] rounded-md flex items-center justify-center text-[13px]"
+                        style={{ background: `${meta.color}1a`, color: meta.color }}>+</span>
+                      <span className="flex-1 min-w-0 text-[12.5px] truncate" style={{ color: "var(--text-dim)" }}>{t.title}</span>
+                      <span className="text-[9.5px] shrink-0" style={{ color: meta.color }}>{meta.title}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <footer className="shrink-0 px-4 py-3 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <button onClick={simulateNewDay}
+            className="text-[11px] font-medium px-2.5 py-1.5 rounded-md transition"
+            style={{ color: "var(--text-dim)", border: "1px solid var(--border)" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "rgba(255,255,255,0.04)" }}
+            onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.background = "transparent" }}>
+            ⟳ Simular nuevo día
+          </button>
+          <span className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>Autolimpieza activa</span>
+        </footer>
+      </aside>
     </div>
   )
 }
