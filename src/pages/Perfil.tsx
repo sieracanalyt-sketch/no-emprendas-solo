@@ -60,37 +60,42 @@ export default function Perfil() {
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
     const cargarPerfil = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        // getSession() usa la caché local — más rápido y sin llamada de red
+        const { data: { session } } = await supabase.auth.getSession()
+        const user = session?.user
+        if (!user) { setLoading(false); return }
 
-      const [{ data: profileData }, { data: sentMsgs }] = await Promise.all([
-        supabase
-          .from("users")
-          .select("nombre, biografia, proyecto, buscando, project_status, streak_days")
-          .eq("id", user.id)
-          .single(),
-        supabase
-          .from("messages")
-          .select("chat_id")
-          .eq("from_uid", user.id)
-          .limit(500),
-      ])
+        const [{ data: profileData }, { data: sentMsgs }] = await Promise.all([
+          supabase
+            .from("users")
+            .select("nombre, biografia, proyecto, buscando, project_status, streak_days")
+            .eq("id", user.id)
+            .single(),
+          supabase
+            .from("messages")
+            .select("chat_id")
+            .eq("from_uid", user.id)
+            .limit(500),
+        ])
 
-      if (profileData) {
-        const pd = profileData as Record<string, unknown>
-        setPerfil({
-          nombre:    (pd.nombre    as string) || "",
-          biografia: (pd.biografia as string) || "",
-          proyecto:  (pd.proyecto  as string) || "",
-        })
-        setBuscando((pd.buscando as string[]) || [])
-        setProjectStatus((pd.project_status as ProjectStatus) || null)
-        setStreakDays((pd.streak_days as number) || 0)
+        if (profileData) {
+          const pd = profileData as Record<string, unknown>
+          setPerfil({
+            nombre:    (pd.nombre    as string) || "",
+            biografia: (pd.biografia as string) || "",
+            proyecto:  (pd.proyecto  as string) || "",
+          })
+          setBuscando((pd.buscando as string[]) || [])
+          setProjectStatus((pd.project_status as ProjectStatus) || null)
+          setStreakDays((pd.streak_days as number) || 0)
+        }
+
+        const uniqueChats = new Set(sentMsgs?.map((m: Record<string, unknown>) => m.chat_id) ?? [])
+        setConnectionCount(uniqueChats.size)
+      } finally {
+        setLoading(false)
       }
-
-      const uniqueChats = new Set(sentMsgs?.map((m: Record<string, unknown>) => m.chat_id) ?? [])
-      setConnectionCount(uniqueChats.size)
-      setLoading(false)
     }
     cargarPerfil()
   }, [])
@@ -128,7 +133,8 @@ export default function Perfil() {
   // ── Guardar perfil ────────────────────────────────────────────────────────
   const guardarPerfil = async () => {
     if (saving) return
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) return
     setSaving(true)
     try {
@@ -148,7 +154,8 @@ export default function Perfil() {
     const confirmed = window.confirm("¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.")
     if (!confirmed) return
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
       await supabase.from("users").delete().eq("id", user.id)
       await supabase.rpc("delete_user")
