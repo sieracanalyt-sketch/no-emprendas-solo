@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { Routes, Route, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
+import OnboardingTour from "./components/OnboardingTour"
 import { supabase } from "./supabase"
 import { saveUser } from "./lib/saveUser"
 
@@ -37,6 +38,7 @@ export default function App() {
   return (
     <div className="w-full min-h-screen bg-[#0c0d0e] text-white">
       {!hideNavbar && <Navbar />}
+      {!hideNavbar && <OnboardingTour />}
       <div className="w-full">
         <Routes>
           {/* Login accesible tanto en "/" como en "/login" para enlaces
