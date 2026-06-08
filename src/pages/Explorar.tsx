@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import { supabase } from "../supabase"
 import { useUser } from "../hooks/useUser"
 import { useNavigate } from "react-router-dom"
@@ -7,7 +8,8 @@ import {
   type MatchProfile, type MatchResult,
 } from "../lib/matchmaking"
 import { getIgnored, ignoreUser, ignoredCount } from "../lib/connectStore"
-import { checkProfile, MIN_BIO, type ProfileCheck } from "../lib/profileCompletion"
+import { checkProfile, type ProfileCheck } from "../lib/profileCompletion"
+import ProfileGateDrawer from "../components/ProfileGateDrawer"
 
 type Row = {
   id: string
@@ -15,6 +17,7 @@ type Row = {
   avatar: string | null
   biografia: string | null
   proyecto: string | null
+  project_status: string | null
   buscando: string[] | null
   last_login: string | null
   created_at: string | null
@@ -29,8 +32,9 @@ export default function Explorar() {
   const [loading, setLoading] = useState(true)
   const [leaving, setLeaving] = useState<Set<string>>(new Set())
   const [hiddenCount, setHiddenCount] = useState(0)
-  // Gate de conexión: el usuario no puede conectar hasta completar su perfil
+  // Gate de conexión: drawer si el perfil está incompleto
   const [meCheck, setMeCheck] = useState<ProfileCheck | null>(null)
+  const [gateOpen, setGateOpen] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -38,14 +42,14 @@ export default function Explorar() {
     const cargar = async () => {
       const [{ data: users }, { data: roles }] = await Promise.all([
         supabase.from("users")
-          .select("id, nombre, avatar, biografia, proyecto, buscando, last_login, created_at"),
+          .select("id, nombre, avatar, biografia, proyecto, project_status, buscando, last_login, created_at"),
         supabase.from("workflow_roles").select("user_id, rol"),
       ])
       if (cancelled) return
       const roleMap = new Map((roles ?? []).map(r => [r.user_id, r.rol as string]))
       const all = (users ?? []) as Row[]
       const meRow = all.find(u => u.id === user.id)
-      setMeCheck(checkProfile(meRow))
+      setMeCheck(checkProfile(meRow ?? null))
       const me: MatchProfile = {
         id: user.id,
         nombre: meRow?.nombre, biografia: meRow?.biografia,
@@ -94,6 +98,11 @@ export default function Explorar() {
     <div className="max-w-3xl mx-auto px-5 py-10 animate-in">
       <style>{`
         @keyframes nes-card-in { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes nes-overlay-in { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes nes-modal-in { from { opacity: 0; transform: scale(0.96) } to { opacity: 1; transform: scale(1) } }
+        @media (prefers-reduced-motion: reduce) {
+          .nes-modal-overlay, .nes-modal-box { animation: none !important; }
+        }
       `}</style>
 
       {/* Header */}
@@ -118,10 +127,6 @@ export default function Explorar() {
         )}
       </div>
 
-      {meCheck && !meCheck.complete && (
-        <ProfileGateBanner check={meCheck} onComplete={() => navigate("/perfil")} />
-      )}
-
       {loading && (
         <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Calculando compatibilidad…</p>
       )}
@@ -144,12 +149,21 @@ export default function Explorar() {
             leaving={leaving.has(c.profile.id)}
             locked={!!meCheck && !meCheck.complete}
             onConnect={() => navigate(`/chat/${c.profile.id}`)}
-            onLocked={() => navigate("/perfil")}
+            onLocked={() => setGateOpen(true)}
             onProfile={() => navigate(`/perfil-publico/${c.profile.id}`)}
             onIgnore={() => handleIgnore(c.profile.id)}
           />
         ))}
       </div>
+
+      {/* Drawer de perfil incompleto */}
+      {meCheck && (
+        <ProfileGateDrawer
+          check={meCheck}
+          open={gateOpen}
+          onClose={() => setGateOpen(false)}
+        />
+      )}
     </div>
   )
 }
@@ -245,13 +259,13 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
           )}
         </div>
 
-        {/* Match score — clickable to show breakdown */}
+        {/* Match score — clicable: abre el modal con el desglose */}
         <button
-          onClick={() => setShowBreakdown(v => !v)}
-          className="shrink-0 text-right rounded-lg p-1 -m-1 transition-colors"
+          onClick={() => setShowBreakdown(true)}
+          className="shrink-0 text-right rounded-lg p-1 -m-1 transition-colors cursor-pointer"
           style={{ background: showBreakdown ? "rgba(255,255,255,0.04)" : "transparent" }}
           title="Ver cómo se calcula este match"
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
           onMouseLeave={e => (e.currentTarget.style.background = showBreakdown ? "rgba(255,255,255,0.04)" : "transparent")}
         >
           <div className="text-[22px] font-bold leading-none" style={{ color: scoreColor }}>
@@ -301,108 +315,133 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
         </button>
       </div>
 
-      {/* Breakdown panel */}
+      {/* Modal con el desglose del match */}
       {showBreakdown && (
-        <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-          <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-dimmer)" }}>
-            Cómo se calcula el match
-          </p>
-          <div className="space-y-2.5">
-            {match.breakdown.map(f => (
-              <div key={f.label} className="flex items-center gap-3">
-                <div className="flex-1 text-[12px] leading-tight" style={{ color: f.pts > 0 ? "var(--text)" : "var(--text-dimmer)" }}>
-                  {f.label}
-                </div>
-                <span className="text-[12px] font-semibold w-10 text-right shrink-0" style={{ color: f.pts > 0 ? scoreColor : "var(--text-dimmer)" }}>
-                  {f.pts > 0 ? `+${f.pts}` : "—"}
-                </span>
-                <div className="w-14 h-[3px] rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>
-                  {f.pts > 0 && (
-                    <div className="h-full rounded-full" style={{ width: `${Math.round((f.pts / f.max) * 100)}%`, background: scoreColor }} />
-                  )}
-                </div>
-                <span className="text-[10px] w-8 text-right shrink-0" style={{ color: "var(--text-dimmer)" }}>/{f.max}</span>
-              </div>
-            ))}
-          </div>
-          {match.inactive && (
-            <div className="mt-3 px-3 py-2 rounded-lg text-[11.5px]" style={{ background: "rgba(98,102,109,0.10)", color: "var(--text-dim)", border: "1px solid var(--border)" }}>
-              ⚠ Puntuación base {match.rawScore}% → reducida al 50% por inactividad ({match.daysInactive >= 999 ? `${INACTIVITY_DAYS}+` : match.daysInactive} días sin entrar)
-            </div>
-          )}
-          <p className="text-[11px] mt-2.5" style={{ color: "var(--text-dimmer)" }}>
-            La base mínima garantiza que ningún perfil aparezca en 0% aunque tenga pocos datos.
-          </p>
-        </div>
+        <MatchBreakdownModal
+          match={match}
+          name={name}
+          scoreColor={scoreColor}
+          onClose={() => setShowBreakdown(false)}
+        />
       )}
     </div>
   )
 }
 
-// Aviso + gate: se muestra cuando el perfil del usuario está incompleto.
-// Mientras se muestra, los botones "Conectar" del feed quedan bloqueados.
-function ProfileGateBanner({ check, onComplete }: { check: ProfileCheck; onComplete: () => void }) {
-  return (
+// ── Modal de desglose del match ────────────────────────────────────────────
+// Se renderiza vía portal en <body> porque la tarjeta tiene `transform` y
+// `overflow:hidden` (un position:fixed dentro quedaría recortado/anclado a ella).
+function MatchBreakdownModal({ match, name, scoreColor, onClose }: {
+  match: MatchResult
+  name: string
+  scoreColor: string
+  onClose: () => void
+}) {
+  // Escape para cerrar + bloqueo del scroll de fondo mientras está abierto.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    document.addEventListener("keydown", onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [onClose])
+
+  // Anima el relleno de las barras desde 0 al montar.
+  const [filled, setFilled] = useState(false)
+  useEffect(() => {
+    const r = requestAnimationFrame(() => setFilled(true))
+    return () => cancelAnimationFrame(r)
+  }, [])
+
+  return createPortal(
     <div
-      className="mb-6 rounded-xl p-4 sm:p-5"
-      style={{
-        background: "linear-gradient(180deg, rgba(94,106,210,0.10), rgba(94,106,210,0.03)), var(--surface)",
-        border: "1px solid rgba(94,106,210,0.35)",
-        boxShadow: "0 8px 30px rgba(94,106,210,0.06)",
-      }}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Desglose de compatibilidad con ${name}`}
+      className="nes-modal-overlay fixed inset-0 z-[140] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.6)", animation: "nes-overlay-in 0.15s ease-out" }}
     >
-      <div className="flex items-start gap-3.5">
-        <div
-          className="shrink-0 w-10 h-10 rounded-lg inline-flex items-center justify-center"
-          style={{ background: "rgba(94,106,210,0.16)", border: "1px solid rgba(94,106,210,0.3)", color: "#aab2f0" }}
+      <div
+        onClick={e => e.stopPropagation()}
+        className="nes-modal-box relative w-[90%] max-w-[420px] max-h-[90vh] overflow-y-auto p-5 sm:p-6"
+        style={{
+          background: "#151618",
+          border: "1px solid #222326",
+          borderRadius: 10,
+          boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
+          animation: "nes-modal-in 0.15s ease-out",
+        }}
+      >
+        {/* Cerrar */}
+        <button
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute top-3.5 right-3.5 w-7 h-7 inline-flex items-center justify-center rounded-md cursor-pointer"
+          style={{ color: "#8a8f98" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#f7f8f8" }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#8a8f98" }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18M6 6l12 12" />
           </svg>
-        </div>
+        </button>
 
-        <div className="flex-1 min-w-0">
-          <h2 className="text-[15px] font-semibold text-white">Completa tu perfil para empezar a conectar</h2>
-          <p className="text-[12.5px] mt-1" style={{ color: "var(--text-dim)" }}>
-            Para conectar con otros fundadores necesitas una biografía de {MIN_BIO}+ caracteres y rellenar todos tus apartados.
-          </p>
-
-          <div className="flex flex-wrap gap-2 mt-3">
-            {check.items.map((it) => (
-              <span
-                key={it.key}
-                className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1 rounded-full"
-                style={{
-                  background: it.ok ? "rgba(52,211,153,0.10)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${it.ok ? "rgba(52,211,153,0.30)" : "var(--border)"}`,
-                  color: it.ok ? "#7ee2b8" : "var(--text-dim)",
-                }}
-              >
-                {it.ok ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                ) : (
-                  <span className="w-[11px] h-[11px] rounded-full border" style={{ borderColor: "var(--text-dimmer)" }} />
-                )}
-                {it.label}
-                {it.key === "biografia" && it.detail && (
-                  <span style={{ color: it.ok ? "#7ee2b8" : "var(--text-dimmer)" }}>· {it.detail}</span>
-                )}
-              </span>
-            ))}
+        {/* Cabecera */}
+        <div className="mb-5 pr-8">
+          <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#62666d" }}>
+            Desglose de compatibilidad
+          </div>
+          <div className="flex items-baseline gap-2 mt-1.5">
+            <span className="text-[26px] font-bold leading-none" style={{ color: scoreColor }}>
+              {match.score}<span className="text-[14px] font-semibold">%</span>
+            </span>
+            <span className="text-[13px]" style={{ color: "#8a8f98" }}>de match con {name}</span>
           </div>
         </div>
 
-        <button
-          onClick={onComplete}
-          className="shrink-0 self-center px-4 py-2 rounded-md text-[13px] font-semibold transition"
-          style={{ background: "linear-gradient(180deg,#5e6ad2,#4d59c4)", color: "#fff" }}
-          onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.08)")}
-          onMouseLeave={(e) => (e.currentTarget.style.filter = "brightness(1)")}
-        >
-          Completar perfil
-        </button>
+        {/* Métricas con barra de progreso */}
+        <div className="space-y-3.5">
+          {match.breakdown.map(f => {
+            const pct = f.max > 0 ? Math.round((f.pts / f.max) * 100) : 0
+            return (
+              <div key={f.label}>
+                <div className="flex items-center justify-between mb-1.5 gap-3">
+                  <span className="text-[14px]" style={{ color: "#b4bcd0" }}>{f.label}</span>
+                  <span className="text-[14px] font-bold shrink-0" style={{ color: "#f7f8f8" }}>{pct}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-[4px] overflow-hidden" style={{ background: "#222326" }}>
+                  <div
+                    className="h-full rounded-[4px]"
+                    style={{
+                      width: filled ? `${pct}%` : "0%",
+                      background: "var(--accent)",
+                      transition: "width 0.45s cubic-bezier(0.4,0,0.2,1)",
+                    }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Nota de inactividad (si aplica) */}
+        {match.inactive && (
+          <div className="mt-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: "rgba(98,102,109,0.10)", color: "#8a8f98", border: "1px solid #222326" }}>
+            ⚠ Puntuación base {match.rawScore}% → reducida al 50% por inactividad ({match.daysInactive >= 999 ? `${INACTIVITY_DAYS}+` : match.daysInactive} días sin actividad).
+          </div>
+        )}
+
+        {/* Nota explicativa */}
+        <p className="text-[12px] leading-relaxed mt-4" style={{ color: "#8a8f98" }}>
+          La compatibilidad se calcula comparando los campos de tu perfil con los de esta persona. A mayor completitud de perfil, mayor precisión.
+        </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
+

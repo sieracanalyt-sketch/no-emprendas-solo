@@ -1,47 +1,151 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { supabase } from "../supabase"
-import { useNavigate } from "react-router-dom"
-import { checkProfile, MIN_BIO } from "../lib/profileCompletion"
+import { useNavigate, useLocation } from "react-router-dom"
+import { checkProfile, MIN_BIO, type ProjectStatus } from "../lib/profileCompletion"
 
+// ─── Gamification helpers ────────────────────────────────────────────────────
+
+function getConnectionRank(n: number): string {
+  if (n === 0) return "Fundador en solitario"
+  if (n <= 2) return "Núcleo fundador"
+  if (n <= 5) return "Equipo inicial"
+  if (n <= 10) return "Equipo en expansión"
+  return "Estudio consolidado"
+}
+
+const PROJECT_OPTIONS = [
+  { value: "has_project", label: "Tengo un proyecto" },
+  { value: "no_project",  label: "No tengo proyecto" },
+  { value: "looking",     label: "Buscando proyecto" },
+] as const
+
+function FlameIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 17c.55 0 1.05-.18 1.46-.48C14.08 15.67 15 14 15 12c0-1.5-.5-2.7-1.18-3.82C12.93 7.05 12 6 12 6c0 0-.5 2-2 3.5C8.5 11 8.5 13 8.5 14.5Z" />
+      <path d="M12 6c0 0 3 2.5 3 6 0 2.76-2.24 5-5 5" />
+    </svg>
+  )
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 export default function Perfil() {
   const [perfil, setPerfil] = useState({ nombre: "", biografia: "", proyecto: "" })
   const [buscando, setBuscando] = useState<string[]>([])
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus>(null)
   const [inputTag, setInputTag] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [streakDays, setStreakDays] = useState(0)
+  const [connectionCount, setConnectionCount] = useState(0)
+  const [showMissing, setShowMissing] = useState(false)
+  const [displayPct, setDisplayPct] = useState(0)
   const navigate = useNavigate()
+  const location = useLocation()
 
+  // Refs para scroll-to-field desde el drawer
+  const sectionNombre   = useRef<HTMLDivElement>(null)
+  const sectionBio      = useRef<HTMLDivElement>(null)
+  const sectionProyecto = useRef<HTMLDivElement>(null)
+  const sectionBuscando = useRef<HTMLDivElement>(null)
+
+  const fieldRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+    nombre:    sectionNombre,
+    biografia: sectionBio,
+    proyecto:  sectionProyecto,
+    buscando:  sectionBuscando,
+  }
+
+  // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
     const cargarPerfil = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from("users").select("*").eq("id", user.id).single()
-      if (data) {
+
+      const [{ data: profileData }, { data: sentMsgs }] = await Promise.all([
+        supabase
+          .from("users")
+          .select("nombre, biografia, proyecto, buscando, project_status, streak_days")
+          .eq("id", user.id)
+          .single(),
+        supabase
+          .from("messages")
+          .select("chat_id")
+          .eq("from_uid", user.id)
+          .limit(500),
+      ])
+
+      if (profileData) {
+        const pd = profileData as Record<string, unknown>
         setPerfil({
-          nombre: data.nombre || "",
-          biografia: data.biografia || "",
-          proyecto: data.proyecto || "",
+          nombre:    (pd.nombre    as string) || "",
+          biografia: (pd.biografia as string) || "",
+          proyecto:  (pd.proyecto  as string) || "",
         })
-        setBuscando(data.buscando || [])
+        setBuscando((pd.buscando as string[]) || [])
+        setProjectStatus((pd.project_status as ProjectStatus) || null)
+        setStreakDays((pd.streak_days as number) || 0)
       }
+
+      const uniqueChats = new Set(sentMsgs?.map((m: Record<string, unknown>) => m.chat_id) ?? [])
+      setConnectionCount(uniqueChats.size)
       setLoading(false)
     }
     cargarPerfil()
   }, [])
 
+  // ── Scroll al campo indicado por el drawer ────────────────────────────────
+  useEffect(() => {
+    if (loading) return
+    const focusField = (location.state as Record<string, unknown> | null)?.focusField as string | undefined
+    if (focusField && fieldRefs[focusField]?.current) {
+      setTimeout(() => {
+        fieldRefs[focusField].current?.scrollIntoView({ behavior: "smooth", block: "center" })
+      }, 180)
+    }
+  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Calcular completitud (necesario antes del segundo useEffect) ──────────
+  const check = checkProfile({ ...perfil, buscando, project_status: projectStatus })
+  const bioLen = perfil.biografia.trim().length
+
+  const progressItems = [
+    { key: "nombre",    label: "Nombre",               done: perfil.nombre.trim().length > 0 },
+    { key: "biografia", label: `Biografía (${MIN_BIO}+ chars)`, done: bioLen >= MIN_BIO },
+    { key: "proyecto",  label: "Proyecto",              done: check.items.find(i => i.key === "proyecto")?.ok ?? false },
+    { key: "buscando",  label: "A quién buscas",        done: buscando.filter(t => t.trim()).length > 0 },
+    { key: "conexion",  label: "Primera conexión",      done: connectionCount > 0 },
+  ]
+  const donePct = Math.round(progressItems.filter(i => i.done).length / progressItems.length * 100)
+  const missingItems = progressItems.filter(i => !i.done)
+
+  // ── Animar barra al montar ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!loading) setTimeout(() => setDisplayPct(donePct), 60)
+  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Guardar perfil ────────────────────────────────────────────────────────
   const guardarPerfil = async () => {
+    if (saving) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setSaving(true)
-    await supabase.from("users").update({ ...perfil, buscando }).eq("id", user.id)
-    setSaving(false)
-    alert("Perfil actualizado")
+    try {
+      await supabase.from("users").update({
+        ...perfil,
+        buscando,
+        project_status: projectStatus,
+      }).eq("id", user.id)
+      alert("Perfil actualizado")
+    } finally {
+      setSaving(false)
+    }
   }
 
+  // ── Eliminar cuenta ───────────────────────────────────────────────────────
   const eliminarCuenta = async () => {
-    const confirmed = window.confirm(
-      "¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer."
-    )
+    const confirmed = window.confirm("¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.")
     if (!confirmed) return
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -66,6 +170,11 @@ export default function Perfil() {
     setBuscando(buscando.filter((_, i) => i !== index))
   }
 
+  const handleMissingClick = (key: string) => {
+    if (key === "conexion") { navigate("/explorar"); return }
+    fieldRefs[key]?.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+  }
+
   if (loading)
     return (
       <div className="flex items-center justify-center h-48">
@@ -73,140 +182,228 @@ export default function Perfil() {
       </div>
     )
 
-  const check = checkProfile({ ...perfil, buscando })
-  const bioLen = perfil.biografia.trim().length
-
   return (
     <div className="max-w-2xl mx-auto px-5 py-10 animate-in">
-      <div className="mb-7">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="mb-6">
         <h1 className="text-[22px] font-semibold tracking-tight text-white">Tu perfil</h1>
         <p className="text-[13px] mt-1" style={{ color: "var(--text-dim)" }}>
           Actualiza tu información pública
         </p>
       </div>
 
-      {/* Estado del gate de conexión: indica si ya puede conectar en NES Connect */}
+      {/* ── Gamificación (≤ 80px excluyendo colapsable) ─────────────────── */}
       <div
-        className="mb-6 rounded-xl p-4"
-        style={{
-          background: check.complete
-            ? "linear-gradient(180deg, rgba(52,211,153,0.10), rgba(52,211,153,0.03)), var(--surface)"
-            : "linear-gradient(180deg, rgba(94,106,210,0.10), rgba(94,106,210,0.03)), var(--surface)",
-          border: `1px solid ${check.complete ? "rgba(52,211,153,0.35)" : "rgba(94,106,210,0.35)"}`,
-        }}
+        className="mb-6 rounded-xl px-4 py-3"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
-        <div className="flex items-center gap-2">
-          <span style={{ color: check.complete ? "#7ee2b8" : "#aab2f0" }}>
-            {check.complete ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-            )}
+        {/* Fila 1: barra de progreso + label */}
+        <div className="flex items-center gap-3">
+          <div
+            className="flex-1 rounded-full overflow-hidden"
+            style={{ height: 4, background: "rgba(255,255,255,0.06)" }}
+          >
+            <div
+              className="profile-progress-fill rounded-full h-full"
+              style={{ width: `${displayPct}%`, background: donePct === 100 ? "#4ade80" : "#5e6ad2" }}
+            />
+          </div>
+          <span className="text-[11.5px] whitespace-nowrap shrink-0" style={{ color: "#8a8f98" }}>
+            {donePct === 100 ? (
+              <span className="flex items-center gap-1" style={{ color: "rgba(74,222,128,0.85)" }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                Perfil completo
+              </span>
+            ) : `Perfil ${donePct}% completo`}
           </span>
-          <h2 className="text-[14px] font-semibold text-white">
-            {check.complete ? "Perfil completo — ya puedes conectar" : "Completa tu perfil para poder conectar"}
-          </h2>
         </div>
-        {!check.complete && (
-          <p className="text-[12px] mt-1.5" style={{ color: "var(--text-dim)" }}>
-            Hasta entonces no podrás conectar con otros fundadores en NES Connect. Te faltan {check.missingCount} {check.missingCount === 1 ? "apartado" : "apartados"}:
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2 mt-3">
-          {check.items.map((it) => (
-            <span
-              key={it.key}
-              className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1 rounded-full"
-              style={{
-                background: it.ok ? "rgba(52,211,153,0.10)" : "rgba(255,255,255,0.04)",
-                border: `1px solid ${it.ok ? "rgba(52,211,153,0.30)" : "var(--border)"}`,
-                color: it.ok ? "#7ee2b8" : "var(--text-dim)",
-              }}
+
+        {/* Fila 2: racha + rango */}
+        <div className="flex items-center justify-between mt-2">
+          <div>
+            {streakDays >= 2 && (
+              <span
+                className="flex items-center gap-1.5 text-[12px]"
+                style={{ color: "#8a8f98" }}
+                title="Días consecutivos con actividad en NES."
+              >
+                <FlameIcon />
+                {streakDays} días activo
+              </span>
+            )}
+          </div>
+          <span
+            className="text-[12px] px-2 py-0.5"
+            style={{ color: "#8a8f98", border: "1px solid #222326", borderRadius: 4 }}
+            title="Tu rango refleja el número de conexiones activas en NES."
+          >
+            {getConnectionRank(connectionCount)}
+          </span>
+        </div>
+
+        {/* Colapsable "Qué falta" */}
+        {missingItems.length > 0 && (
+          <div className="mt-2.5">
+            <button
+              onClick={() => setShowMissing(v => !v)}
+              className="flex items-center gap-1 text-[11.5px] transition-colors"
+              style={{ color: showMissing ? "var(--text-dim)" : "#62666d", background: "none", border: "none", cursor: "pointer" }}
             >
-              {it.ok ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-              ) : (
-                <span className="w-[11px] h-[11px] rounded-full border" style={{ borderColor: "var(--text-dimmer)" }} />
-              )}
-              {it.label}
-              {it.key === "biografia" && it.detail && (
-                <span style={{ color: it.ok ? "#7ee2b8" : "var(--text-dimmer)" }}>· {it.detail}</span>
-              )}
-            </span>
-          ))}
-        </div>
+              <svg
+                width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: showMissing ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }}
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+              Qué falta
+            </button>
+            {showMissing && (
+              <div className="mt-2 flex flex-col gap-1.5">
+                {missingItems.map(item => (
+                  <button
+                    key={item.key}
+                    onClick={() => handleMissingClick(item.key)}
+                    className="text-left text-[12px] flex items-center gap-1.5 transition-colors group"
+                    style={{ color: "#62666d", background: "none", border: "none", cursor: "pointer" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "var(--text-dim)")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "#62666d")}
+                  >
+                    <span style={{ color: "rgba(249,115,22,0.6)" }}>·</span>
+                    {item.label}
+                    {item.key === "conexion" && (
+                      <span className="text-[10.5px]" style={{ color: "#5e6ad2" }}>→ NES Connect</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
+      {/* ── Formulario ──────────────────────────────────────────────────── */}
       <div
         className="rounded-lg p-6 space-y-5"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
-        <Field label="Nombre">
-          <input
-            value={perfil.nombre}
-            onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })}
-            className="field-input w-full px-3.5 py-2 rounded-md text-[14px]"
-          />
-        </Field>
-        <Field label="Biografía">
-          <textarea
-            value={perfil.biografia}
-            onChange={(e) => setPerfil({ ...perfil, biografia: e.target.value })}
-            rows={4}
-            className="field-input w-full px-3.5 py-2.5 rounded-md text-[14px] resize-none leading-relaxed"
-          />
-          <div className="flex justify-between items-center mt-1.5">
-            <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>
-              {bioLen >= MIN_BIO ? "¡Perfecto!" : `Te faltan ${MIN_BIO - bioLen} caracteres`}
-            </span>
-            <span className="text-[11px] font-medium" style={{ color: bioLen >= MIN_BIO ? "#7ee2b8" : "var(--text-dim)" }}>
-              {bioLen}/{MIN_BIO}
-            </span>
-          </div>
-        </Field>
-        <Field label="Proyecto">
-          <input
-            value={perfil.proyecto}
-            onChange={(e) => setPerfil({ ...perfil, proyecto: e.target.value })}
-            className="field-input w-full px-3.5 py-2 rounded-md text-[14px]"
-          />
-        </Field>
-        <Field label="Tipo de persona que buscas">
-          {buscando.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2.5">
-              {buscando.map((tag, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium text-white"
-                  style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
-                >
-                  <span>{tag}</span>
-                  <button
-                    onClick={() => removeTag(i)}
-                    className="leading-none transition-colors"
-                    style={{ color: "var(--text-dim)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+        {/* Nombre */}
+        <div ref={sectionNombre} id="field-nombre">
+          <Field label="Nombre">
+            <input
+              value={perfil.nombre}
+              onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })}
+              className="field-input w-full px-3.5 py-2 rounded-md text-[14px]"
+            />
+          </Field>
+        </div>
+
+        {/* Biografía */}
+        <div ref={sectionBio} id="field-bio">
+          <Field label="Biografía">
+            <textarea
+              value={perfil.biografia}
+              onChange={(e) => setPerfil({ ...perfil, biografia: e.target.value })}
+              rows={4}
+              className="field-input w-full px-3.5 py-2.5 rounded-md text-[14px] resize-none leading-relaxed"
+            />
+            <div className="flex justify-between items-center mt-1.5">
+              <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>
+                {bioLen >= MIN_BIO ? "¡Perfecto!" : `Te faltan ${MIN_BIO - bioLen} caracteres`}
+              </span>
+              <span
+                className="text-[11px] font-medium"
+                style={{ color: bioLen >= MIN_BIO ? "#7ee2b8" : "var(--text-dim)" }}
+              >
+                {bioLen}/{MIN_BIO}
+              </span>
             </div>
-          )}
-          <input
-            value={inputTag}
-            onChange={(e) => setInputTag(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Escribe y pulsa Enter…"
-            className="field-input w-full px-3.5 py-2 rounded-md text-[14px]"
-          />
-        </Field>
+          </Field>
+        </div>
+
+        {/* Proyecto */}
+        <div ref={sectionProyecto} id="field-proyecto">
+          <Field label="Proyecto">
+            {/* Toggle de 3 opciones */}
+            <div className="flex gap-2">
+              {PROJECT_OPTIONS.map(opt => {
+                const active = projectStatus === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setProjectStatus(active ? null : opt.value as ProjectStatus)}
+                    className="flex-1 py-2 px-2 rounded-md text-[12.5px] font-medium transition-all text-center"
+                    style={{
+                      background: active ? "#1e1f23" : "#121315",
+                      border: `1px solid ${active ? "#6366f1" : "#222326"}`,
+                      color: active ? "#f7f8f8" : "#8a8f98",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Expansión animada para "Tengo un proyecto" */}
+            <div
+              className="project-expand overflow-hidden"
+              style={{ maxHeight: projectStatus === "has_project" ? "160px" : "0" }}
+            >
+              <div className="mt-3">
+                <textarea
+                  value={perfil.proyecto}
+                  onChange={(e) => setPerfil({ ...perfil, proyecto: e.target.value })}
+                  rows={3}
+                  placeholder="Describe brevemente tu proyecto…"
+                  className="field-input w-full px-3.5 py-2.5 rounded-md text-[14px] resize-none leading-relaxed"
+                />
+              </div>
+            </div>
+          </Field>
+        </div>
+
+        {/* Tipo de persona */}
+        <div ref={sectionBuscando} id="field-buscando">
+          <Field label="Tipo de persona que buscas">
+            {buscando.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2.5">
+                {buscando.map((tag, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium text-white"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  >
+                    <span>{tag}</span>
+                    <button
+                      onClick={() => removeTag(i)}
+                      className="leading-none transition-colors"
+                      style={{ color: "var(--text-dim)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              value={inputTag}
+              onChange={(e) => setInputTag(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Escribe y pulsa Enter…"
+              className="field-input w-full px-3.5 py-2 rounded-md text-[14px]"
+            />
+          </Field>
+        </div>
       </div>
 
+      {/* ── Guardar ──────────────────────────────────────────────────────── */}
       <div className="mt-5 flex justify-end">
         <button
           onClick={guardarPerfil}
@@ -217,8 +414,10 @@ export default function Perfil() {
         </button>
       </div>
 
+      {/* ── Separador ────────────────────────────────────────────────────── */}
       <div className="my-7" style={{ height: "1px", background: "var(--border)" }} />
 
+      {/* ── Zona de peligro ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[14px] font-medium" style={{ color: "var(--text-dim)" }}>
