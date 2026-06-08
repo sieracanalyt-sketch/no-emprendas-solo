@@ -165,6 +165,7 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
   onIgnore: () => void
 }) {
   const { profile, match } = candidate
+  const [showBreakdown, setShowBreakdown] = useState(false)
   const strong = isStrongMatch(match.score)
   const name = profile.nombre || "Fundador"
   const initial = name.trim()[0]?.toUpperCase() || "?"
@@ -244,16 +245,28 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
           )}
         </div>
 
-        {/* Match score */}
-        <div className="shrink-0 text-right">
+        {/* Match score — clickable to show breakdown */}
+        <button
+          onClick={() => setShowBreakdown(v => !v)}
+          className="shrink-0 text-right rounded-lg p-1 -m-1 transition-colors"
+          style={{ background: showBreakdown ? "rgba(255,255,255,0.04)" : "transparent" }}
+          title="Ver cómo se calcula este match"
+          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+          onMouseLeave={e => (e.currentTarget.style.background = showBreakdown ? "rgba(255,255,255,0.04)" : "transparent")}
+        >
           <div className="text-[22px] font-bold leading-none" style={{ color: scoreColor }}>
             {match.score}<span className="text-[12px] font-medium">%</span>
           </div>
-          <div className="text-[9.5px] uppercase tracking-wider mt-1" style={{ color: "var(--text-dimmer)" }}>match</div>
+          <div className="text-[9.5px] uppercase tracking-wider mt-1 flex items-center justify-end gap-1" style={{ color: "var(--text-dimmer)" }}>
+            match
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+              <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
+            </svg>
+          </div>
           <div className="mt-2 h-[3px] w-16 rounded-full overflow-hidden ml-auto" style={{ background: "rgba(255,255,255,0.06)" }}>
             <div className="h-full rounded-full" style={{ width: `${match.score}%`, background: scoreColor }} />
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Actions */}
@@ -287,6 +300,41 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
           Ignorar por ahora
         </button>
       </div>
+
+      {/* Breakdown panel */}
+      {showBreakdown && (
+        <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-dimmer)" }}>
+            Cómo se calcula el match
+          </p>
+          <div className="space-y-2.5">
+            {match.breakdown.map(f => (
+              <div key={f.label} className="flex items-center gap-3">
+                <div className="flex-1 text-[12px] leading-tight" style={{ color: f.pts > 0 ? "var(--text)" : "var(--text-dimmer)" }}>
+                  {f.label}
+                </div>
+                <span className="text-[12px] font-semibold w-10 text-right shrink-0" style={{ color: f.pts > 0 ? scoreColor : "var(--text-dimmer)" }}>
+                  {f.pts > 0 ? `+${f.pts}` : "—"}
+                </span>
+                <div className="w-14 h-[3px] rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.06)" }}>
+                  {f.pts > 0 && (
+                    <div className="h-full rounded-full" style={{ width: `${Math.round((f.pts / f.max) * 100)}%`, background: scoreColor }} />
+                  )}
+                </div>
+                <span className="text-[10px] w-8 text-right shrink-0" style={{ color: "var(--text-dimmer)" }}>/{f.max}</span>
+              </div>
+            ))}
+          </div>
+          {match.inactive && (
+            <div className="mt-3 px-3 py-2 rounded-lg text-[11.5px]" style={{ background: "rgba(98,102,109,0.10)", color: "var(--text-dim)", border: "1px solid var(--border)" }}>
+              ⚠ Puntuación base {match.rawScore}% → reducida al 50% por inactividad ({match.daysInactive >= 999 ? `${INACTIVITY_DAYS}+` : match.daysInactive} días sin entrar)
+            </div>
+          )}
+          <p className="text-[11px] mt-2.5" style={{ color: "var(--text-dimmer)" }}>
+            La base mínima garantiza que ningún perfil aparezca en 0% aunque tenga pocos datos.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

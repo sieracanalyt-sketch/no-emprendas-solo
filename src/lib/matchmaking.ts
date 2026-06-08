@@ -18,12 +18,20 @@ export type MatchProfile = {
   created_at?: string | null   // fallback de actividad
 }
 
+export type MatchFactor = {
+  label: string
+  pts: number   // puntos obtenidos en este factor
+  max: number   // puntos máximos posibles
+}
+
 export type MatchResult = {
   score: number          // 0–100 (ya penalizado)
   rawScore: number       // 0–100 sin penalización
   inactive: boolean      // true si 7+ días sin actividad
   daysInactive: number
   reasons: string[]      // motivos legibles del match
+  breakdown: MatchFactor[] // desglose por factor para el popover
+  baseline: number         // suelo mínimo aplicado
 }
 
 export const INACTIVITY_DAYS = 7
@@ -122,8 +130,14 @@ export function computeMatch(me: MatchProfile, other: MatchProfile): MatchResult
 
   // 4) Suelo determinista para perfiles escasos (estable entre recargas) ── 12–30
   const baseline = 12 + Math.round(pairJitter(me.id, other.id) * 18)
+  const preBaseline = score
   score = Math.max(score, baseline)
   if (reasons.length === 0) reasons.push("Perfil compatible")
+
+  const rolePts = roleHit ? 28 : 0
+  const mutualPts = mutual ? 12 : 0
+  const commonPts = Math.min(30, common.length * 10)
+  const projPts = Math.min(18, projOverlap.length * 9)
 
   let raw = Math.max(0, Math.min(100, Math.round(score)))
 
@@ -132,12 +146,22 @@ export function computeMatch(me: MatchProfile, other: MatchProfile): MatchResult
   const inactive = days >= INACTIVITY_DAYS
   const finalScore = inactive ? Math.round(raw * INACTIVITY_PENALTY) : raw
 
+  const breakdown: MatchFactor[] = [
+    { label: "Encaja con lo que buscas", pts: rolePts, max: 28 },
+    { label: "También te busca a ti", pts: mutualPts, max: 12 },
+    { label: "Intereses en común", pts: commonPts, max: 30 },
+    { label: "Proyecto afín", pts: projPts, max: 18 },
+    { label: "Base mínima garantizada", pts: preBaseline < baseline ? baseline - preBaseline : 0, max: 18 },
+  ]
+
   return {
     score: finalScore,
     rawScore: raw,
     inactive,
     daysInactive: Number.isFinite(days) ? Math.floor(days) : 999,
     reasons: reasons.slice(0, 3),
+    breakdown,
+    baseline,
   }
 }
 
