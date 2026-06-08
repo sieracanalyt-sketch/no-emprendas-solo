@@ -440,3 +440,98 @@ select {
     transition: none !important;
   }
 }
+
+/* ============================================================
+   PROFILE GATE DRAWER
+   Mobile: bottom sheet que sube. Desktop: panel lateral derecho.
+============================================================ */
+
+.gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(5, 5, 7, 0.62);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: tourOverlayIn 0.25s ease-out;
+}
+
+/* Mobile: bottom sheet */
+.gate-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9001;
+  background: #151618;
+  border-top: 1px solid #222326;
+  border-radius: 16px 16px 0 0;
+  max-height: 72vh;
+  overflow-y: auto;
+  animation: gateSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Desktop: panel lateral derecho */
+@media (min-width: 640px) {
+  .gate-drawer {
+    top: 50%;
+    bottom: auto;
+    left: auto;
+    right: 24px;
+    width: 380px;
+    max-height: none;
+    border: 1px solid #222326;
+    border-radius: 16px;
+    transform: translateY(-50%);
+    animation: gateSlideRight 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+.gate-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 12px auto 0;
+}
+@media (min-width: 640px) {
+  .gate-handle { display: none; }
+}
+
+.gate-content {
+  padding: 20px 20px 28px;
+}
+@media (min-width: 640px) {
+  .gate-content { padding: 24px; }
+}
+
+@keyframes gateSlideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes gateSlideRight {
+  from { transform: translateY(-50%) translateX(30px); opacity: 0; }
+  to   { transform: translateY(-50%) translateX(0);    opacity: 1; }
+}
+
+/* ============================================================
+   PROFILE COMPLETION BAR
+   Animación de relleno: 600ms ease-out al montar la página.
+============================================================ */
+.profile-progress-fill {
+  transition: width 0.6s ease-out;
+}
+
+/* Animación de toggle del proyecto en Perfil */
+.project-expand {
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-drawer, .gate-overlay,
+  .profile-progress-fill, .project-expand {
+    animation: none !important;
+    transition: none !important;
+  }
+}
