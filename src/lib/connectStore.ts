@@ -17,7 +17,11 @@ const KEY = (userId: string) => `nes_ignored:${userId}`
 
 function read(userId: string): IgnoreMap {
   try {
-    return JSON.parse(localStorage.getItem(KEY(userId)) ?? "{}") as IgnoreMap
+    const parsed = JSON.parse(localStorage.getItem(KEY(userId)) ?? "{}")
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as IgnoreMap
+    }
+    return {}
   } catch {
     return {}
   }

@@ -171,7 +171,13 @@ export default function ConversationPanel({ target, user, online, onActivity, on
       .order("created_at", { ascending: true })
       .then(({ data }) => {
         if (cancelled) return
-        setMessages((data as Msg[]) ?? [])
+        const loaded = (data as Msg[]) ?? []
+        setMessages(prev => {
+          if (prev.length === 0) return loaded
+          const ids = new Set(loaded.map(m => m.id))
+          const extras = prev.filter(m => !ids.has(m.id))
+          return extras.length ? [...loaded, ...extras] : loaded
+        })
         scrollToBottom("auto")
         setLastRead(convKey)
         onActivity?.()

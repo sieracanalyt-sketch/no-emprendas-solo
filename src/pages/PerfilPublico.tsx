@@ -14,15 +14,18 @@ export default function PerfilPublico() {
   const [userData, setUserData] = useState<UserData | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     const cargar = async () => {
       const { data } = await supabase
         .from("users")
         .select("nombre, biografia, proyecto, buscando")
         .eq("id", id)
         .single()
-      if (data) setUserData(data)
+      if (!cancelled && data) setUserData(data)
     }
+    setUserData(null)
     cargar()
+    return () => { cancelled = true }
   }, [id])
 
   if (!userData)
