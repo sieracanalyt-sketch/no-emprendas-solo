@@ -45,10 +45,17 @@ function isImportant(t: EisenhowerTask): boolean {
   return t.priority === "Urgente" || t.priority === "Alta"
 }
 
+function parseDueDate(dateStr: string): number {
+  // "YYYY-MM-DD" sin hora → parsear como medianoche local (no UTC)
+  const parts = dateStr.split("T")[0].split("-").map(Number)
+  if (parts.length === 3) return new Date(parts[0], parts[1] - 1, parts[2]).getTime()
+  return new Date(dateStr).getTime()
+}
+
 function isUrgent(t: EisenhowerTask): boolean {
   if (t.priority === "Urgente" || t.status === "progress") return true
   if (!t.due_date) return false
-  const diff = new Date(t.due_date).getTime() - Date.now()
+  const diff = parseDueDate(t.due_date) - Date.now()
   return diff <= DUE_SOON_MS // vencida o a <48h
 }
 

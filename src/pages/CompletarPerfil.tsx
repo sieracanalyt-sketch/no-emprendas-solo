@@ -7,27 +7,27 @@ export default function CompletarPerfil() {
   const [biografia, setBiografia] = useState("")
   const [proyecto, setProyecto] = useState("")
   const [mensaje, setMensaje] = useState("")
+  const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
 
   const handleSave = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setMensaje("No se encontró el usuario")
-      return
+    if (saving) return
+    setSaving(true)
+    setMensaje("")
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setMensaje("No se encontró el usuario"); return }
+
+      const { error } = await supabase
+        .from("users")
+        .update({ nombre, biografia, proyecto })
+        .eq("id", user.id)
+
+      if (error) { setMensaje("Error al guardar el perfil"); return }
+      navigate("/explorar")
+    } finally {
+      setSaving(false)
     }
-
-    const { error } = await supabase
-      .from("users")
-      .update({ nombre, biografia, proyecto })
-      .eq("id", user.id)
-
-    if (error) {
-      console.error(error)
-      setMensaje("Error al guardar el perfil")
-      return
-    }
-
-    navigate("/explorar")
   }
 
   return (
@@ -72,9 +72,10 @@ export default function CompletarPerfil() {
 
         <button
           onClick={handleSave}
-          className="w-full mt-10 py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold text-lg text-white shadow-lg transition"
+          disabled={saving}
+          className="w-full mt-10 py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold text-lg text-white shadow-lg transition disabled:opacity-50"
         >
-          Guardar y continuar
+          {saving ? "Guardando…" : "Guardar y continuar"}
         </button>
       </div>
     </div>

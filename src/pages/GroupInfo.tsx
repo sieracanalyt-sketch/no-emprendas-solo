@@ -24,12 +24,13 @@ export default function GroupInfo() {
       setGroupInfo(data)
       setNewName(data.name || "")
 
-      if (data.members) {
+      if (data.members?.length) {
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("id, nombre")
+          .in("id", data.members)
         const names: Record<string, string> = {}
-        for (const uid of data.members) {
-          const { data: u } = await supabase.from("users").select("nombre").eq("id", uid).single()
-          names[uid] = u?.nombre || "Usuario"
-        }
+        for (const u of usersData ?? []) names[u.id] = u.nombre || "Usuario"
         setMembersNames(names)
       }
     }

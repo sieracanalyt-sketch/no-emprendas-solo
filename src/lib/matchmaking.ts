@@ -143,7 +143,8 @@ export function computeMatch(me: MatchProfile, other: MatchProfile): MatchResult
 
   // ── Filtro anti-ghosting ────────────────────────────────────────────────
   const days = daysSince(other.last_login ?? other.created_at)
-  const inactive = days >= INACTIVITY_DAYS
+  // Solo penalizar si tenemos datos de actividad reales; Infinity = sin datos → no penalizar
+  const inactive = Number.isFinite(days) && days >= INACTIVITY_DAYS
   const finalScore = inactive ? Math.round(raw * INACTIVITY_PENALTY) : raw
 
   const breakdown: MatchFactor[] = [

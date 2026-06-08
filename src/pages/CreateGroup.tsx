@@ -14,9 +14,12 @@ export default function CreateGroup() {
   const [users, setUsers] = useState<User[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState("")
 
   useEffect(() => {
-    supabase.from("users").select("id, nombre").then(({ data }) => setUsers(data ?? []))
+    supabase.from("users").select("id, nombre").then(({ data, error }) => {
+      if (!error) setUsers(data ?? [])
+    })
   }, [])
 
   const toggleUser = (id: string) => {
@@ -24,15 +27,17 @@ export default function CreateGroup() {
   }
 
   const createGroup = async () => {
-    if (!name.trim() || !user) return
+    if (!name.trim() || !user || creating) return
     setCreating(true)
-    const { data } = await supabase
+    setCreateError("")
+    const { data, error } = await supabase
       .from("groups")
       .insert({ name, description, members: [user.id, ...selected] })
       .select("id")
       .single()
-
-    if (data) navigate(`/group/${data.id}`)
+    setCreating(false)
+    if (error || !data) { setCreateError("No se pudo crear el grupo. Inténtalo de nuevo."); return }
+    navigate(`/group/${data.id}`)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -128,6 +133,7 @@ export default function CreateGroup() {
         </div>
       </div>
 
+      {createError && <p className="text-red-400 text-sm text-center mb-3">{createError}</p>}
       <button
         onClick={createGroup}
         disabled={!name.trim() || creating}

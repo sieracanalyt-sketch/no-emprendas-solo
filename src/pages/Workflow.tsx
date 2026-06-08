@@ -102,7 +102,8 @@ const CRITICAL_ROLES    = ["CTO / Director Técnico", "Diseñador UX / UI", "Res
 // ══════════════════════════════════════════════════════════════════
 function memberColorById(members: Member[], id: string | null) {
   if (!id) return MEMBER_COLORS[0]
-  const idx = Math.max(0, members.findIndex(m => m.id === id))
+  const idx = members.findIndex(m => m.id === id)
+  if (idx === -1) return "#62666d"
   return MEMBER_COLORS[idx % MEMBER_COLORS.length]
 }
 function getRoleColor(allRoles: { name: string; color: string }[], role: string) {

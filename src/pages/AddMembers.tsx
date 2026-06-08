@@ -10,6 +10,7 @@ export default function AddMembers() {
   const [users, setUsers] = useState<{ id: string; nombre?: string }[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [currentMembers, setCurrentMembers] = useState<string[]>([])
+  const [adding, setAdding] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -34,7 +35,8 @@ export default function AddMembers() {
   }
 
   const addMembers = async () => {
-    if (selected.length === 0) return
+    if (selected.length === 0 || adding) return
+    setAdding(true)
     await supabase
       .from("groups")
       .update({ members: [...currentMembers, ...selected] })
@@ -96,10 +98,10 @@ export default function AddMembers() {
 
       <button
         onClick={addMembers}
-        disabled={selected.length === 0}
+        disabled={selected.length === 0 || adding}
         className="w-full py-3 bg-white text-black text-sm font-semibold rounded-xl hover:bg-white/90 transition disabled:opacity-30"
       >
-        Añadir al grupo
+        {adding ? "Añadiendo…" : "Añadir al grupo"}
       </button>
     </div>
   )
