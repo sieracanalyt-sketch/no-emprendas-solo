@@ -51,37 +51,49 @@ export default function Navbar() {
 
         {/* CENTER NAV */}
         <nav className="flex items-center gap-0.5 flex-1 justify-center">
-          <NavItem to="/explorar" label="Explorar" active={isActive("/explorar")} />
+          <NavItem to="/explorar" label="Explorar" active={isActive("/explorar")} tour="explorar" />
           {/* "Grupos" vive ahora dentro de Mensajes (pestaña interna): se elimina
               de la navbar superior para evitar redundancia. */}
           <NavItem
             to="/chats"
             label="Mensajes"
             active={isActive("/chats") || isActive("/chat") || isActive("/grupos") || isActive("/group")}
+            tour="mensajes"
           />
-          <NavItem to="/workflow" label="Workflow" active={isActive("/workflow")} />
-          <NavItem to="/foros" label="Foros" active={isActive("/foros")} />
-          <NavItem to="/calendario" label="Calendario" active={isActive("/calendario")} />
-          <NavItem to="/perfil" label="Perfil" active={isActive("/perfil")} />
+          <NavItem to="/workflow" label="Workflow" active={isActive("/workflow")} tour="workflow" />
+          <NavItem to="/foros" label="Foros" active={isActive("/foros")} tour="foros" />
+          <NavItem to="/calendario" label="Calendario" active={isActive("/calendario")} tour="calendario" />
+          <NavItem to="/perfil" label="Perfil" active={isActive("/perfil")} tour="perfil" />
         </nav>
 
         {/* RIGHT */}
-        <button
-          onClick={handleLogout}
-          className="btn-linear shrink-0 px-3.5 py-1.5 text-[13px] font-medium rounded-md"
-        >
-          Salir
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("nes:tour"))}
+            className="tour-help-btn"
+            title="Ver tutorial"
+            aria-label="Ver tutorial"
+          >
+            ?
+          </button>
+          <button
+            onClick={handleLogout}
+            className="btn-linear px-3.5 py-1.5 text-[13px] font-medium rounded-md"
+          >
+            Salir
+          </button>
+        </div>
 
       </div>
     </header>
   )
 }
 
-function NavItem({ to, label, active }: { to: string; label: string; active: boolean }) {
+function NavItem({ to, label, active, tour }: { to: string; label: string; active: boolean; tour?: string }) {
   return (
     <Link
       to={to}
+      data-tour={tour}
       className="nav-link relative px-2.5 py-1.5 text-[13px] rounded-md"
       style={{
         color: active ? "#f7f8f8" : undefined,
