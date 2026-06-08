@@ -7,6 +7,7 @@ import {
   type MatchProfile, type MatchResult,
 } from "../lib/matchmaking"
 import { getIgnored, ignoreUser, ignoredCount } from "../lib/connectStore"
+import { checkProfile, MIN_BIO, type ProfileCheck } from "../lib/profileCompletion"
 
 type Row = {
   id: string
@@ -28,6 +29,8 @@ export default function Explorar() {
   const [loading, setLoading] = useState(true)
   const [leaving, setLeaving] = useState<Set<string>>(new Set())
   const [hiddenCount, setHiddenCount] = useState(0)
+  // Gate de conexión: el usuario no puede conectar hasta completar su perfil
+  const [meCheck, setMeCheck] = useState<ProfileCheck | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -42,6 +45,7 @@ export default function Explorar() {
       const roleMap = new Map((roles ?? []).map(r => [r.user_id, r.rol as string]))
       const all = (users ?? []) as Row[]
       const meRow = all.find(u => u.id === user.id)
+      setMeCheck(checkProfile(meRow))
       const me: MatchProfile = {
         id: user.id,
         nombre: meRow?.nombre, biografia: meRow?.biografia,
@@ -114,6 +118,10 @@ export default function Explorar() {
         )}
       </div>
 
+      {meCheck && !meCheck.complete && (
+        <ProfileGateBanner check={meCheck} onComplete={() => navigate("/perfil")} />
+      )}
+
       {loading && (
         <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Calculando compatibilidad…</p>
       )}
@@ -134,7 +142,9 @@ export default function Explorar() {
             candidate={c}
             index={i}
             leaving={leaving.has(c.profile.id)}
+            locked={!!meCheck && !meCheck.complete}
             onConnect={() => navigate(`/chat/${c.profile.id}`)}
+            onLocked={() => navigate("/perfil")}
             onProfile={() => navigate(`/perfil-publico/${c.profile.id}`)}
             onIgnore={() => handleIgnore(c.profile.id)}
           />
@@ -144,11 +154,13 @@ export default function Explorar() {
   )
 }
 
-function ConnectCard({ candidate, index, leaving, onConnect, onProfile, onIgnore }: {
+function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, onProfile, onIgnore }: {
   candidate: Candidate
   index: number
   leaving: boolean
+  locked: boolean
   onConnect: () => void
+  onLocked: () => void
   onProfile: () => void
   onIgnore: () => void
 }) {
@@ -246,19 +258,101 @@ function ConnectCard({ candidate, index, leaving, onConnect, onProfile, onIgnore
 
       {/* Actions */}
       <div className="flex items-center gap-2 mt-4">
-        <button onClick={onConnect}
-          className="flex-1 sm:flex-none px-4 py-2 rounded-md text-[13px] font-semibold transition"
-          style={{ background: strong ? "linear-gradient(180deg,#3b82f6,#2f6fe0)" : "linear-gradient(180deg,#5e6ad2,#4d59c4)", color: "#fff" }}
-          onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.08)")}
-          onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}>
-          Conectar
-        </button>
+        {locked ? (
+          <button onClick={onLocked}
+            title="Completa tu perfil (biografía de 150+ caracteres y todos los apartados) para poder conectar"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-md text-[13px] font-semibold transition inline-flex items-center justify-center gap-1.5"
+            style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
+            onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border)" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Conectar
+          </button>
+        ) : (
+          <button onClick={onConnect}
+            className="flex-1 sm:flex-none px-4 py-2 rounded-md text-[13px] font-semibold transition"
+            style={{ background: strong ? "linear-gradient(180deg,#3b82f6,#2f6fe0)" : "linear-gradient(180deg,#5e6ad2,#4d59c4)", color: "#fff" }}
+            onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.08)")}
+            onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}>
+            Conectar
+          </button>
+        )}
         <button onClick={onIgnore}
           className="px-3.5 py-2 rounded-md text-[13px] font-medium transition"
           style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--text-dim)" }}
           onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
           onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border)" }}>
           Ignorar por ahora
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Aviso + gate: se muestra cuando el perfil del usuario está incompleto.
+// Mientras se muestra, los botones "Conectar" del feed quedan bloqueados.
+function ProfileGateBanner({ check, onComplete }: { check: ProfileCheck; onComplete: () => void }) {
+  return (
+    <div
+      className="mb-6 rounded-xl p-4 sm:p-5"
+      style={{
+        background: "linear-gradient(180deg, rgba(94,106,210,0.10), rgba(94,106,210,0.03)), var(--surface)",
+        border: "1px solid rgba(94,106,210,0.35)",
+        boxShadow: "0 8px 30px rgba(94,106,210,0.06)",
+      }}
+    >
+      <div className="flex items-start gap-3.5">
+        <div
+          className="shrink-0 w-10 h-10 rounded-lg inline-flex items-center justify-center"
+          style={{ background: "rgba(94,106,210,0.16)", border: "1px solid rgba(94,106,210,0.3)", color: "#aab2f0" }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h2 className="text-[15px] font-semibold text-white">Completa tu perfil para empezar a conectar</h2>
+          <p className="text-[12.5px] mt-1" style={{ color: "var(--text-dim)" }}>
+            Para conectar con otros fundadores necesitas una biografía de {MIN_BIO}+ caracteres y rellenar todos tus apartados.
+          </p>
+
+          <div className="flex flex-wrap gap-2 mt-3">
+            {check.items.map((it) => (
+              <span
+                key={it.key}
+                className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1 rounded-full"
+                style={{
+                  background: it.ok ? "rgba(52,211,153,0.10)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${it.ok ? "rgba(52,211,153,0.30)" : "var(--border)"}`,
+                  color: it.ok ? "#7ee2b8" : "var(--text-dim)",
+                }}
+              >
+                {it.ok ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                ) : (
+                  <span className="w-[11px] h-[11px] rounded-full border" style={{ borderColor: "var(--text-dimmer)" }} />
+                )}
+                {it.label}
+                {it.key === "biografia" && it.detail && (
+                  <span style={{ color: it.ok ? "#7ee2b8" : "var(--text-dimmer)" }}>· {it.detail}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={onComplete}
+          className="shrink-0 self-center px-4 py-2 rounded-md text-[13px] font-semibold transition"
+          style={{ background: "linear-gradient(180deg,#5e6ad2,#4d59c4)", color: "#fff" }}
+          onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.08)")}
+          onMouseLeave={(e) => (e.currentTarget.style.filter = "brightness(1)")}
+        >
+          Completar perfil
         </button>
       </div>
     </div>
