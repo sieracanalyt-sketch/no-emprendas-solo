@@ -37,42 +37,47 @@ export default function Explorar() {
   const [gateOpen, setGateOpen] = useState(false)
 
   useEffect(() => {
-    if (!user) return
+    if (!user) { setLoading(false); return }
     let cancelled = false
     const cargar = async () => {
-      const [{ data: users }, { data: roles }] = await Promise.all([
-        supabase.from("users")
-          .select("id, nombre, avatar, biografia, proyecto, project_status, buscando, last_login, created_at"),
-        supabase.from("workflow_roles").select("user_id, rol"),
-      ])
-      if (cancelled) return
-      const roleMap = new Map((roles ?? []).map(r => [r.user_id, r.rol as string]))
-      const all = (users ?? []) as Row[]
-      const meRow = all.find(u => u.id === user.id)
-      setMeCheck(checkProfile(meRow ?? null))
-      const me: MatchProfile = {
-        id: user.id,
-        nombre: meRow?.nombre, biografia: meRow?.biografia,
-        proyecto: meRow?.proyecto, buscando: meRow?.buscando,
-        role: roleMap.get(user.id) ?? null,
-        last_login: meRow?.last_login, created_at: meRow?.created_at,
+      try {
+        const [{ data: users }, { data: roles }] = await Promise.all([
+          supabase.from("users")
+            .select("id, nombre, avatar, biografia, proyecto, project_status, buscando, last_login, created_at"),
+          supabase.from("workflow_roles").select("user_id, rol"),
+        ])
+        if (cancelled) return
+        const roleMap = new Map((roles ?? []).map(r => [r.user_id, r.rol as string]))
+        const all = (users ?? []) as Row[]
+        const meRow = all.find(u => u.id === user.id)
+        setMeCheck(checkProfile(meRow ?? null))
+        const me: MatchProfile = {
+          id: user.id,
+          nombre: meRow?.nombre, biografia: meRow?.biografia,
+          proyecto: meRow?.proyecto, buscando: meRow?.buscando,
+          role: roleMap.get(user.id) ?? null,
+          last_login: meRow?.last_login, created_at: meRow?.created_at,
+        }
+        const ignored = getIgnored(user.id)
+        const list: Candidate[] = all
+          .filter(u => u.id !== user.id && !ignored.has(u.id))
+          .map(u => {
+            const profile: MatchProfile = {
+              id: u.id, nombre: u.nombre, biografia: u.biografia,
+              proyecto: u.proyecto, buscando: u.buscando,
+              role: roleMap.get(u.id) ?? null,
+              last_login: u.last_login, created_at: u.created_at,
+            }
+            return { profile, match: computeMatch(me, profile) }
+          })
+          .sort((a, b) => b.match.score - a.match.score || b.match.rawScore - a.match.rawScore)
+        setCandidates(list)
+        setHiddenCount(ignoredCount(user.id))
+      } catch {
+        // error de red o JS — no romper el estado de carga
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      const ignored = getIgnored(user.id)
-      const list: Candidate[] = all
-        .filter(u => u.id !== user.id && !ignored.has(u.id))
-        .map(u => {
-          const profile: MatchProfile = {
-            id: u.id, nombre: u.nombre, biografia: u.biografia,
-            proyecto: u.proyecto, buscando: u.buscando,
-            role: roleMap.get(u.id) ?? null,
-            last_login: u.last_login, created_at: u.created_at,
-          }
-          return { profile, match: computeMatch(me, profile) }
-        })
-        .sort((a, b) => b.match.score - a.match.score || b.match.rawScore - a.match.rawScore)
-      setCandidates(list)
-      setHiddenCount(ignoredCount(user.id))
-      setLoading(false)
     }
     cargar()
     return () => { cancelled = true }
