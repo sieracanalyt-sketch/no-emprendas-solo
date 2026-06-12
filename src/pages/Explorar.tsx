@@ -10,6 +10,7 @@ import {
 import { getIgnored, ignoreUser, ignoredCount } from "../lib/connectStore"
 import { checkProfile, type ProfileCheck } from "../lib/profileCompletion"
 import ProfileGateDrawer from "../components/ProfileGateDrawer"
+import AiConnectPanel from "../components/AiConnectPanel"
 
 type Row = {
   id: string
@@ -29,6 +30,7 @@ export default function Explorar() {
   const [user] = useUser()
   const navigate = useNavigate()
   const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [meProfile, setMeProfile] = useState<MatchProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [leaving, setLeaving] = useState<Set<string>>(new Set())
   const [hiddenCount, setHiddenCount] = useState(0)
@@ -58,6 +60,7 @@ export default function Explorar() {
           role: roleMap.get(user.id) ?? null,
           last_login: meRow?.last_login, created_at: meRow?.created_at,
         }
+        setMeProfile(me)
         const ignored = getIgnored(user.id)
         const list: Candidate[] = all
           .filter(u => u.id !== user.id && !ignored.has(u.id))
@@ -100,7 +103,7 @@ export default function Explorar() {
   }, [candidates])
 
   return (
-    <div className="max-w-3xl mx-auto px-5 py-10 animate-in">
+    <div className="max-w-6xl mx-auto px-5 py-10 animate-in">
       <style>{`
         @keyframes nes-card-in { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
         @keyframes nes-overlay-in { from { opacity: 0 } to { opacity: 1 } }
@@ -132,33 +135,49 @@ export default function Explorar() {
         )}
       </div>
 
-      {loading && (
-        <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Calculando compatibilidad…</p>
-      )}
-      {!loading && candidates.length === 0 && (
-        <div className="text-[13px] text-center py-16 px-6 rounded-xl border border-dashed"
-          style={{ color: "var(--text-dim)", borderColor: "var(--border)" }}>
-          No quedan fundadores por descubrir ahora mismo.<br />
-          <span className="text-[12px]" style={{ color: "var(--text-dimmer)" }}>
-            Los que ignoraste volverán a aparecer en unas semanas.
-          </span>
-        </div>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_350px] gap-6 lg:gap-8 items-start">
+        {/* Columna izquierda: feed de matchmaking */}
+        <div>
+          {loading && (
+            <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Calculando compatibilidad…</p>
+          )}
+          {!loading && candidates.length === 0 && (
+            <div className="text-[13px] text-center py-16 px-6 rounded-xl border border-dashed"
+              style={{ color: "var(--text-dim)", borderColor: "var(--border)" }}>
+              No quedan fundadores por descubrir ahora mismo.<br />
+              <span className="text-[12px]" style={{ color: "var(--text-dimmer)" }}>
+                Los que ignoraste volverán a aparecer en unas semanas.
+              </span>
+            </div>
+          )}
 
-      <div className="flex flex-col gap-3">
-        {candidates.map((c, i) => (
-          <ConnectCard
-            key={c.profile.id}
-            candidate={c}
-            index={i}
-            leaving={leaving.has(c.profile.id)}
+          <div className="flex flex-col gap-3">
+            {candidates.map((c, i) => (
+              <ConnectCard
+                key={c.profile.id}
+                candidate={c}
+                index={i}
+                leaving={leaving.has(c.profile.id)}
+                locked={!!meCheck && !meCheck.complete}
+                onConnect={() => navigate(`/chat/${c.profile.id}`)}
+                onLocked={() => setGateOpen(true)}
+                onProfile={() => navigate(`/perfil-publico/${c.profile.id}`)}
+                onIgnore={() => handleIgnore(c.profile.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Columna derecha: Conexión IA (función estrella) */}
+        <aside className="order-first lg:order-none lg:sticky lg:top-6">
+          <AiConnectPanel
+            me={meProfile}
+            candidates={candidates.map(c => c.profile)}
+            disabled={loading}
             locked={!!meCheck && !meCheck.complete}
-            onConnect={() => navigate(`/chat/${c.profile.id}`)}
             onLocked={() => setGateOpen(true)}
-            onProfile={() => navigate(`/perfil-publico/${c.profile.id}`)}
-            onIgnore={() => handleIgnore(c.profile.id)}
           />
-        ))}
+        </aside>
       </div>
 
       {/* Drawer de perfil incompleto */}
