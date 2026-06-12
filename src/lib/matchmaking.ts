@@ -44,7 +44,7 @@ const STOPWORDS = new Set([
   "the","and","for","with","to","of","in","on","my","i","we","app","startup","proyecto",
 ])
 
-function tokenize(...parts: (string | null | undefined)[]): Set<string> {
+export function tokenize(...parts: (string | null | undefined)[]): Set<string> {
   const text = parts.filter(Boolean).join(" ").toLowerCase()
   const words = text
     .normalize("NFD").replace(/[̀-ͯ]/g, "") // sin tildes
@@ -54,7 +54,7 @@ function tokenize(...parts: (string | null | undefined)[]): Set<string> {
   return new Set(words)
 }
 
-function overlap(a: Set<string>, b: Set<string>): string[] {
+export function overlap(a: Set<string>, b: Set<string>): string[] {
   const out: string[] = []
   for (const w of a) if (b.has(w)) out.push(w)
   return out
