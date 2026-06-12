@@ -22,6 +22,7 @@ type Row = {
   buscando: string[] | null
   last_login: string | null
   created_at: string | null
+  streak_days: number | null
 }
 
 type Candidate = { profile: MatchProfile; match: MatchResult }
@@ -48,7 +49,7 @@ export default function Explorar() {
       try {
         const [{ data: users }, { data: roles }] = await Promise.all([
           supabase.from("users")
-            .select("id, nombre, avatar, biografia, proyecto, project_status, buscando, last_login, created_at"),
+            .select("id, nombre, avatar, biografia, proyecto, project_status, buscando, last_login, created_at, streak_days"),
           supabase.from("workflow_roles").select("user_id, rol"),
         ])
         if (cancelled) return
@@ -62,6 +63,8 @@ export default function Explorar() {
           proyecto: meRow?.proyecto, buscando: meRow?.buscando,
           role: roleMap.get(user.id) ?? null,
           last_login: meRow?.last_login, created_at: meRow?.created_at,
+          project_status: meRow?.project_status ?? null,
+          streak_days: meRow?.streak_days ?? null,
         }
         setMeProfile(me)
         const ignored = getIgnored(user.id)
@@ -73,6 +76,8 @@ export default function Explorar() {
               proyecto: u.proyecto, buscando: u.buscando,
               role: roleMap.get(u.id) ?? null,
               last_login: u.last_login, created_at: u.created_at,
+              project_status: u.project_status ?? null,
+              streak_days: u.streak_days ?? null,
             }
             return { profile, match: computeMatch(me, profile) }
           })

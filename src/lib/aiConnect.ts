@@ -66,6 +66,8 @@ export async function searchConnections(
     proyecto: c.proyecto,
     buscando: c.buscando,
     role: c.role,
+    project_status: c.project_status,
+    streak_days: c.streak_days,
   }))
 
   try {

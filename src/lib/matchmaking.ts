@@ -16,6 +16,8 @@ export type MatchProfile = {
   role?: string | null         // rol del usuario (workflow_roles)
   last_login?: string | null   // actividad (anti-ghosting)
   created_at?: string | null   // fallback de actividad
+  project_status?: string | null  // "has_project" | "no_project" | "looking"
+  streak_days?: number | null     // días consecutivos de actividad
 }
 
 export type MatchFactor = {
