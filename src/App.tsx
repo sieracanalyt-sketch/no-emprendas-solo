@@ -27,9 +27,15 @@ export default function App() {
     location.pathname === "/register"
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-        await saveUser(session.user)
+        // ⚠️ NO usar await ni llamadas a supabase directamente aquí: el callback
+        // corre mientras el SDK retiene su lock de auth, y cualquier query que
+        // necesite el token espera ese mismo lock → deadlock que congela TODAS
+        // las peticiones de la app (en todas las pestañas). setTimeout difiere
+        // el trabajo fuera del lock, como recomienda la doc de Supabase.
+        const user = session.user
+        setTimeout(() => { void saveUser(user) }, 0)
       }
     })
     return () => subscription.unsubscribe()

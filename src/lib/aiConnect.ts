@@ -34,6 +34,18 @@ export type AiSearchResult = {
 }
 
 const MAX_RESULTS = 6
+/** Tiempo máximo de espera a la Edge Function antes de caer al modo local. */
+const AI_TIMEOUT_MS = 12_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("ai-connect timeout")), ms)
+    promise.then(
+      v => { clearTimeout(timer); resolve(v) },
+      e => { clearTimeout(timer); reject(e) },
+    )
+  })
+}
 
 export function isFormValid(form: AiSearchForm): boolean {
   return form.joinProject
@@ -57,7 +69,9 @@ export async function searchConnections(
   }))
 
   try {
-    const { data, error } = await supabase.functions.invoke("ai-connect", {
+    // withTimeout: si la función (o el lock de auth del SDK) se queda colgada,
+    // degradamos al algoritmo local en vez de dejar el spinner eterno.
+    const { data, error } = await withTimeout(supabase.functions.invoke("ai-connect", {
       body: {
         me: me && {
           id: me.id,
@@ -75,7 +89,7 @@ export async function searchConnections(
         },
         candidates: compact,
       },
-    })
+    }), AI_TIMEOUT_MS)
     if (!error && data && Array.isArray(data.matches)) {
       return { matches: data.matches as AiMatch[], source: "ai" }
     }

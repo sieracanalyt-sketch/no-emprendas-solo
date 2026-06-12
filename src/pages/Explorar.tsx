@@ -27,11 +27,14 @@ type Row = {
 type Candidate = { profile: MatchProfile; match: MatchResult }
 
 export default function Explorar() {
-  const [user] = useUser()
+  const [user, userLoading] = useUser()
   const navigate = useNavigate()
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [meProfile, setMeProfile] = useState<MatchProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loadingData, setLoadingData] = useState(true)
+  // Mientras la sesión aún se resuelve, seguimos "cargando" — evita el falso
+  // "No quedan fundadores" antes de saber siquiera quién es el usuario.
+  const loading = userLoading || loadingData
   const [leaving, setLeaving] = useState<Set<string>>(new Set())
   const [hiddenCount, setHiddenCount] = useState(0)
   // Gate de conexión: drawer si el perfil está incompleto
@@ -39,7 +42,7 @@ export default function Explorar() {
   const [gateOpen, setGateOpen] = useState(false)
 
   useEffect(() => {
-    if (!user) { setLoading(false); return }
+    if (!user) { if (!userLoading) setLoadingData(false); return }
     let cancelled = false
     const cargar = async () => {
       try {
@@ -79,12 +82,12 @@ export default function Explorar() {
       } catch {
         // error de red o JS — no romper el estado de carga
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoadingData(false)
       }
     }
     cargar()
     return () => { cancelled = true }
-  }, [user])
+  }, [user, userLoading])
 
   const handleIgnore = (id: string) => {
     setLeaving(prev => new Set(prev).add(id))
