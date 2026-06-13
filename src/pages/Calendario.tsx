@@ -33,7 +33,11 @@ import {
   disconnectGoogle,
   pullGoogleEvents,
   pushEventToGoogle,
+  updateGoogleEvent,
+  deleteGoogleEvent,
   markSynced,
+  hasClientId,
+  saveClientId,
   type GoogleSyncState,
 } from "../lib/googleCalendar"
 
@@ -43,6 +47,7 @@ import {
 type Member = { id: string; nombre: string; avatar: string | null }
 type KTask = { id: string; title: string; priority: string; status: string }
 type Toast = { id: number; text: string; type: "info" | "success" | "warn" }
+type Priority = { id: string; label: string; budgetH: number; kind: "meeting" | "focus" | "task" }
 
 const KIND_COLOR: Record<CalEvent["kind"], string> = {
   event: "#5e6ad2",
@@ -72,13 +77,22 @@ export default function Calendario() {
   const [tasks, setTasks] = useState<KTask[]>([])
 
   const [urgentMode, setUrgentMode] = useState(false)
+  const [urgentConfirm, setUrgentConfirm] = useState(false)
   const [showFocus, setShowFocus] = useState(true)
   const [fusion, setFusion] = useState<Set<string>>(new Set())
   const [previewTz, setPreviewTz] = useState<string>("America/New_York")
+  const [showTzPreview, setShowTzPreview] = useState(false)
+
+  // Espejo de Prioridades — datos reales, sin inventar
+  const [priorities, setPriorities] = useState<Priority[]>(() => {
+    try { return JSON.parse(localStorage.getItem("nes:cal-priorities") ?? "[]") } catch { return [] }
+  })
+  const [showPriorityForm, setShowPriorityForm] = useState(false)
 
   const [google, setGoogle] = useState<GoogleSyncState>(() => getGoogleState())
   const [googleEvents, setGoogleEvents] = useState<CalEvent[]>([])
   const [syncing, setSyncing] = useState(false)
+  const [googleConnectModal, setGoogleConnectModal] = useState(false)
 
   // Modales
   const [detail, setDetail] = useState<CalEvent | null>(null)
@@ -96,14 +110,28 @@ export default function Calendario() {
   const weekStart = useMemo(() => startOfWeek(weekRef), [weekRef])
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
 
-  // ── Cargar equipo + tareas Kanban ───────────────────────────────────────────
+  // ── Persistir prioridades en localStorage ────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem("nes:cal-priorities", JSON.stringify(priorities))
+  }, [priorities])
+
+  // ── Cargar equipo (solo miembros de workflow_roles) + tareas Kanban ──────────
   useEffect(() => {
     if (!user) return
+    // Solo el equipo registrado en Workflow, sin incluir al propio usuario
     supabase
-      .from("users")
-      .select("id, nombre, avatar")
-      .order("nombre")
-      .then(({ data }) => setMembers((data as Member[]) ?? []))
+      .from("workflow_roles")
+      .select("user_id")
+      .neq("user_id", user.id)
+      .then(async ({ data: roles }) => {
+        if (!roles?.length) { setMembers([]); return }
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("id, nombre, avatar")
+          .in("id", roles.map((r: { user_id: string }) => r.user_id))
+          .order("nombre")
+        setMembers((usersData as Member[]) ?? [])
+      })
     supabase
       .from("workflow_tasks")
       .select("id, title, priority, status")
@@ -111,14 +139,14 @@ export default function Calendario() {
       .then(({ data }) => setTasks((data as KTask[]) ?? []))
   }, [user])
 
-  // ── Google: traer eventos mock al conectar / cambiar de semana ───────────────
+  // ── Google: traer eventos reales al conectar / cambiar de semana ────────────
   useEffect(() => {
-    if (!user || !google.connected) {
+    if (!user || !google.connected || !google.tokenLoaded) {
       setGoogleEvents([])
       return
     }
     pullGoogleEvents(weekRef, user.id).then(setGoogleEvents)
-  }, [user, google.connected, weekStart, weekRef])
+  }, [user, google.connected, google.tokenLoaded, weekStart, weekRef])
 
   // ── Caducidad de propuestas (T2-4) ──────────────────────────────────────────
   useEffect(() => {
@@ -166,21 +194,17 @@ export default function Calendario() {
     [events]
   )
 
-  // ── Espejo de Prioridades (T2-7) ────────────────────────────────────────────
-  const [goal] = useState("Lanzar Beta")
-  const meetingBudgetH = 8
-  const meetingHoursThisWeek = useMemo(() => {
+  // ── Espejo de Prioridades (T2-7) — horas reales por tipo de evento ──────────
+  const weekHours = useMemo(() => {
     const ws = weekStart.getTime()
     const we = addDays(weekStart, 7).getTime()
-    return (
-      allVisible
-        .filter((e) => e.kind === "meeting")
-        .filter((e) => {
-          const t = new Date(e.start_at).getTime()
-          return t >= ws && t < we
-        })
-        .reduce((acc, e) => acc + durationMin(e) / 60, 0)
-    )
+    const inWeek = allVisible.filter((e) => {
+      const t = new Date(e.start_at).getTime()
+      return t >= ws && t < we && e.status !== "cancelled"
+    })
+    const sum = (kind: string) =>
+      inWeek.filter((e) => e.kind === kind).reduce((acc, e) => acc + durationMin(e) / 60, 0)
+    return { meeting: sum("meeting"), focus: sum("focus"), task: sum("task") }
   }, [allVisible, weekStart])
 
   // ── Crear / editar ──────────────────────────────────────────────────────────
@@ -200,7 +224,6 @@ export default function Calendario() {
   }
 
   const commitCreate = async (ev: NewEvent) => {
-    // Peaje de Preparación (T1-7): reuniones requieren formulario, salvo urgencia
     if (ev.kind === "meeting" && (ev.attendees?.length ?? 0) > 0 && !ev.urgent && !ev.prep_answers) {
       setDraft(null)
       setPrep(ev)
@@ -215,8 +238,22 @@ export default function Calendario() {
     toast("Evento creado", "success")
   }
 
-  // ── Reprogramar (drag move) ─────────────────────────────────────────────────
+  // ── Reprogramar (drag move) — sincroniza con Google si aplica ───────────────
   const moveEvent = async (id: string, day: Date, newStartMin: number) => {
+    // ¿Es un evento importado de Google (no está en Supabase)?
+    const gEv = googleEvents.find((e) => e.id === id)
+    if (gEv?.google_id) {
+      const dur = durationMin(gEv)
+      const s = new Date(day)
+      s.setHours(Math.floor(newStartMin / 60), newStartMin % 60, 0, 0)
+      const e = new Date(s.getTime() + dur * 60000)
+      await updateGoogleEvent(gEv.google_id, { start_at: s.toISOString(), end_at: e.toISOString() })
+      // Refrescar vista local
+      if (user) setGoogleEvents(await pullGoogleEvents(weekRef, user.id))
+      toast("Evento actualizado en Google Calendar", "success")
+      return
+    }
+    // Evento NES normal
     const ev = events.find((e) => e.id === id)
     if (!ev) return
     const dur = durationMin(ev)
@@ -224,6 +261,10 @@ export default function Calendario() {
     s.setHours(Math.floor(newStartMin / 60), newStartMin % 60, 0, 0)
     const e = new Date(s.getTime() + dur * 60000)
     await update(id, { start_at: s.toISOString(), end_at: e.toISOString() })
+    // Si también tiene google_id, actualizar allí
+    if (ev.google_id) {
+      await updateGoogleEvent(ev.google_id, { start_at: s.toISOString(), end_at: e.toISOString() })
+    }
   }
 
   // ── Soltar tarea Kanban (T1-9) ──────────────────────────────────────────────
@@ -296,11 +337,16 @@ export default function Calendario() {
 
   // ── Google connect / sync ───────────────────────────────────────────────────
   const handleConnect = async () => {
+    setGoogleConnectModal(false)
     setSyncing(true)
-    const s = await connectGoogle(user?.email ?? undefined)
-    setGoogle(s)
+    try {
+      const s = await connectGoogle()
+      setGoogle(s)
+      toast(`Google Calendar conectado · ${s.email ?? "cuenta de Google"}`, "success")
+    } catch (err) {
+      toast(`No se pudo conectar: ${(err as Error).message}`, "warn")
+    }
     setSyncing(false)
-    toast("Google Calendar conectado", "success")
   }
   const handleSync = async () => {
     if (!user) return
@@ -355,16 +401,15 @@ export default function Calendario() {
 
         <div className="flex-1" />
 
-        {/* Modo Urgencia (T1-18) */}
+        {/* Modo Urgencia (T1-18) — abre modal de confirmación */}
         <button
-          onClick={() => setUrgentMode((v) => !v)}
+          onClick={() => urgentMode ? setUrgentMode(false) : setUrgentConfirm(true)}
           className="text-[12px] px-2.5 py-1.5 rounded-md font-medium transition"
           style={{
             background: urgentMode ? "rgba(235,87,87,0.16)" : "transparent",
             border: `1px solid ${urgentMode ? "rgba(235,87,87,0.5)" : "var(--border-strong)"}`,
             color: urgentMode ? "#ff8585" : "var(--text-dim)",
           }}
-          title="Break Glass: el equipo núcleo se salta tus filtros horarios"
         >
           🚨 {urgentMode ? "Urgencia ON" : "Modo Urgencia"}
         </button>
@@ -373,20 +418,38 @@ export default function Calendario() {
         <button
           onClick={() => setEmergency(true)}
           className="text-[12px] px-2.5 py-1.5 rounded-md font-medium btn-linear"
-          title="Cancela/mueve tus citas próximas en una crisis"
         >
-          ❄️ Congelar
+          ❄️ Congelar agenda
         </button>
 
         {/* Google Calendar */}
         {google.connected ? (
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] hidden lg:inline" style={{ color: "var(--text-dim)" }}>
-              {google.lastSync ? `sync ${fmtClock(google.lastSync)}` : ""}
+            <span
+              className="text-[11px] hidden lg:inline font-medium"
+              style={{ color: google.tokenLoaded ? "#4ade80" : "#f59e0b" }}
+            >
+              {google.tokenLoaded ? "🟢" : "🟡"} {google.email}
             </span>
-            <button onClick={handleSync} disabled={syncing} className="btn-linear text-[12px] px-2.5 py-1.5 rounded-md">
-              {syncing ? "Sincronizando…" : "↻ Sync"}
-            </button>
+            {google.tokenLoaded ? (
+              <>
+                <span className="text-[11px] hidden xl:inline" style={{ color: "var(--text-dimmer)" }}>
+                  {google.lastSync ? `· sync ${fmtClock(google.lastSync)}` : ""}
+                </span>
+                <button onClick={handleSync} disabled={syncing} className="btn-linear text-[12px] px-2.5 py-1.5 rounded-md">
+                  {syncing ? "Sincronizando…" : "↻ Sync"}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setGoogleConnectModal(true)}
+                disabled={syncing}
+                className="text-[12px] px-2.5 py-1.5 rounded-md font-medium"
+                style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)", color: "#fbbf24" }}
+              >
+                {syncing ? "Reconectando…" : "↻ Reconectar"}
+              </button>
+            )}
             <button
               onClick={handleDisconnect}
               className="text-[12px] px-2 py-1.5 rounded-md"
@@ -397,7 +460,7 @@ export default function Calendario() {
           </div>
         ) : (
           <button
-            onClick={handleConnect}
+            onClick={() => setGoogleConnectModal(true)}
             disabled={syncing}
             className="text-[12px] px-3 py-1.5 rounded-md font-medium text-white"
             style={{ background: "#16a34a" }}
@@ -407,13 +470,31 @@ export default function Calendario() {
         )}
       </div>
 
-      {/* Banner urgencia */}
+      {/* Banner urgencia — explicación completa */}
       {urgentMode && (
         <div
-          className="px-4 md:px-6 py-1.5 text-[12px] shrink-0"
+          className="px-4 md:px-6 py-2 text-[12px] shrink-0 flex items-start gap-2.5"
           style={{ background: "rgba(235,87,87,0.1)", color: "#ff9b9b", borderBottom: "1px solid rgba(235,87,87,0.2)" }}
         >
-          Modo Urgencia activo — las reuniones nuevas se saltan el Peaje de Preparación y se marcan como prioritarias.
+          <span className="text-[14px] mt-px shrink-0">🚨</span>
+          <div className="flex-1">
+            <strong style={{ color: "#ffcece" }}>Modo Urgencia activo</strong>
+            <span style={{ color: "#ffb3b3" }}>
+              {" "}— Las nuevas reuniones saltan el Peaje de Preparación y se marcan como prioritarias (🔴).
+              El equipo núcleo puede convocarte fuera de tu horario habitual.
+              Los bloques de enfoque no actúan como barrera.
+            </span>
+            <span style={{ color: "rgba(255,180,180,0.6)" }}>
+              {" "}Reservado para emergencias reales: bugs críticos en producción, decisiones que no pueden esperar.
+            </span>
+          </div>
+          <button
+            onClick={() => setUrgentMode(false)}
+            className="shrink-0 text-[11px] px-2 py-0.5 rounded"
+            style={{ color: "var(--text-dimmer)", border: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            Desactivar
+          </button>
         </div>
       )}
 
@@ -423,36 +504,95 @@ export default function Calendario() {
           className="hidden md:flex flex-col w-[248px] shrink-0 overflow-y-auto"
           style={{ borderRight: "1px solid var(--border)", background: "var(--surface-2)" }}
         >
-          {/* Espejo de Prioridades (T2-7) */}
+          {/* Espejo de Prioridades (T2-7) — sin datos inventados */}
           <RailSection title="Espejo de Prioridades">
-            <div
-              className="rounded-lg p-3"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-            >
-              <p className="text-[12px]" style={{ color: "var(--text-dim)" }}>
-                Objetivo: <span style={{ color: "var(--text)" }}>{goal}</span>
-              </p>
-              <div className="mt-2 h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-3)" }}>
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${Math.min(100, (meetingHoursThisWeek / meetingBudgetH) * 100)}%`,
-                    background: meetingHoursThisWeek > meetingBudgetH ? "#eb5757" : "var(--accent)",
-                  }}
-                />
-              </div>
-              <p className="text-[11px] mt-1.5" style={{ color: "var(--text-dim)" }}>
-                {meetingHoursThisWeek.toFixed(1)}h en reuniones / {meetingBudgetH}h presupuesto
-              </p>
-              {meetingHoursThisWeek > meetingBudgetH && (
-                <p className="text-[11px] mt-1" style={{ color: "#ff8585" }}>
-                  ⚠ Desviación de enfoque: demasiadas reuniones esta semana.
+            {priorities.length === 0 && !showPriorityForm ? (
+              <div className="text-center py-1">
+                <p className="text-[12px] mb-2.5" style={{ color: "var(--text-dimmer)" }}>
+                  No hay prioridades esta semana
                 </p>
-              )}
-            </div>
+                <button
+                  onClick={() => setShowPriorityForm(true)}
+                  className="text-[12px] px-3 py-1.5 rounded-md w-full"
+                  style={{
+                    background: "transparent",
+                    border: "1px dashed var(--border-strong)",
+                    color: "var(--text-dim)",
+                  }}
+                >
+                  + Añadir prioridad
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {priorities.map((p) => {
+                  const used = weekHours[p.kind]
+                  const pct = Math.min(100, (used / p.budgetH) * 100)
+                  const over = used > p.budgetH
+                  return (
+                    <div
+                      key={p.id}
+                      className="rounded-lg p-2.5"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[12px] truncate flex-1 pr-1" style={{ color: "var(--text)" }}>
+                          {p.label}
+                        </span>
+                        <button
+                          onClick={() => setPriorities((ps) => ps.filter((x) => x.id !== p.id))}
+                          className="shrink-0 text-[10px] px-1"
+                          style={{ color: "var(--text-dimmer)" }}
+                          title="Eliminar prioridad"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ background: "var(--surface-3)" }}>
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${pct}%`, background: over ? "#eb5757" : "var(--accent)" }}
+                        />
+                      </div>
+                      <p className="text-[10px]" style={{ color: over ? "#ff8585" : "var(--text-dimmer)" }}>
+                        {used.toFixed(1)}h / {p.budgetH}h
+                        {" · "}
+                        {p.kind === "meeting" ? "reuniones" : p.kind === "focus" ? "enfoque" : "tareas"}
+                        {over && " ⚠ excedido"}
+                      </p>
+                    </div>
+                  )
+                })}
+                {!showPriorityForm && (
+                  <button
+                    onClick={() => setShowPriorityForm(true)}
+                    className="text-[12px] px-2 py-1.5 rounded-md text-center"
+                    style={{
+                      background: "transparent",
+                      border: "1px dashed var(--border-strong)",
+                      color: "var(--text-dimmer)",
+                    }}
+                  >
+                    + Añadir prioridad
+                  </button>
+                )}
+              </div>
+            )}
+            {showPriorityForm && (
+              <PriorityForm
+                onSave={(label, budgetH, kind) => {
+                  setPriorities((ps) => [
+                    ...ps,
+                    { id: `${Date.now()}`, label, budgetH, kind: kind as Priority["kind"] },
+                  ])
+                  setShowPriorityForm(false)
+                }}
+                onCancel={() => setShowPriorityForm(false)}
+              />
+            )}
           </RailSection>
 
-          {/* Equipo — Fusión de Calendarios (T2-3) + IA Asistencia (T1-15) */}
+          {/* Equipo — solo miembros de Workflow (T2-3) + IA Asistencia (T1-15) */}
           <RailSection title="Equipo · arrastra para fusionar">
             <div className="flex flex-col gap-1">
               {members.map((m) => {
@@ -492,7 +632,17 @@ export default function Calendario() {
                 )
               })}
               {members.length === 0 && (
-                <p className="text-[11px] px-2" style={{ color: "var(--text-dimmer)" }}>Sin miembros</p>
+                <p className="text-[11px] px-1" style={{ color: "var(--text-dimmer)", lineHeight: 1.5 }}>
+                  Sin miembros en el equipo.{" "}
+                  <button
+                    onClick={() => navigate("/workflow")}
+                    className="underline"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    Añádelos en Workflow
+                  </button>
+                  .
+                </p>
               )}
             </div>
           </RailSection>
@@ -518,20 +668,36 @@ export default function Calendario() {
             </div>
           </RailSection>
 
-          {/* Zona horaria (T1-14) + Enfoque toggle + Obsidian (T1-10) */}
+          {/* Zona horaria (T1-14) — toggle ON/OFF + Enfoque + Obsidian (T1-10) */}
           <RailSection title="Contexto">
-            <label className="text-[11px] block mb-1" style={{ color: "var(--text-dim)" }}>
-              Zona horaria de la otra persona
-            </label>
-            <select
-              value={previewTz}
-              onChange={(e) => setPreviewTz(e.target.value)}
-              className="field-input w-full px-2 py-1.5 rounded-md text-[12px] mb-3"
-            >
-              {TIMEZONES.map((tz) => (
-                <option key={tz.id} value={tz.id}>{tz.label}</option>
-              ))}
-            </select>
+            {/* Toggle zona horaria */}
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px]" style={{ color: "var(--text-dim)" }}>
+                Zona horaria de la otra persona
+              </label>
+              <button
+                onClick={() => setShowTzPreview((v) => !v)}
+                className="text-[10px] px-2 py-0.5 rounded-md font-medium transition"
+                style={{
+                  background: showTzPreview ? "rgba(94,106,210,0.15)" : "var(--surface)",
+                  border: `1px solid ${showTzPreview ? "rgba(94,106,210,0.5)" : "var(--border)"}`,
+                  color: showTzPreview ? "var(--accent)" : "var(--text-dimmer)",
+                }}
+              >
+                {showTzPreview ? "ON" : "OFF"}
+              </button>
+            </div>
+            {showTzPreview && (
+              <select
+                value={previewTz}
+                onChange={(e) => setPreviewTz(e.target.value)}
+                className="field-input w-full px-2 py-1.5 rounded-md text-[12px] mb-3"
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz.id} value={tz.id}>{tz.label}</option>
+                ))}
+              </select>
+            )}
 
             <label className="flex items-center gap-2 text-[12px] mb-2" style={{ color: "var(--text-dim)" }}>
               <input type="checkbox" checked={showFocus} onChange={(e) => setShowFocus(e.target.checked)} />
@@ -571,9 +737,20 @@ export default function Calendario() {
           ev={detail}
           members={members}
           previewTz={previewTz}
+          showTzPreview={showTzPreview}
           onClose={() => setDetail(null)}
           onDelete={async () => {
+            if (detail.source === "google" && detail.google_id) {
+              // Evento que vive en Google Calendar — eliminar allí
+              await deleteGoogleEvent(detail.google_id)
+              setGoogleEvents((prev) => prev.filter((e) => e.id !== detail.id))
+              setDetail(null)
+              toast("Evento eliminado de Google Calendar", "success")
+              return
+            }
+            // Evento NES normal
             await remove(detail.id)
+            if (detail.google_id) await deleteGoogleEvent(detail.google_id)
             setDetail(null)
             toast("Evento eliminado")
           }}
@@ -613,6 +790,24 @@ export default function Calendario() {
       )}
 
       {emergency && <EmergencyModal onCancel={() => setEmergency(false)} onFreeze={freezeAgenda} />}
+
+      {urgentConfirm && (
+        <UrgentConfirmModal
+          onCancel={() => setUrgentConfirm(false)}
+          onConfirm={() => {
+            setUrgentConfirm(false)
+            setUrgentMode(true)
+            toast("Modo Urgencia activado", "warn")
+          }}
+        />
+      )}
+
+      {googleConnectModal && (
+        <GoogleConnectModal
+          onCancel={() => setGoogleConnectModal(false)}
+          onConnect={handleConnect}
+        />
+      )}
 
       {/* Toasts */}
       <div className="fixed bottom-5 right-5 z-[130] flex flex-col gap-2">
@@ -927,6 +1122,7 @@ function EventDetail({
   ev,
   members,
   previewTz,
+  showTzPreview,
   onClose,
   onDelete,
   onAccept,
@@ -935,6 +1131,7 @@ function EventDetail({
   ev: CalEvent
   members: Member[]
   previewTz: string
+  showTzPreview: boolean
   onClose: () => void
   onDelete: () => void
   onAccept: () => void
@@ -965,18 +1162,20 @@ function EventDetail({
         <p className="text-[13px] mb-3" style={{ color: "var(--text-dim)" }}>{ev.description}</p>
       )}
 
-      {/* Previsualización de zona horaria (T1-14) */}
-      <div className="rounded-lg p-3 mb-3 flex items-center justify-between" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-        <div>
-          <p className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>Tu hora</p>
-          <p className="text-[14px]" style={{ color: "var(--text)" }}>☀️ {local}</p>
+      {/* Previsualización de zona horaria (T1-14) — solo si está activa */}
+      {showTzPreview && (
+        <div className="rounded-lg p-3 mb-3 flex items-center justify-between" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <div>
+            <p className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>Tu hora</p>
+            <p className="text-[14px]" style={{ color: "var(--text)" }}>☀️ {local}</p>
+          </div>
+          <span style={{ color: "var(--text-dimmer)" }}>→</span>
+          <div className="text-right">
+            <p className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>{tzLabel}</p>
+            <p className="text-[14px]" style={{ color: "var(--text)" }}>{there.isDay ? "☀️" : "🌙"} {there.time}</p>
+          </div>
         </div>
-        <span style={{ color: "var(--text-dimmer)" }}>→</span>
-        <div className="text-right">
-          <p className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>{tzLabel}</p>
-          <p className="text-[14px]" style={{ color: "var(--text)" }}>{there.isDay ? "☀️" : "🌙"} {there.time}</p>
-        </div>
-      </div>
+      )}
 
       {/* Asistentes + IA de asistencia (T1-15) */}
       {attendees.length > 0 && (
@@ -1005,7 +1204,6 @@ function EventDetail({
             Aceptar
           </button>
         )}
-        {/* Contrapropuestas en 1 clic (T1-1) */}
         <button onClick={onPropose} className="flex-1 btn-linear py-2 rounded-md text-[13px] font-medium">
           ↪ 3 alternativas
         </button>
@@ -1133,7 +1331,7 @@ function CreateModal({
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// PEAJE DE PREPARACIÓN (T1-7 / T2-10)
+// PEAJE DE PREPARACIÓN (T1-7)
 // ──────────────────────────────────────────────────────────────────────────────
 function PrepModal({
   onCancel,
@@ -1148,7 +1346,6 @@ function PrepModal({
   const [a2, setA2] = useState("")
   const [a3, setA3] = useState("")
 
-  // Si el motivo es simple, se fuerza la reunión asíncrona
   const tooSimple = a1.trim().length < 15 || a3.trim().length < 10
   const filled = a1.trim() && a2.trim() && a3.trim()
 
@@ -1198,22 +1395,280 @@ function PrepModal({
 function EmergencyModal({ onCancel, onFreeze }: { onCancel: () => void; onFreeze: (h: number) => void }) {
   return (
     <Backdrop onClose={onCancel}>
-      <h3 className="text-[15px] font-semibold mb-1" style={{ color: "var(--text)" }}>❄️ Congelación de Emergencia</h3>
-      <p className="text-[12px] mb-4" style={{ color: "var(--text-dim)" }}>
-        Cancela tus próximas citas y envía un aviso automático a los asistentes. Úsalo solo en una crisis real.
+      <h3 className="text-[15px] font-semibold mb-1" style={{ color: "var(--text)" }}>❄️ Congelar agenda</h3>
+      <p className="text-[13px] mb-3" style={{ color: "var(--text-dim)" }}>
+        Cancela y libera todas tus citas próximas de un solo golpe.
+        Ideal para cuando surge una emergencia y necesitas tiempo libre de compromisos inmediatamente.
       </p>
+      <ul className="text-[12px] flex flex-col gap-1.5 mb-4" style={{ color: "var(--text-dim)" }}>
+        <li>❄️ Todas las citas en el rango quedan canceladas</li>
+        <li>📨 Los asistentes reciben un aviso automático</li>
+        <li>↩️ Puedes volver a crear las citas manualmente después</li>
+      </ul>
       <div className="flex gap-2">
         <button onClick={() => onFreeze(24)} className="flex-1 py-2.5 rounded-md text-[13px] font-medium text-white" style={{ background: "#eb5757" }}>
-          Congelar 24 h
+          Congelar próximas 24 h
         </button>
         <button onClick={() => onFreeze(48)} className="flex-1 py-2.5 rounded-md text-[13px] font-medium text-white" style={{ background: "#c0392b" }}>
-          Congelar 48 h
+          Congelar próximas 48 h
         </button>
       </div>
       <button onClick={onCancel} className="w-full mt-2 py-2 rounded-md text-[13px]" style={{ color: "var(--text-dim)" }}>
         Cancelar
       </button>
     </Backdrop>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MODO URGENCIA — confirmación + explicación (T1-18)
+// ──────────────────────────────────────────────────────────────────────────────
+function UrgentConfirmModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <Backdrop onClose={onCancel}>
+      <h3 className="text-[15px] font-semibold mb-1" style={{ color: "#ff8585" }}>🚨 Activar Modo Urgencia</h3>
+      <p className="text-[13px] mb-3" style={{ color: "var(--text-dim)" }}>
+        Este modo está pensado para situaciones excepcionales donde necesitas actuar de forma inmediata, saltándote las barreras habituales del calendario.
+      </p>
+      <p className="text-[11px] uppercase tracking-wide mb-2" style={{ color: "var(--text-dimmer)" }}>Al activarlo:</p>
+      <ul className="flex flex-col gap-2 mb-4">
+        {[
+          ["Se omite el Peaje de Preparación", "No necesitas justificar el motivo de la reunión."],
+          ["Eventos marcados como prioritarios 🔴", "Se muestran con borde rojo en el calendario."],
+          ["Sin barreras de horario", "Los bloques de enfoque no actúan como freno."],
+          ["Convocatoria fuera de horario habitual", "El equipo núcleo puede llamarte aunque estés en modo silencio."],
+        ].map(([title, desc]) => (
+          <li key={title} className="flex gap-2.5">
+            <span className="text-[12px] mt-0.5" style={{ color: "rgba(235,87,87,0.7)" }}>✦</span>
+            <div>
+              <p className="text-[12px] font-medium" style={{ color: "var(--text)" }}>{title}</p>
+              <p className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>{desc}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div
+        className="rounded-md p-2.5 mb-4 text-[12px]"
+        style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "#fbbf24" }}
+      >
+        ⚠ Úsalo solo en emergencias reales: bugs críticos en producción, inversores esperando una decisión, situaciones que no pueden esperar a mañana.
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onCancel} className="flex-1 py-2 rounded-md text-[13px]" style={{ color: "var(--text-dim)", border: "1px solid var(--border-strong)" }}>
+          Cancelar
+        </button>
+        <button
+          onClick={onConfirm}
+          className="flex-1 py-2 rounded-md text-[13px] font-medium text-white"
+          style={{ background: "rgba(235,87,87,0.85)" }}
+        >
+          Activar Modo Urgencia
+        </button>
+      </div>
+    </Backdrop>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// GOOGLE CALENDAR — modal de conexión (pega tu Client ID aquí)
+// ──────────────────────────────────────────────────────────────────────────────
+function GoogleConnectModal({
+  onCancel,
+  onConnect,
+}: {
+  onCancel: () => void
+  onConnect: () => void
+}) {
+  const [clientId, setClientId] = useState(
+    () => localStorage.getItem("nes:gcal-client-id") ?? ""
+  )
+  const [showSteps, setShowSteps] = useState(false)
+  const alreadyReady = hasClientId()
+  const canConnect = alreadyReady || clientId.trim().length > 10
+
+  const handleConnect = () => {
+    if (clientId.trim()) saveClientId(clientId.trim())
+    onConnect()
+  }
+
+  return (
+    <Backdrop onClose={onCancel}>
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-1">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "#4ade80" }}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <h3 className="text-[15px] font-semibold" style={{ color: "var(--text)" }}>Conectar Google Calendar</h3>
+      </div>
+      <p className="text-[12px] mb-4" style={{ color: "var(--text-dim)" }}>
+        Sincroniza tus eventos reales. Los cambios aquí se reflejan en Google y viceversa.
+      </p>
+
+      {alreadyReady ? (
+        /* Client ID ya guardado — mostrar directamente el botón */
+        <div
+          className="rounded-lg p-3 mb-4 flex items-center gap-2 text-[12px]"
+          style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", color: "#4ade80" }}
+        >
+          ✓ Client ID configurado — listo para conectar
+        </div>
+      ) : (
+        <>
+          {/* Campo de pegado */}
+          <label className="text-[11px] block mb-1.5 font-medium" style={{ color: "var(--text-dim)" }}>
+            Pega tu Google OAuth Client ID:
+          </label>
+          <input
+            autoFocus
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            placeholder="123456789-abc.apps.googleusercontent.com"
+            className="field-input w-full px-3 py-2 rounded-md text-[12px] mb-1 font-mono"
+            style={{ color: clientId ? "#7dd3fc" : undefined }}
+          />
+
+          {/* Cómo conseguirlo — colapsable */}
+          <button
+            onClick={() => setShowSteps((v) => !v)}
+            className="flex items-center gap-1 text-[11px] mb-3 mt-2"
+            style={{ color: "var(--accent)" }}
+          >
+            <span style={{ transform: showSteps ? "rotate(90deg)" : "none", display: "inline-block", transition: "transform 0.15s" }}>▶</span>
+            ¿Cómo obtengo el Client ID? (5 min, gratis)
+          </button>
+
+          {showSteps && (
+            <div
+              className="rounded-lg p-3 mb-3 text-[11px] flex flex-col gap-2"
+              style={{ background: "rgba(94,106,210,0.07)", border: "1px solid rgba(94,106,210,0.2)" }}
+            >
+              {[
+                ["Abrir Google Cloud Console", "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com", "Habilitar Google Calendar API →"],
+                ["Crear credenciales OAuth", "https://console.cloud.google.com/apis/credentials/oauthclient", "Nueva credencial → Aplicación web →"],
+              ].map(([label, url, cta]) => (
+                <div key={label} className="flex items-start gap-2">
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(94,106,210,0.3)", color: "var(--accent)" }}>1</span>
+                  <div>
+                    <p style={{ color: "var(--text-dim)" }}>{label}</p>
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--accent)" }}>{cta}</a>
+                  </div>
+                </div>
+              ))}
+              <div className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(94,106,210,0.3)", color: "var(--accent)" }}>2</span>
+                <div style={{ color: "var(--text-dim)" }}>
+                  En <strong style={{ color: "var(--text)" }}>Orígenes JavaScript autorizados</strong> añade:<br />
+                  <span className="font-mono" style={{ color: "#7dd3fc" }}>https://no-emprendas-solo.vercel.app</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(94,106,210,0.3)", color: "var(--accent)" }}>3</span>
+                <div style={{ color: "var(--text-dim)" }}>
+                  Copia el <strong style={{ color: "var(--text)" }}>Client ID</strong> y pégalo arriba. Listo.
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="py-2 px-4 rounded-md text-[13px]"
+          style={{ color: "var(--text-dim)", border: "1px solid var(--border-strong)" }}
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleConnect}
+          disabled={!canConnect}
+          className="flex-1 py-2 rounded-md text-[13px] font-medium text-white disabled:opacity-40 flex items-center justify-center gap-2"
+          style={{ background: "#16a34a" }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Conectar con Google
+        </button>
+      </div>
+    </Backdrop>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FORMULARIO DE PRIORIDAD
+// ──────────────────────────────────────────────────────────────────────────────
+function PriorityForm({
+  onSave,
+  onCancel,
+}: {
+  onSave: (label: string, budgetH: number, kind: string) => void
+  onCancel: () => void
+}) {
+  const [label, setLabel] = useState("")
+  const [budgetH, setBudgetH] = useState(8)
+  const [kind, setKind] = useState<"meeting" | "focus" | "task">("meeting")
+
+  return (
+    <div
+      className="mt-2 p-3 rounded-lg"
+      style={{ background: "var(--surface)", border: "1px solid var(--border-strong)" }}
+    >
+      <p className="text-[11px] mb-1.5" style={{ color: "var(--text-dimmer)" }}>Nueva prioridad</p>
+      <input
+        autoFocus
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        placeholder="Ej: Reuniones con inversores"
+        className="field-input w-full px-2 py-1.5 rounded-md text-[12px] mb-2"
+      />
+      <div className="flex items-center gap-2 mb-2">
+        <label className="text-[11px] shrink-0" style={{ color: "var(--text-dim)" }}>Horas / semana:</label>
+        <input
+          type="number"
+          value={budgetH}
+          onChange={(e) => setBudgetH(Math.max(1, Number(e.target.value)))}
+          min={1}
+          max={60}
+          className="field-input w-16 px-2 py-1 rounded-md text-[12px]"
+        />
+      </div>
+      <div className="flex gap-1 mb-3">
+        {(["meeting", "focus", "task"] as const).map((k) => (
+          <button
+            key={k}
+            onClick={() => setKind(k)}
+            className="flex-1 py-1 rounded text-[11px]"
+            style={{
+              background: kind === k ? "rgba(94,106,210,0.2)" : "transparent",
+              border: `1px solid ${kind === k ? "var(--accent)" : "var(--border)"}`,
+              color: kind === k ? "var(--accent)" : "var(--text-dimmer)",
+            }}
+          >
+            {k === "meeting" ? "Reuniones" : k === "focus" ? "Enfoque" : "Tareas"}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1.5">
+        <button
+          onClick={onCancel}
+          className="flex-1 py-1.5 text-[12px] rounded-md"
+          style={{ color: "var(--text-dim)", border: "1px solid var(--border-strong)" }}
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={() => label.trim() && onSave(label.trim(), budgetH, kind)}
+          disabled={!label.trim()}
+          className="flex-1 py-1.5 text-[12px] rounded-md text-white disabled:opacity-40"
+          style={{ background: "var(--accent)" }}
+        >
+          Guardar
+        </button>
+      </div>
+    </div>
   )
 }
 

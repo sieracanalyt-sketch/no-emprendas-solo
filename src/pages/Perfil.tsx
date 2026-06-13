@@ -135,15 +135,21 @@ export default function Perfil() {
     if (saving) return
     const { data: { session } } = await supabase.auth.getSession()
     const user = session?.user
-    if (!user) return
+    if (!user) {
+      alert("Tu sesión ha expirado. Recarga la página e inicia sesión de nuevo.")
+      return
+    }
     setSaving(true)
     try {
-      await supabase.from("users").update({
+      const { error } = await supabase.from("users").update({
         ...perfil,
         buscando,
         project_status: projectStatus,
       }).eq("id", user.id)
+      if (error) throw error
       alert("Perfil actualizado")
+    } catch {
+      alert("Error al guardar el perfil. Inténtalo de nuevo.")
     } finally {
       setSaving(false)
     }
@@ -302,7 +308,7 @@ export default function Perfil() {
           <Field label="Nombre">
             <input
               value={perfil.nombre}
-              onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })}
+              onChange={(e) => { const v = e.target.value; setPerfil(prev => ({ ...prev, nombre: v })) }}
               className="field-input w-full px-3.5 py-2 rounded-md text-[14px]"
             />
           </Field>
@@ -313,7 +319,7 @@ export default function Perfil() {
           <Field label="Biografía">
             <textarea
               value={perfil.biografia}
-              onChange={(e) => setPerfil({ ...perfil, biografia: e.target.value })}
+              onChange={(e) => { const v = e.target.value; setPerfil(prev => ({ ...prev, biografia: v })) }}
               rows={4}
               className="field-input w-full px-3.5 py-2.5 rounded-md text-[14px] resize-none leading-relaxed"
             />
@@ -364,9 +370,11 @@ export default function Perfil() {
               <div className="mt-3">
                 <textarea
                   value={perfil.proyecto}
-                  onChange={(e) => setPerfil({ ...perfil, proyecto: e.target.value })}
+                  onChange={(e) => { const v = e.target.value; setPerfil(prev => ({ ...prev, proyecto: v })) }}
                   rows={3}
                   placeholder="Describe brevemente tu proyecto…"
+                  tabIndex={projectStatus === "has_project" ? 0 : -1}
+                  aria-hidden={projectStatus === "has_project" ? undefined : true}
                   className="field-input w-full px-3.5 py-2.5 rounded-md text-[14px] resize-none leading-relaxed"
                 />
               </div>
