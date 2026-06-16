@@ -61,7 +61,6 @@ export default function Navbar() {
             tour="mensajes"
           />
           <NavItem to="/workflow" label="Workflow" active={isActive("/workflow")} tour="workflow" />
-          <NavItem to="/foros" label="Foros" active={isActive("/foros")} tour="foros" />
           <NavItem to="/calendario" label="Calendario" active={isActive("/calendario")} tour="calendario" />
           <NavItem to="/perfil" label="Perfil" active={isActive("/perfil")} tour="perfil" />
         </nav>

@@ -9,7 +9,6 @@ import Login from "./pages/Login"
 import Register from "./pages/Register"
 import Explorar from "./pages/Explorar"
 import Perfil from "./pages/Perfil"
-import Foros from "./pages/Foros"
 import CompletarPerfil from "./pages/CompletarPerfil"
 import Mensajes from "./pages/Mensajes"
 import PerfilPublico from "./pages/PerfilPublico"
@@ -69,7 +68,6 @@ export default function App() {
           <Route path="/group/:id/info" element={<GroupInfo />} />
           <Route path="/group/:id/add-members" element={<AddMembers />} />
 
-          <Route path="/foros" element={<Foros />} />
           <Route path="/workflow" element={<Workflow />} />
           <Route path="/calendario" element={<Calendario />} />
         </Routes>

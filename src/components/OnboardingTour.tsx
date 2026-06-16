@@ -84,16 +84,6 @@ const STEPS: Step[] = [
     desc: "Un tablero Kanban colaborativo y en tiempo real. Crea tareas, asígnalas por roles y arrástralas hasta ‘Hecho’ junto a tu equipo.",
   },
   {
-    key: "foros",
-    target: '[data-tour="foros"]',
-    icon: svg(
-      <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" />
-    ),
-    title: "Foros de la comunidad",
-    desc: "El espacio para resolver dudas y compartir aprendizajes con el resto de emprendedores. Le estamos dando los últimos retoques.",
-    badge: "Muy pronto",
-  },
-  {
     key: "calendario",
     target: '[data-tour="calendario"]',
     icon: svg(
