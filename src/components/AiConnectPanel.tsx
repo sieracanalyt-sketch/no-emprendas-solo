@@ -220,7 +220,15 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
             </span>
             {result.source === "local" && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-md"
-                title="La IA no está disponible ahora mismo; resultados del algoritmo local"
+                title={
+                  result.fallbackReason === "rate_limited"
+                    ? "IA saturada (límite de Gemini alcanzado); usando búsqueda local"
+                    : result.fallbackReason === "no_api_key"
+                      ? "IA no configurada; usando búsqueda local"
+                      : result.fallbackReason === "timeout"
+                        ? "La IA tardó demasiado; usando búsqueda local"
+                        : "La IA no está disponible ahora mismo; resultados del algoritmo local"
+                }
                 style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dimmer)", border: "1px solid var(--border)" }}>
                 modo local
               </span>

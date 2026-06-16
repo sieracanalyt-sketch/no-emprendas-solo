@@ -7,8 +7,8 @@
 //
 // Respuesta 200 siempre:
 //   { matches: [{ id, score, reason, fit }] }
-//   { error: "no_api_key" | "bad_request" | "gemini_error" }  → el cliente hace
-//   fallback al algoritmo local.
+//   { error: "no_api_key" | "bad_request" | "gemini_error" | "gemini_rate_limited" }
+//   → el cliente hace fallback al algoritmo local.
 //
 // Secrets: GEMINI_API_KEY (obligatorio), GEMINI_MODEL (opcional, por defecto
 // gemini-2.5-flash).
@@ -168,26 +168,34 @@ INSTRUCCIONES FINALES:
 
   const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash"
 
+  const callGemini = () => fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+        },
+      }),
+    },
+  )
+
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-            responseSchema: RESPONSE_SCHEMA,
-          },
-        }),
-      },
-    )
+    let res = await callGemini()
+    // 429 = cuota/rate-limit de Gemini, suele ser transitorio: un único reintento corto.
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 500))
+      res = await callGemini()
+    }
 
     if (!res.ok) {
       const detail = await res.text()
       console.error("gemini_error", res.status, detail.slice(0, 500))
+      if (res.status === 429) return json({ error: "gemini_rate_limited", status: res.status })
       return json({ error: "gemini_error", status: res.status })
     }
 

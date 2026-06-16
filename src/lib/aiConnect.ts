@@ -31,6 +31,8 @@ export type AiSearchResult = {
   matches: AiMatch[]
   /** "ai" = Gemini Flash · "local" = fallback sin IA */
   source: "ai" | "local"
+  /** Motivo del fallback local, si aplica (para mostrar un mensaje útil). */
+  fallbackReason?: "no_api_key" | "rate_limited" | "error" | "timeout"
 }
 
 const MAX_RESULTS = 6
@@ -95,10 +97,15 @@ export async function searchConnections(
     if (!error && data && Array.isArray(data.matches)) {
       return { matches: data.matches as AiMatch[], source: "ai" }
     }
+    const fallbackReason: AiSearchResult["fallbackReason"] =
+      data?.error === "no_api_key" ? "no_api_key"
+      : data?.error === "gemini_rate_limited" ? "rate_limited"
+      : "error"
+    return { matches: localSearch(me, candidates, form), source: "local", fallbackReason }
   } catch {
-    // sin red o función no desplegada → fallback local
+    // sin red, timeout o función no desplegada → fallback local
+    return { matches: localSearch(me, candidates, form), source: "local", fallbackReason: "timeout" }
   }
-  return { matches: localSearch(me, candidates, form), source: "local" }
 }
 
 // ── Fallback local (sin IA) ──────────────────────────────────────────────────
@@ -130,7 +137,9 @@ function localSearch(
       if ((c.proyecto ?? "").trim().length > 0) score += 6
     }
 
-    if (score < 20) continue
+    // Umbral bajo: mientras Gemini esté limitado, este algoritmo es la ruta
+    // principal de búsqueda, así que una sola coincidencia fuerte ya cuenta.
+    if (score < 13) continue
     const reason =
       offerHits.length > 0
         ? `Su proyecto busca lo que ofreces: ${offerHits.slice(0, 2).join(", ")}`

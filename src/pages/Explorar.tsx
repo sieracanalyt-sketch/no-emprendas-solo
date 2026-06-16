@@ -31,6 +31,10 @@ export default function Explorar() {
   const [user, userLoading] = useUser()
   const navigate = useNavigate()
   const [candidates, setCandidates] = useState<Candidate[]>([])
+  // Pool completo para la búsqueda con IA: solo excluye al propio usuario, NUNCA
+  // a quien ya ignoró en el feed pasivo — una búsqueda explícita es una petición
+  // deliberada y no debería ocultar resultados por descartes antiguos.
+  const [aiCandidates, setAiCandidates] = useState<MatchProfile[]>([])
   const [meProfile, setMeProfile] = useState<MatchProfile | null>(null)
   const [loadingData, setLoadingData] = useState(true)
   // Mientras la sesión aún se resuelve, seguimos "cargando" — evita el falso
@@ -68,21 +72,24 @@ export default function Explorar() {
         }
         setMeProfile(me)
         const ignored = getIgnored(user.id)
-        const list: Candidate[] = all
-          .filter(u => u.id !== user.id && !ignored.has(u.id))
+        const others = all.filter(u => u.id !== user.id)
+        const toProfile = (u: Row): MatchProfile => ({
+          id: u.id, nombre: u.nombre, biografia: u.biografia,
+          proyecto: u.proyecto, buscando: u.buscando,
+          role: roleMap.get(u.id) ?? null,
+          last_login: u.last_login, created_at: u.created_at,
+          project_status: u.project_status ?? null,
+          streak_days: u.streak_days ?? null,
+        })
+        const list: Candidate[] = others
+          .filter(u => !ignored.has(u.id))
           .map(u => {
-            const profile: MatchProfile = {
-              id: u.id, nombre: u.nombre, biografia: u.biografia,
-              proyecto: u.proyecto, buscando: u.buscando,
-              role: roleMap.get(u.id) ?? null,
-              last_login: u.last_login, created_at: u.created_at,
-              project_status: u.project_status ?? null,
-              streak_days: u.streak_days ?? null,
-            }
+            const profile = toProfile(u)
             return { profile, match: computeMatch(me, profile) }
           })
           .sort((a, b) => b.match.score - a.match.score || b.match.rawScore - a.match.rawScore)
         setCandidates(list)
+        setAiCandidates(others.map(toProfile))
         setHiddenCount(ignoredCount(user.id))
       } catch {
         // error de red o JS — no romper el estado de carga
@@ -180,7 +187,7 @@ export default function Explorar() {
         <aside className="order-first lg:order-none lg:sticky lg:top-6">
           <AiConnectPanel
             me={meProfile}
-            candidates={candidates.map(c => c.profile)}
+            candidates={aiCandidates}
             disabled={loading}
             locked={!!meCheck && !meCheck.complete}
             onLocked={() => setGateOpen(true)}
