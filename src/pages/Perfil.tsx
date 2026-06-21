@@ -2,32 +2,15 @@ import { useEffect, useRef, useState } from "react"
 import { supabase } from "../supabase"
 import { useNavigate, useLocation } from "react-router-dom"
 import { checkProfile, MIN_BIO, type ProjectStatus } from "../lib/profileCompletion"
-
-// ─── Gamification helpers ────────────────────────────────────────────────────
-
-function getConnectionRank(n: number): string {
-  if (n === 0) return "Fundador en solitario"
-  if (n <= 2) return "Núcleo fundador"
-  if (n <= 5) return "Equipo inicial"
-  if (n <= 10) return "Equipo en expansión"
-  return "Estudio consolidado"
-}
+import { useUser } from "../hooks/useUser"
+import { useProfileMetrics } from "../hooks/useProfileMetrics"
+import ProfileStats, { RankPill } from "../components/ProfileStats"
 
 const PROJECT_OPTIONS = [
   { value: "has_project", label: "Tengo un proyecto" },
   { value: "no_project",  label: "No tengo proyecto" },
   { value: "looking",     label: "Buscando proyecto" },
 ] as const
-
-function FlameIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 17c.55 0 1.05-.18 1.46-.48C14.08 15.67 15 14 15 12c0-1.5-.5-2.7-1.18-3.82C12.93 7.05 12 6 12 6c0 0-.5 2-2 3.5C8.5 11 8.5 13 8.5 14.5Z" />
-      <path d="M12 6c0 0 3 2.5 3 6 0 2.76-2.24 5-5 5" />
-    </svg>
-  )
-}
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Perfil() {
@@ -37,12 +20,13 @@ export default function Perfil() {
   const [inputTag, setInputTag] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [streakDays, setStreakDays] = useState(0)
-  const [connectionCount, setConnectionCount] = useState(0)
   const [showMissing, setShowMissing] = useState(false)
   const [displayPct, setDisplayPct] = useState(0)
   const navigate = useNavigate()
   const location = useLocation()
+
+  const [user] = useUser()
+  const { metrics } = useProfileMetrics(user?.id)
 
   // Refs para scroll-to-field desde el drawer
   const sectionNombre   = useRef<HTMLDivElement>(null)
@@ -66,18 +50,11 @@ export default function Perfil() {
         const user = session?.user
         if (!user) { setLoading(false); return }
 
-        const [{ data: profileData }, { data: sentMsgs }] = await Promise.all([
-          supabase
-            .from("users")
-            .select("nombre, biografia, proyecto, buscando, project_status, streak_days")
-            .eq("id", user.id)
-            .single(),
-          supabase
-            .from("messages")
-            .select("chat_id")
-            .eq("from_uid", user.id)
-            .limit(500),
-        ])
+        const { data: profileData } = await supabase
+          .from("users")
+          .select("nombre, biografia, proyecto, buscando, project_status")
+          .eq("id", user.id)
+          .single()
 
         if (profileData) {
           const pd = profileData as Record<string, unknown>
@@ -88,11 +65,7 @@ export default function Perfil() {
           })
           setBuscando((pd.buscando as string[]) || [])
           setProjectStatus((pd.project_status as ProjectStatus) || null)
-          setStreakDays((pd.streak_days as number) || 0)
         }
-
-        const uniqueChats = new Set(sentMsgs?.map((m: Record<string, unknown>) => m.chat_id) ?? [])
-        setConnectionCount(uniqueChats.size)
       } finally {
         setLoading(false)
       }
@@ -120,7 +93,7 @@ export default function Perfil() {
     { key: "biografia", label: `Biografía (${MIN_BIO}+ chars)`, done: bioLen >= MIN_BIO },
     { key: "proyecto",  label: "Proyecto",              done: check.items.find(i => i.key === "proyecto")?.ok ?? false },
     { key: "buscando",  label: "A quién buscas",        done: buscando.filter(t => t.trim()).length > 0 },
-    { key: "conexion",  label: "Primera conexión",      done: connectionCount > 0 },
+    { key: "conexion",  label: "Primera conexión",      done: metrics.connections > 0 },
   ]
   const donePct = Math.round(progressItems.filter(i => i.done).length / progressItems.length * 100)
   const missingItems = progressItems.filter(i => !i.done)
@@ -198,11 +171,16 @@ export default function Perfil() {
   return (
     <div className="max-w-2xl mx-auto px-5 py-10 animate-in">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight text-white">Tu perfil</h1>
-        <p className="text-[13px] mt-1" style={{ color: "var(--text-dim)" }}>
-          Actualiza tu información pública
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-tight text-white">Tu perfil</h1>
+          <p className="text-[13px] mt-1" style={{ color: "var(--text-dim)" }}>
+            Actualiza tu información pública
+          </p>
+        </div>
+        <div className="shrink-0 mt-1">
+          <RankPill connections={metrics.connections} />
+        </div>
       </div>
 
       {/* ── Gamificación (≤ 80px excluyendo colapsable) ─────────────────── */}
@@ -231,29 +209,6 @@ export default function Perfil() {
                 Perfil completo
               </span>
             ) : `Perfil ${donePct}% completo`}
-          </span>
-        </div>
-
-        {/* Fila 2: racha + rango */}
-        <div className="flex items-center justify-between mt-2">
-          <div>
-            {streakDays >= 2 && (
-              <span
-                className="flex items-center gap-1.5 text-[12px]"
-                style={{ color: "#8a8f98" }}
-                title="Días consecutivos con actividad en NES."
-              >
-                <FlameIcon />
-                {streakDays} días activo
-              </span>
-            )}
-          </div>
-          <span
-            className="text-[12px] px-2 py-0.5"
-            style={{ color: "#8a8f98", border: "1px solid #222326", borderRadius: 4 }}
-            title="Tu rango refleja el número de conexiones activas en NES."
-          >
-            {getConnectionRank(connectionCount)}
           </span>
         </div>
 
@@ -296,6 +251,11 @@ export default function Perfil() {
             )}
           </div>
         )}
+      </div>
+
+      {/* ── Métricas de gamificación ────────────────────────────────────── */}
+      <div className="mb-6">
+        <ProfileStats metrics={metrics} />
       </div>
 
       {/* ── Formulario ──────────────────────────────────────────────────── */}

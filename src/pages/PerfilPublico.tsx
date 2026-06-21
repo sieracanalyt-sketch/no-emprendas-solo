@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import { supabase } from "../supabase"
+import { useProfileMetrics } from "../hooks/useProfileMetrics"
+import ProfileStats, { RankPill } from "../components/ProfileStats"
 
 type UserData = {
   nombre?: string
@@ -12,6 +14,7 @@ type UserData = {
 export default function PerfilPublico() {
   const { id } = useParams()
   const [userData, setUserData] = useState<UserData | null>(null)
+  const { metrics } = useProfileMetrics(id)
 
   useEffect(() => {
     let cancelled = false
@@ -37,18 +40,26 @@ export default function PerfilPublico() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-5 mb-8">
+      <div className="flex items-center gap-5 mb-7">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white/70 shrink-0"
           style={{ background: "rgba(255,255,255,0.1)" }}
         >
           {userData.nombre?.[0]?.toUpperCase() ?? "?"}
         </div>
-        <div>
+        <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold text-white">
             {userData.nombre || "Usuario"}
           </h1>
+          <div>
+            <RankPill connections={metrics.connections} />
+          </div>
         </div>
+      </div>
+
+      {/* ── Métricas de gamificación ────────────────────────────────────── */}
+      <div className="mb-6">
+        <ProfileStats metrics={metrics} />
       </div>
 
       <div
