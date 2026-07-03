@@ -15,7 +15,6 @@ import { tierAtLeast, type FeatureFlag } from "../lib/premium"
 
 let flagsCache: FeatureFlag[] | null = null
 let loadPromise: Promise<void> | null = null
-let channelRefs = 0
 let channel: ReturnType<typeof supabase.channel> | null = null
 const listeners = new Set<() => void>()
 
@@ -30,12 +29,14 @@ function loadFlags(): Promise<void> {
   return loadPromise
 }
 
+// El canal se crea una vez y vive toda la sesión (nunca se elimina): quitarlo
+// y recrearlo con el mismo topic puede devolver la instancia vieja aún
+// suscrita, y .on() sobre ella lanza una excepción que desmonta la app.
 function subscribeToFlags(onChange: () => void): () => void {
   listeners.add(onChange)
-  channelRefs++
   if (!channel) {
     channel = supabase
-      .channel("feature-flags")
+      .channel(`feature-flags:${Date.now()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "feature_flags" },
@@ -48,11 +49,6 @@ function subscribeToFlags(onChange: () => void): () => void {
   }
   return () => {
     listeners.delete(onChange)
-    channelRefs--
-    if (channelRefs === 0 && channel) {
-      supabase.removeChannel(channel)
-      channel = null
-    }
   }
 }
 

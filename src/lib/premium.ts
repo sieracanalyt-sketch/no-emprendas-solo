@@ -54,5 +54,6 @@ export const FEATURE_INFO: Record<string, { nombre: string; descripcion: string;
   },
 }
 
-// Doc de monetización (transparencia). TODO: sustituir por la URL real de Notion.
-export const MONETIZATION_DOC_URL = ""
+// Doc de monetización (transparencia) — enlazado en el footer del UpgradeModal.
+export const MONETIZATION_DOC_URL =
+  "https://app.notion.com/p/Monetizaci-n-Futura-NES-3866d9f0785b81a99c2bdf12ab714d8e"

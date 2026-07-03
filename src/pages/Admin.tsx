@@ -142,8 +142,10 @@ function UsersSection() {
 
   useEffect(() => {
     refresh()
+    // Sufijo único: si se remonta la página, un topic repetido devolvería la
+    // instancia vieja del canal y .on() lanzaría (ver useUserTier).
     const channel = supabase
-      .channel("admin-users")
+      .channel(`admin-users:${Date.now()}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "users" }, () => refresh())
       .subscribe()
     return () => {

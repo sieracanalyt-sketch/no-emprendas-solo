@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "../supabase"
 import { useUser } from "./useUser"
 import type { Subscription, Tier } from "../lib/premium"
@@ -9,8 +9,12 @@ import type { Subscription, Tier } from "../lib/premium"
 //   - Base: users.tier (permite toggles manuales de QA sin subscription).
 //   - Si su subscription más reciente NO está 'active' → free.
 //   - Si trial_until está en el futuro → premium (prevalece).
-// Realtime: cambios en su fila de users o en sus subscriptions refrescan al
-// instante (el admin puede cambiar el tier y la UI reacciona sin recargar).
+//
+// Estado y canal realtime COMPARTIDOS a nivel de módulo: varios componentes
+// usan este hook a la vez (Navbar, FeatureGated, Admin...) y supabase.channel()
+// devuelve la MISMA instancia para un topic repetido — llamar a .on() sobre un
+// canal ya suscrito LANZA una excepción y desmontaría toda la app (pantalla
+// negra). Un único canal por usuario + listeners evita el problema de raíz.
 // ──────────────────────────────────────────────────────────────────────────────
 
 export type UserTierState = {
@@ -21,71 +25,101 @@ export type UserTierState = {
   loading: boolean
 }
 
+const INITIAL: UserTierState = {
+  tier: "free",
+  isAdmin: false,
+  trialUntil: null,
+  subscription: null,
+  loading: true,
+}
+
+let snapshot: UserTierState = INITIAL
+let currentUserId: string | null = null
+let channel: ReturnType<typeof supabase.channel> | null = null
+const listeners = new Set<() => void>()
+
+function notify() {
+  listeners.forEach((fn) => fn())
+}
+
+async function refreshTier(userId: string): Promise<void> {
+  const [{ data: row }, { data: subs }] = await Promise.all([
+    supabase.from("users").select("tier, trial_until, is_admin").eq("id", userId).single(),
+    supabase
+      .from("subscriptions")
+      .select("id, user_id, tier, status, partner_id, next_billing_date, created_at, updated_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1),
+  ])
+  if (currentUserId !== userId) return // respuesta obsoleta (logout/cambio de usuario)
+
+  const sub = ((subs as Subscription[]) ?? [])[0] ?? null
+  const trialUntil = row?.trial_until ? new Date(row.trial_until) : null
+
+  let tier: Tier = (row?.tier as Tier) ?? "free"
+  if (sub && sub.status !== "active") tier = "free"
+  if (trialUntil && trialUntil.getTime() > Date.now()) tier = "premium"
+
+  snapshot = {
+    tier,
+    isAdmin: row?.is_admin === true,
+    trialUntil,
+    subscription: sub,
+    loading: false,
+  }
+  notify()
+}
+
+// Prepara (una sola vez por usuario) el fetch y el canal realtime compartido.
+function ensureUser(userId: string | null): void {
+  if (userId === currentUserId) return
+
+  if (channel) {
+    supabase.removeChannel(channel)
+    channel = null
+  }
+  currentUserId = userId
+
+  if (!userId) {
+    snapshot = { ...INITIAL, loading: false }
+    notify()
+    return
+  }
+
+  snapshot = INITIAL
+  notify()
+  refreshTier(userId)
+  // Sufijo único: nunca reutilizar un topic (channel() devuelve la instancia
+  // vieja si el topic coincide y .on() sobre un canal ya suscrito lanza).
+  channel = supabase
+    .channel(`user-tier:${userId}:${Date.now()}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "subscriptions", filter: `user_id=eq.${userId}` },
+      () => refreshTier(userId)
+    )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "users", filter: `id=eq.${userId}` },
+      () => refreshTier(userId)
+    )
+    .subscribe()
+}
+
 export function useUserTier(): UserTierState {
   const [user] = useUser()
-  const [state, setState] = useState<UserTierState>({
-    tier: "free",
-    isAdmin: false,
-    trialUntil: null,
-    subscription: null,
-    loading: true,
-  })
-
-  const refresh = useCallback(async () => {
-    if (!user) return
-    const [{ data: row }, { data: subs }] = await Promise.all([
-      supabase.from("users").select("tier, trial_until, is_admin").eq("id", user.id).single(),
-      supabase
-        .from("subscriptions")
-        .select("id, user_id, tier, status, partner_id, next_billing_date, created_at, updated_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1),
-    ])
-
-    const sub = ((subs as Subscription[]) ?? [])[0] ?? null
-    const trialUntil = row?.trial_until ? new Date(row.trial_until) : null
-
-    let tier: Tier = (row?.tier as Tier) ?? "free"
-    if (sub && sub.status !== "active") tier = "free"
-    if (trialUntil && trialUntil.getTime() > Date.now()) tier = "premium"
-
-    setState({
-      tier,
-      isAdmin: row?.is_admin === true,
-      trialUntil,
-      subscription: sub,
-      loading: false,
-    })
-  }, [user])
+  const [state, setState] = useState<UserTierState>(snapshot)
 
   useEffect(() => {
-    if (!user) {
-      setState((p) => (p.loading ? { ...p, loading: false } : p))
-      return
-    }
-    refresh()
-  }, [user, refresh])
-
-  useEffect(() => {
-    if (!user) return
-    const channel = supabase
-      .channel(`user-tier:${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "subscriptions", filter: `user_id=eq.${user.id}` },
-        () => refresh()
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "users", filter: `id=eq.${user.id}` },
-        () => refresh()
-      )
-      .subscribe()
+    const sync = () => setState(snapshot)
+    listeners.add(sync)
+    ensureUser(user?.id ?? null)
+    sync()
     return () => {
-      supabase.removeChannel(channel)
+      listeners.delete(sync)
     }
-  }, [user, refresh])
+  }, [user?.id])
 
   return state
 }
