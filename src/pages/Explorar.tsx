@@ -11,6 +11,7 @@ import { getIgnored, ignoreUser, ignoredCount } from "../lib/connectStore"
 import { checkProfile, type ProfileCheck } from "../lib/profileCompletion"
 import ProfileGateDrawer from "../components/ProfileGateDrawer"
 import AiConnectPanel from "../components/AiConnectPanel"
+import FeatureGated from "../components/FeatureGated"
 
 type Row = {
   id: string
@@ -183,15 +184,20 @@ export default function Explorar() {
           </div>
         </div>
 
-        {/* Columna derecha: Conexión IA (función estrella) */}
+        {/* Columna derecha: Conexión IA (función estrella).
+            Gated por el flag matching_advanced: mientras el flag esté inactivo
+            (estado actual) todo el mundo la ve; al activarlo desde /admin, los
+            usuarios free ven el paywall en vivo. */}
         <aside className="order-first lg:order-none lg:sticky lg:top-6">
-          <AiConnectPanel
-            me={meProfile}
-            candidates={aiCandidates}
-            disabled={loading}
-            locked={!!meCheck && !meCheck.complete}
-            onLocked={() => setGateOpen(true)}
-          />
+          <FeatureGated feature="matching_advanced">
+            <AiConnectPanel
+              me={meProfile}
+              candidates={aiCandidates}
+              disabled={loading}
+              locked={!!meCheck && !meCheck.complete}
+              onLocked={() => setGateOpen(true)}
+            />
+          </FeatureGated>
         </aside>
       </div>
 

@@ -17,6 +17,7 @@ import Calendario from "./pages/Calendario"
 import CreateGroup from "./pages/CreateGroup"
 import GroupInfo from "./pages/GroupInfo"
 import AddMembers from "./pages/AddMembers"
+import Admin from "./pages/Admin"
 
 export default function App() {
   const location = useLocation()
@@ -70,6 +71,9 @@ export default function App() {
 
           <Route path="/workflow" element={<Workflow />} />
           <Route path="/calendario" element={<Calendario />} />
+
+          {/* Panel de administración (solo users.is_admin) */}
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </div>
     </div>

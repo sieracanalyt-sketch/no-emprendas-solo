@@ -1,9 +1,11 @@
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { supabase } from "../supabase"
+import { useUserTier } from "../hooks/useUserTier"
 
 export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { isAdmin } = useUserTier()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -63,6 +65,7 @@ export default function Navbar() {
           <NavItem to="/workflow" label="Workflow" active={isActive("/workflow")} tour="workflow" />
           <NavItem to="/calendario" label="Calendario" active={isActive("/calendario")} tour="calendario" />
           <NavItem to="/perfil" label="Perfil" active={isActive("/perfil")} tour="perfil" />
+          {isAdmin && <NavItem to="/admin" label="Admin" active={isActive("/admin")} />}
         </nav>
 
         {/* RIGHT */}
