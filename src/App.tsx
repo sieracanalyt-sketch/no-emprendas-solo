@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, lazy, Suspense } from "react"
 import { Routes, Route, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
 import OnboardingTour from "./components/OnboardingTour"
@@ -19,6 +19,9 @@ import GroupInfo from "./pages/GroupInfo"
 import AddMembers from "./pages/AddMembers"
 import Admin from "./pages/Admin"
 import ConexionAvanzada from "./pages/ConexionAvanzada"
+// El cockpit de voz arrastra livekit-client (~500 kB): carga diferida para no
+// pesar en el bundle principal de los usuarios normales (solo admin lo abre).
+const Jarvis = lazy(() => import("./pages/Jarvis"))
 
 export default function App() {
   const location = useLocation()
@@ -56,6 +59,7 @@ export default function App() {
 
           <Route path="/explorar" element={<Explorar />} />
           <Route path="/conexion-avanzada" element={<ConexionAvanzada />} />
+          <Route path="/jarvis" element={<Suspense fallback={null}><Jarvis /></Suspense>} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/perfil-publico/:id" element={<PerfilPublico />} />
           <Route path="/completar-perfil" element={<CompletarPerfil />} />
