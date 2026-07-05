@@ -1,0 +1,89 @@
+import { useState } from "react"
+import { useUser } from "../hooks/useUser"
+import { useUserTier } from "../hooks/useUserTier"
+import AdvancedMatchProfile from "../components/AdvancedMatchProfile"
+import AdvancedMatchPanel from "../components/AdvancedMatchPanel"
+import UpgradeModal from "../components/UpgradeModal"
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Página /conexion-avanzada — el matchmaking avanzado (premium).
+//   · free  → teaser + upsell (UpgradeModal, feature="matching_advanced")
+//   · premium/trial/admin → editar perfil de frameworks + ver conexiones reales
+// ──────────────────────────────────────────────────────────────────────────────
+
+const BOOKS = [
+  { name: "Rocket Fuel", desc: "Visionario + Integrador: el emparejamiento que escala." },
+  { name: "Working Genius", desc: "Tus frustraciones = el genio del otro." },
+  { name: "Give and Take", desc: "Reciprocidad sana: Givers construyen confianza." },
+  { name: "DISC", desc: "Estilos de comunicación complementarios." },
+]
+
+export default function ConexionAvanzada() {
+  const [user] = useUser()
+  const { tier, isAdmin, trialUntil, loading } = useUserTier()
+  const [showUpgrade, setShowUpgrade] = useState(false)
+
+  const isPremium =
+    isAdmin || tier === "premium" || (trialUntil ? trialUntil.getTime() > Date.now() : false)
+
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 py-8">
+      <div className="mb-2 flex items-center gap-3">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+          Matchmaking avanzado
+        </h1>
+        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+          style={{ background: "rgba(94,106,210,0.15)", color: "var(--accent)" }}>Premium</span>
+      </div>
+      <p className="mb-6 text-sm" style={{ color: "var(--text-dim)" }}>
+        Conexiones basadas en cuatro marcos reales de equipos y personalidad, no solo en tokens de texto.
+      </p>
+
+      {/* franja de libros */}
+      <div className="mb-7 grid gap-2 sm:grid-cols-2">
+        {BOOKS.map((b) => (
+          <div key={b.name} className="rounded-xl p-3" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <div className="text-sm font-semibold" style={{ color: "var(--accent)" }}>{b.name}</div>
+            <div className="text-xs" style={{ color: "var(--text-dim)" }}>{b.desc}</div>
+          </div>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="text-sm" style={{ color: "var(--text-dim)" }}>Cargando…</div>
+      ) : !isPremium ? (
+        <div className="rounded-2xl p-8 text-center" style={{
+          background: "linear-gradient(180deg, rgba(94,106,210,0.08), transparent 60%), var(--surface)",
+          border: "1px dashed rgba(94,106,210,0.35)",
+        }}>
+          <div className="text-3xl">🔒</div>
+          <p className="mt-3 text-base font-medium" style={{ color: "var(--text)" }}>
+            El matchmaking avanzado es una función Premium
+          </p>
+          <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: "var(--text-dim)" }}>
+            Completa tu perfil psicométrico y deja que la IA cruce toda la red para encontrar tus mejores co-fundadores.
+          </p>
+          <button onClick={() => setShowUpgrade(true)}
+            className="mt-4 rounded-lg px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+            style={{ background: "linear-gradient(180deg, #5e6ad2, #4f5ac0)" }}>
+            Ver Premium
+          </button>
+          <UpgradeModal feature="matching_advanced" open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+        </div>
+      ) : !user ? (
+        <div className="text-sm" style={{ color: "var(--text-dim)" }}>Inicia sesión para ver tus conexiones.</div>
+      ) : (
+        <div className="space-y-10">
+          <section>
+            <h2 className="mb-4 text-lg font-semibold" style={{ color: "var(--text)" }}>Tu perfil avanzado</h2>
+            <AdvancedMatchProfile userId={user.id} />
+          </section>
+          <section>
+            <h2 className="mb-4 text-lg font-semibold" style={{ color: "var(--text)" }}>Conexiones sugeridas</h2>
+            <AdvancedMatchPanel />
+          </section>
+        </div>
+      )}
+    </div>
+  )
+}

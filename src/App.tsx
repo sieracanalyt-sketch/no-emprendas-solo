@@ -18,6 +18,7 @@ import CreateGroup from "./pages/CreateGroup"
 import GroupInfo from "./pages/GroupInfo"
 import AddMembers from "./pages/AddMembers"
 import Admin from "./pages/Admin"
+import ConexionAvanzada from "./pages/ConexionAvanzada"
 
 export default function App() {
   const location = useLocation()
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/register" element={<Register />} />
 
           <Route path="/explorar" element={<Explorar />} />
+          <Route path="/conexion-avanzada" element={<ConexionAvanzada />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/perfil-publico/:id" element={<PerfilPublico />} />
           <Route path="/completar-perfil" element={<CompletarPerfil />} />
