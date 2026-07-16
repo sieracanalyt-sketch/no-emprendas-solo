@@ -1372,7 +1372,12 @@ function GestionView() {
       {/* Pitch mode (Feature 10) */}
       {pitchMode && (
         <div className="fixed inset-0 z-[9999] overflow-hidden select-none"
-          style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%,rgba(94,106,210,0.08) 0%,#0c0d0e 70%)" }}>
+          style={{
+            // Fondo 100% opaco (sin alpha): el color con transparencia dejaba
+            // traslucir el tablero de detrás y se veía "borroso" en el centro.
+            backgroundColor: "#0c0d0e",
+            backgroundImage: "radial-gradient(ellipse 70% 60% at 50% 50%, #171b33 0%, #0c0d0e 70%)",
+          }}>
           <button onClick={() => setPitchMode(false)}
             className="absolute top-5 right-5 z-10 px-3 py-1.5 rounded-lg text-[12px] font-medium transition"
             style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-dim)" }}
