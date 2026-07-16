@@ -60,6 +60,13 @@ function IcClose() {
     </svg>
   )
 }
+function IcStop() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <rect x="6" y="6" width="12" height="12" rx="2.5" />
+    </svg>
+  )
+}
 
 export default function MergeConsole() {
   const r = useJarvisRoom()
@@ -133,6 +140,17 @@ export default function MergeConsole() {
             title={r.micOn ? "Micro activo — pulsa para silenciar" : "Micro apagado — pulsa para hablar"}
             aria-label={r.micOn ? "Silenciar micro" : "Activar micro"}>
             {r.micOn ? <IcMic /> : <IcMicOff />}
+          </button>
+          {/* Parar: corta la frase en curso sin tener que hablarle encima.
+              Siempre visible (no desplaza el layout), activo solo cuando hay algo
+              que cortar. */}
+          <button
+            className="mg-icon-btn"
+            onClick={() => r.sendCommand("stop")}
+            disabled={r.agentState !== "speaking" && r.agentState !== "thinking"}
+            title="Parar lo que MERGE está diciendo"
+            aria-label="Parar respuesta">
+            <IcStop />
           </button>
           <input
             className="mg-input"

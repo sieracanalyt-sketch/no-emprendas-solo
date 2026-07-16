@@ -263,12 +263,12 @@ function UsersSection() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Vía edge function: users.email ya no es legible desde el cliente (se revocó
+  // la columna al descubrir que la anon key permitía descargar los correos de
+  // toda la comunidad). El service role de la función es el único que los ve.
   const refresh = useCallback(async () => {
-    const { data } = await supabase
-      .from("users")
-      .select("id, nombre, email, avatar, tier, is_admin")
-      .order("nombre")
-    setUsers((data as UserRow[]) ?? [])
+    const { data, error } = await supabase.functions.invoke("admin-list-users", { method: "GET" })
+    if (!error && data?.ok) setUsers(data.users as UserRow[])
     setLoading(false)
   }, [])
 
