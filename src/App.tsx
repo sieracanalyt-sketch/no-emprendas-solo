@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from "react"
 import { Routes, Route, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
 import OnboardingTour from "./components/OnboardingTour"
+import CohortGate from "./components/CohortGate"
 import CallProvider from "./calls/CallProvider"
 import { supabase } from "./supabase"
 import { saveUser } from "./lib/saveUser"
@@ -49,6 +50,7 @@ export default function App() {
   return (
     <div className="w-full min-h-screen bg-[#0c0d0e] text-white">
       <CallProvider>
+      <CohortGate>
       {!hideNavbar && <Navbar />}
       {!hideNavbar && <OnboardingTour />}
       <div className={hideNavbar ? "w-full" : "w-full app-content"}>
@@ -84,6 +86,7 @@ export default function App() {
           <Route path="/admin" element={<Admin />} />
         </Routes>
       </div>
+      </CohortGate>
       </CallProvider>
     </div>
   )

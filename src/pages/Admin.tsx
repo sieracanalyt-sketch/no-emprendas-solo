@@ -42,6 +42,7 @@ export default function Admin() {
         Feature flags y tiers. Los cambios se propagan en vivo a todos los usuarios.
       </p>
 
+      <InvitesSection />
       <FlagsSection />
       <UsersSection />
     </div>
@@ -119,6 +120,137 @@ function FlagsSection() {
             </div>
           )
         })}
+      </div>
+    </section>
+  )
+}
+
+// ── Invitaciones de cohorte ─────────────────────────────────────────────────────
+type InviteCode = {
+  code: string
+  note: string | null
+  created_at: string
+  used_by: string | null
+  used_at: string | null
+  users: { nombre: string; email: string | null } | null
+}
+
+function InvitesSection() {
+  const [codes, setCodes] = useState<InviteCode[]>([])
+  const [loading, setLoading] = useState(true)
+  const [note, setNote] = useState("")
+  const [creating, setCreating] = useState(false)
+  const [justCreated, setJustCreated] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke("admin-generate-invite", { method: "GET" })
+    if (!error && data?.ok) setCodes(data.codes as InviteCode[])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  const generate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreating(true)
+    setError(null)
+    setJustCreated(null)
+    const { data, error } = await supabase.functions.invoke("admin-generate-invite", {
+      body: { note: note.trim() || undefined },
+    })
+    if (error || !data?.ok) {
+      setError("No se pudo generar el código.")
+    } else {
+      setJustCreated(data.code as string)
+      setNote("")
+      await refresh()
+    }
+    setCreating(false)
+  }
+
+  const copy = (code: string) => {
+    navigator.clipboard?.writeText(code).catch(() => {})
+  }
+
+  return (
+    <section className="mt-8">
+      <h2 className="text-sm font-medium" style={{ color: "var(--text)" }}>
+        Invitaciones de cohorte
+      </h2>
+      <p className="mt-0.5 text-xs" style={{ color: "var(--text-dimmer)" }}>
+        Genera un código por persona y envíaselo tú por correo. Se canjea una única vez.
+      </p>
+
+      <form onSubmit={generate} className="mt-3 flex gap-2">
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Nota (nombre o email de la persona, opcional)"
+          className="field-input flex-1 rounded-md px-3 py-2 text-sm"
+        />
+        <button
+          type="submit"
+          disabled={creating}
+          className="submit-btn rounded-md px-4 py-2 text-sm font-medium disabled:opacity-40"
+          style={{ background: "#5e6ad2", color: "#fff" }}
+        >
+          {creating ? "Generando…" : "Generar código"}
+        </button>
+      </form>
+
+      {justCreated && (
+        <div
+          className="row-card mt-3 flex items-center justify-between rounded-xl p-3.5"
+          style={{ background: "rgba(94,106,210,0.12)", border: "1px solid rgba(94,106,210,0.3)" }}
+        >
+          <span className="font-mono text-sm" style={{ color: "#fff" }}>{justCreated}</span>
+          <button
+            onClick={() => copy(justCreated)}
+            className="text-xs font-medium"
+            style={{ color: "#9aa4f0" }}
+          >
+            Copiar
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-2 text-xs" style={{ color: "#f87171" }}>{error}</p>
+      )}
+
+      <div className="mt-4 flex flex-col gap-2">
+        {loading && (
+          <p className="text-xs" style={{ color: "var(--text-dim)" }}>Cargando códigos…</p>
+        )}
+        {!loading && codes.length === 0 && (
+          <p className="text-xs" style={{ color: "var(--text-dim)" }}>Todavía no has generado ningún código.</p>
+        )}
+        {codes.map((c) => (
+          <div key={c.code} className="row-card flex items-center gap-3 rounded-xl p-3.5">
+            <span className="font-mono text-sm" style={{ color: "var(--text)" }}>{c.code}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs" style={{ color: "var(--text-dim)" }}>
+                {c.note || "sin nota"}
+              </p>
+              {c.used_by && (
+                <p className="truncate text-[11px]" style={{ color: "var(--text-dimmer)" }}>
+                  usado por {c.users?.nombre ?? c.used_by}
+                </p>
+              )}
+            </div>
+            <span
+              className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
+              style={{
+                background: c.used_by ? "rgba(255,255,255,0.06)" : "rgba(74,222,128,0.14)",
+                color: c.used_by ? "var(--text-dim)" : "#4ade80",
+              }}
+            >
+              {c.used_by ? "usado" : "pendiente"}
+            </span>
+          </div>
+        ))}
       </div>
     </section>
   )
