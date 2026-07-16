@@ -30,6 +30,7 @@ import {
 import {
   getGoogleState,
   connectGoogle,
+  reconnectGoogleSilent,
   disconnectGoogle,
   pullGoogleEvents,
   pushEventToGoogle,
@@ -40,6 +41,7 @@ import {
   saveClientId,
   type GoogleSyncState,
 } from "../lib/googleCalendar"
+import GuideButton from "../components/GuideModal"
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tipos auxiliares
@@ -137,6 +139,17 @@ export default function Calendario() {
       .select("id, title, priority, status")
       .neq("status", "done")
       .then(({ data }) => setTasks((data as KTask[]) ?? []))
+  }, [user])
+
+  // ── Google: reconexión SILENCIOSA al entrar (sin que el usuario haga nada) ──
+  useEffect(() => {
+    if (!user) return
+    const s = getGoogleState()
+    if (s.connected && !s.tokenLoaded && hasClientId()) {
+      reconnectGoogleSilent().then((st) => {
+        if (st) setGoogle(st)
+      })
+    }
   }, [user])
 
   // ── Google: traer eventos reales al conectar / cambiar de semana ────────────
@@ -365,7 +378,7 @@ export default function Calendario() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
+      <div className="flex items-center justify-center page-viewport">
         <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Cargando…</p>
       </div>
     )
@@ -377,10 +390,10 @@ export default function Calendario() {
   ).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 3.5rem)" }}>
+    <div className="flex flex-col page-viewport">
       {/* ════════ TOOLBAR ════════ */}
       <div
-        className="flex items-center gap-3 px-4 md:px-6 h-14 shrink-0 flex-wrap"
+        className="flex items-center gap-x-3 gap-y-2 px-4 md:px-6 min-h-14 py-2 shrink-0 flex-wrap"
         style={{ borderBottom: "1px solid var(--border)", background: "rgba(21,22,24,0.4)" }}
       >
         <h1 className="text-[15px] font-semibold" style={{ color: "var(--text)" }}>
@@ -442,7 +455,7 @@ export default function Calendario() {
               </>
             ) : (
               <button
-                onClick={() => setGoogleConnectModal(true)}
+                onClick={() => (hasClientId() ? handleConnect() : setGoogleConnectModal(true))}
                 disabled={syncing}
                 className="text-[12px] px-2.5 py-1.5 rounded-md font-medium"
                 style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)", color: "#fbbf24" }}
@@ -460,7 +473,7 @@ export default function Calendario() {
           </div>
         ) : (
           <button
-            onClick={() => setGoogleConnectModal(true)}
+            onClick={() => (hasClientId() ? handleConnect() : setGoogleConnectModal(true))}
             disabled={syncing}
             className="text-[12px] px-3 py-1.5 rounded-md font-medium text-white"
             style={{ background: "#16a34a" }}
@@ -468,6 +481,8 @@ export default function Calendario() {
             {syncing ? "Conectando…" : "Conectar Google Calendar"}
           </button>
         )}
+
+        <GuideButton page="calendario" />
       </div>
 
       {/* Banner urgencia — explicación completa */}
@@ -502,7 +517,7 @@ export default function Calendario() {
         {/* ════════ RAIL IZQUIERDO ════════ */}
         <aside
           className="hidden md:flex flex-col w-[248px] shrink-0 overflow-y-auto"
-          style={{ borderRight: "1px solid var(--border)", background: "var(--surface-2)" }}
+          style={{ borderRight: "1px solid var(--border)", background: "var(--surface-2)", WebkitBackdropFilter: "blur(16px)", backdropFilter: "blur(16px)" }}
         >
           {/* Espejo de Prioridades (T2-7) — sin datos inventados */}
           <RailSection title="Espejo de Prioridades">
@@ -816,8 +831,10 @@ export default function Calendario() {
             key={t.id}
             className="px-3.5 py-2.5 rounded-lg text-[13px] animate-in"
             style={{
-              background: "rgba(21,22,24,0.95)",
-              border: `1px solid ${t.type === "warn" ? "rgba(235,87,87,0.4)" : t.type === "success" ? "rgba(34,197,94,0.4)" : "var(--border-strong)"}`,
+              background: "rgba(21,22,24,0.82)",
+              WebkitBackdropFilter: "blur(16px)",
+              backdropFilter: "blur(16px)",
+              border: `1px solid ${t.type === "warn" ? "rgba(235,87,87,0.4)" : t.type === "success" ? "rgba(34,197,94,0.4)" : "var(--glass-border)"}`,
               color: "var(--text)",
               boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
             }}
@@ -1683,8 +1700,7 @@ function Backdrop({ children, onClose }: { children: React.ReactNode; onClose: (
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl p-5"
-        style={{ background: "rgba(21,22,24,0.96)", border: "1px solid var(--border-strong)", boxShadow: "0 24px 80px rgba(0,0,0,0.55)" }}
+        className="glass-dark w-full max-w-md rounded-2xl p-5"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

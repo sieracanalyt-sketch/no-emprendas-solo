@@ -36,7 +36,7 @@ export default function PerfilPublico() {
     )
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto px-4 py-8 animate-in">
       <div className="flex items-center gap-5 mb-8">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white/70 shrink-0"
@@ -52,13 +52,13 @@ export default function PerfilPublico() {
       </div>
 
       <div
-        className="rounded-xl divide-y overflow-hidden"
-        style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+        className="glass rounded-2xl divide-y overflow-hidden"
+        style={{ borderColor: "var(--glass-border)" }}
       >
         <InfoRow label="Biografía" value={userData.biografia || "Sin biografía"} />
         <InfoRow label="Proyecto" value={userData.proyecto || "Sin proyecto"} />
 
-        <div className="px-5 py-4" style={{ background: "rgba(255,255,255,0.03)" }}>
+        <div className="px-5 py-4">
           <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider mb-3">
             Busca
           </p>
@@ -88,7 +88,7 @@ export default function PerfilPublico() {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="px-5 py-4" style={{ background: "rgba(255,255,255,0.03)" }}>
+    <div className="px-5 py-4">
       <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider mb-1">
         {label}
       </p>

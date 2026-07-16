@@ -12,6 +12,7 @@ import {
 import {
   dayKey, loadPlan, savePlan, runAutoclean, type MyDayPlan,
 } from "../lib/myDay"
+import GuideButton from "../components/GuideModal"
 
 // ══════════════════════════════════════════════════════════════════
 // TYPES
@@ -19,7 +20,11 @@ import {
 type Tab = "tasks" | "prioridades" | "gestion"
 type Status = "backlog" | "progress" | "review" | "done"
 type Priority = "Urgente" | "Alta" | "Media" | "Baja"
-type Member = { id: string; nombre: string; avatar: string | null; role: string; joinedAt: string }
+type Member = {
+  id: string; nombre: string; avatar: string | null; role: string; joinedAt: string
+  // Posición libre en el mapa de Gestión (fracciones 0–1 del lienzo; null = auto)
+  posX: number | null; posY: number | null
+}
 type Task = {
   id: string; title: string; description: string
   priority: Priority; status: Status; assignee: string | null
@@ -92,7 +97,7 @@ const PRIORITY_COLOR: Record<Priority, string> = {
   Urgente: "#eb5757", Alta: "#f2994a", Media: "#e2b93b", Baja: "#8a8f98",
 }
 const MEMBER_COLORS = ["#5e6ad2", "#3b82f6", "#22c55e", "#ec4899", "#f2994a", "#06b6d4", "#a78bfa", "#f472b6"]
-const FALLBACK_MEMBER: Member = { id: "", nombre: "Sin asignar", avatar: null, role: "Sin rol definido", joinedAt: new Date().toISOString() }
+const FALLBACK_MEMBER: Member = { id: "", nombre: "Sin asignar", avatar: null, role: "Sin rol definido", joinedAt: new Date().toISOString(), posX: null, posY: null }
 const CUSTOM_ROLES_KEY  = "nes_custom_roles"
 const MILESTONES_KEY    = "nes_milestones"
 const CRITICAL_ROLES    = ["CTO / Director Técnico", "Diseñador UX / UI", "Responsable de Producto"]
@@ -299,7 +304,7 @@ export default function Workflow() {
 
   // ── Loaders ──
   const loadMembers = useCallback(async () => {
-    const { data: roles } = await supabase.from("workflow_roles").select("user_id, rol, updated_at")
+    const { data: roles } = await supabase.from("workflow_roles").select("user_id, rol, updated_at, pos_x, pos_y")
     if (!roles || roles.length === 0) { setMembers([]); return }
     const { data: users } = await supabase.from("users").select("id, nombre, avatar")
       .in("id", roles.map(r => r.user_id))
@@ -308,6 +313,8 @@ export default function Workflow() {
       id: u.id, nombre: u.nombre || "Usuario", avatar: u.avatar ?? null,
       role: map.get(u.id)?.rol ?? "Sin rol",
       joinedAt: map.get(u.id)?.updated_at ?? new Date().toISOString(),
+      posX: map.get(u.id)?.pos_x ?? null,
+      posY: map.get(u.id)?.pos_y ?? null,
     })))
   }, [])
 
@@ -350,7 +357,7 @@ export default function Workflow() {
   const addMember = useCallback(async (userId: string, role: string) => {
     const u = allUsers.find(x => x.id === userId)
     if (!u) return
-    setMembers(prev => [...prev, { id: u.id, nombre: u.nombre || "Usuario", avatar: u.avatar ?? null, role, joinedAt: new Date().toISOString() }])
+    setMembers(prev => [...prev, { id: u.id, nombre: u.nombre || "Usuario", avatar: u.avatar ?? null, role, joinedAt: new Date().toISOString(), posX: null, posY: null }])
     setAddMenuOpen(false); setAddSelectedUser(null)
     logActivity(`Añadiste a ${u.nombre || "Usuario"} · ${role}`)
     const { error } = await supabase.from("workflow_roles").upsert({ user_id: userId, rol: role, updated_at: new Date().toISOString() })
@@ -472,12 +479,12 @@ export default function Workflow() {
   )
 
   if (!userLoading && !user) return (
-    <div className="flex items-center justify-center" style={{ height: "calc(100vh - 3.5rem)" }}>
+    <div className="flex items-center justify-center page-viewport">
       <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Inicia sesión para ver el flujo de trabajo.</p>
     </div>
   )
   if (loading) return (
-    <div className="flex items-center justify-center" style={{ height: "calc(100vh - 3.5rem)" }}>
+    <div className="flex items-center justify-center page-viewport">
       <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Cargando flujo de trabajo…</p>
     </div>
   )
@@ -505,28 +512,62 @@ export default function Workflow() {
         @keyframes wf-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,106,210,0.3),0 0 0 0 rgba(94,106,210,0.1)}50%{box-shadow:0 0 0 12px rgba(94,106,210,0.07),0 0 0 24px rgba(94,106,210,0.02)}}
         @keyframes wf-diamond-pulse{0%,100%{opacity:0.7}50%{opacity:1}}
       `}</style>
-      <div className="flex flex-col" style={{ height: "calc(100vh - 3.5rem)" }}>
+      <div className="flex flex-col page-viewport">
         {/* ── HEADER ── */}
         <header className="shrink-0 px-5 md:px-6 pt-5 pb-0">
-          <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+          <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
             <div>
               <h1 className="text-[22px] font-semibold tracking-tight text-white">Flujo de trabajo</h1>
               <p className="text-[12px] mt-0.5" style={{ color: "var(--text-dim)" }}>
                 Gestiona tareas y conexiones de tu equipo.
               </p>
             </div>
-            <div className="flex items-center gap-0.5 p-0.5 rounded-lg"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              {(["tasks","prioridades","gestion"] as Tab[]).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className="px-4 py-1.5 rounded-md text-[13px] font-medium transition-all"
-                  style={{
-                    background: activeTab === tab ? "rgba(255,255,255,0.09)" : "transparent",
-                    color: activeTab === tab ? "#fff" : "var(--text-dim)",
-                  }}>
-                  {tab === "tasks" ? "Tareas" : tab === "prioridades" ? "Prioridades" : "Gestión"}
-                </button>
-              ))}
+            <GuideButton page="workflow" />
+          </div>
+
+          {/* ── Los 3 subapartados, centrados y protagonistas ── */}
+          <div className="flex justify-center mb-4">
+            <div
+              className="flex items-center gap-1 p-1 rounded-2xl w-full max-w-xl"
+              style={{
+                background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+                border: "1px solid var(--glass-border)",
+                boxShadow: "0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)",
+                WebkitBackdropFilter: "blur(18px) saturate(1.3)",
+                backdropFilter: "blur(18px) saturate(1.3)",
+              }}
+            >
+              {([
+                { tab: "tasks" as Tab,        icon: "📋", label: "Tareas",      desc: "Kanban del equipo" },
+                { tab: "prioridades" as Tab,  icon: "🎯", label: "Prioridades", desc: "Eisenhower + Mi Día" },
+                { tab: "gestion" as Tab,      icon: "🌐", label: "Gestión",     desc: "Mapa del equipo" },
+              ]).map(({ tab, icon, label, desc }) => {
+                const active = activeTab === tab
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className="flex-1 flex flex-col items-center gap-0.5 px-3 sm:px-5 py-2.5 rounded-xl transition-all duration-300"
+                    style={{
+                      background: active
+                        ? "linear-gradient(180deg, rgba(94,106,210,0.32), rgba(94,106,210,0.16))"
+                        : "transparent",
+                      border: active ? "1px solid rgba(94,106,210,0.55)" : "1px solid transparent",
+                      boxShadow: active ? "0 4px 18px rgba(94,106,210,0.3), inset 0 1px 0 rgba(255,255,255,0.12)" : "none",
+                      transform: active ? "translateY(-1px)" : "none",
+                    }}
+                  >
+                    <span className="flex items-center gap-2 text-[14px] font-semibold"
+                      style={{ color: active ? "#fff" : "var(--text-dim)" }}>
+                      <span className="text-[15px]">{icon}</span>{label}
+                    </span>
+                    <span className="text-[10px] hidden sm:block"
+                      style={{ color: active ? "#b6bdf5" : "var(--text-dimmer)" }}>
+                      {desc}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
           {tasks.length > 0 && activeTab === "tasks" && (
@@ -726,6 +767,24 @@ function GestionView() {
   const prevIds = useRef(new Set<string>())
   const [newIds, setNewIds] = useState(new Set<string>())
 
+  // ── Drag & drop de nodos: posiciones libres (fracciones 0–1, compartidas) ──
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({})
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const dragRef = useRef<{ id: string; dx: number; dy: number; moved: boolean } | null>(null)
+
+  // Sincroniza las posiciones guardadas en BD (sin pisar el nodo en pleno arrastre)
+  useEffect(() => {
+    setPositions(prev => {
+      const next: Record<string, { x: number; y: number }> = {}
+      for (const m of members) {
+        if (dragRef.current?.id === m.id && prev[m.id]) next[m.id] = prev[m.id]
+        else if (m.posX != null && m.posY != null) next[m.id] = { x: m.posX, y: m.posY }
+        else if (prev[m.id]) next[m.id] = prev[m.id]
+      }
+      return next
+    })
+  }, [members])
+
   useEffect(() => {
     if (!containerRef.current) return
     const ro = new ResizeObserver(([e]) => {
@@ -755,19 +814,92 @@ function GestionView() {
   const cutoff  = minTime + (maxTime - minTime) * timelineSlider
   const visibleMembers = members.filter(m => new Date(m.joinedAt).getTime() <= cutoff)
 
-  const cx = size.w / 2, cy = size.h / 2
-  const r1 = Math.min(size.w, size.h) * 0.28
-  const r2 = Math.min(size.w, size.h) * 0.44
+  // Posición en píxeles de cada miembro para un lienzo w×h: la guardada (drag)
+  // o, si no hay, su hueco en el círculo automático.
+  const layoutMembers = useCallback((w: number, h: number) => {
+    const cx0 = w / 2, cy0 = h / 2
+    const r = Math.min(w, h) * 0.28
+    const pad = 40
+    return visibleMembers.map((m, i) => {
+      const p = positions[m.id]
+      if (p) {
+        return {
+          id: m.id,
+          x: Math.min(Math.max(pad, p.x * w), w - pad),
+          y: Math.min(Math.max(pad, p.y * h), h - pad),
+        }
+      }
+      const angle = (2 * Math.PI * i) / Math.max(1, visibleMembers.length) - Math.PI / 2
+      return { id: m.id, x: cx0 + r * Math.cos(angle), y: cy0 + r * Math.sin(angle) }
+    })
+  }, [visibleMembers, positions])
 
-  const memberPositions = useMemo(() => visibleMembers.map((m, i) => {
-    const angle = (2 * Math.PI * i) / Math.max(1, visibleMembers.length) - Math.PI / 2
-    return { id: m.id, x: cx + r1 * Math.cos(angle), y: cy + r1 * Math.sin(angle) }
-  }), [visibleMembers, cx, cy, r1])
+  const layoutMilestones = useCallback((w: number, h: number) => {
+    const cx0 = w / 2, cy0 = h / 2
+    const r2 = Math.min(w, h) * 0.44
+    return milestones.map((ms, i) => {
+      const angle = (2 * Math.PI * i) / Math.max(1, milestones.length) - Math.PI / 6
+      return { id: ms.id, x: cx0 + r2 * Math.cos(angle), y: cy0 + r2 * Math.sin(angle) }
+    })
+  }, [milestones])
 
-  const msPositions = useMemo(() => milestones.map((ms, i) => {
-    const angle = (2 * Math.PI * i) / Math.max(1, milestones.length) - Math.PI / 6
-    return { id: ms.id, x: cx + r2 * Math.cos(angle), y: cy + r2 * Math.sin(angle) }
-  }), [milestones, cx, cy, r2])
+  const memberPositions = useMemo(() => layoutMembers(size.w, size.h), [layoutMembers, size])
+
+  // ── Handlers de arrastre (pointer events → ratón y táctil) ─────────────────
+  const onNodePointerDown = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const node = memberPositions.find(n => n.id === id)
+    if (!node) return
+    dragRef.current = {
+      id,
+      dx: e.clientX - rect.left - node.x,
+      dy: e.clientY - rect.top - node.y,
+      moved: false,
+    }
+    setDraggingId(id)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    e.stopPropagation()
+  }
+
+  const onNodePointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current
+    if (!d) return
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    d.moved = true
+    const pad = 40
+    const x = Math.min(Math.max(pad, e.clientX - rect.left - d.dx), rect.width - pad)
+    const y = Math.min(Math.max(pad, e.clientY - rect.top - d.dy), rect.height - pad)
+    setPositions(prev => ({ ...prev, [d.id]: { x: x / rect.width, y: y / rect.height } }))
+  }
+
+  const onNodePointerUp = async () => {
+    const d = dragRef.current
+    dragRef.current = null
+    setDraggingId(null)
+    if (!d || !d.moved) return
+    const p = positions[d.id]
+    if (!p) return
+    const { error } = await supabase
+      .from("workflow_roles")
+      .update({ pos_x: p.x, pos_y: p.y })
+      .eq("user_id", d.id)
+    if (error) addToast("error", "No se pudo guardar la posición")
+  }
+
+  const resetLayout = async () => {
+    setPositions({})
+    const ids = members.map(m => m.id)
+    if (ids.length === 0) return
+    const { error } = await supabase
+      .from("workflow_roles")
+      .update({ pos_x: null, pos_y: null })
+      .in("user_id", ids)
+    if (error) addToast("error", "No se pudo reordenar")
+    else addToast("success", "Equipo reordenado en círculo")
+  }
 
   // Feature 1: Heatmap color
   const nodeColor = (memberId: string) => {
@@ -835,16 +967,8 @@ function GestionView() {
     const w = fullscreen ? window.innerWidth  : size.w
     const h = fullscreen ? window.innerHeight : size.h
     const fcx = w / 2, fcy = h / 2
-    const fr1 = Math.min(w, h) * 0.28
-    const fr2 = Math.min(w, h) * 0.44
-    const fMemberPos = visibleMembers.map((m, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(1, visibleMembers.length) - Math.PI / 2
-      return { id: m.id, x: fcx + fr1 * Math.cos(angle), y: fcy + fr1 * Math.sin(angle) }
-    })
-    const fMsPos = milestones.map((ms, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(1, milestones.length) - Math.PI / 6
-      return { id: ms.id, x: fcx + fr2 * Math.cos(angle), y: fcy + fr2 * Math.sin(angle) }
-    })
+    const fMemberPos = layoutMembers(w, h)
+    const fMsPos = layoutMilestones(w, h)
 
     return (
       <>
@@ -908,12 +1032,14 @@ function GestionView() {
               fill="rgba(94,106,210,0.07)" stroke="rgba(94,106,210,0.5)" strokeWidth={1} strokeDasharray="4 3" />
           )}
 
-          {/* Milestone diamonds */}
+          {/* Milestone diamonds (clic para eliminar) */}
           {fMsPos.map(({ id, x, y }) => {
             const ms = milestones.find(m => m.id === id)!
             const s = 10
             return (
-              <g key={`ms-${id}`}>
+              <g key={`ms-${id}`} style={{ pointerEvents: "auto", cursor: "pointer" }}
+                onClick={() => { if (!fullscreen && window.confirm(`¿Eliminar el hito "${ms.label}"?`)) removeMilestone(id) }}>
+                <title>{fullscreen ? ms.label : `${ms.label} — clic para eliminar`}</title>
                 <polygon points={`${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}`}
                   fill={`${ms.color}22`} stroke={ms.color} strokeWidth={1.5}
                   style={{ animation: "wf-diamond-pulse 3s ease-in-out infinite" }} />
@@ -934,7 +1060,7 @@ function GestionView() {
           <span className="text-[11px] font-semibold text-white text-center leading-tight px-2">Proyecto</span>
         </div>
 
-        {/* Member nodes */}
+        {/* Member nodes — arrastrables (se guarda la disposición para todo el equipo) */}
         {fMemberPos.map(({ id, x, y }, idx) => {
           const m = members.find(x => x.id === id)!
           const color   = nodeColor(id)
@@ -942,34 +1068,48 @@ function GestionView() {
           const isHov   = hovered === id
           const isDep   = simDeparture === id
           const isSel   = lassoSelected.has(id)
+          const isDrag  = draggingId === id
           const initial = m.nombre.trim()[0]?.toUpperCase() || "?"
           const mTasks  = tasks.filter(t => t.assignee === id)
           return (
-            <div key={id} data-node className="absolute flex flex-col items-center gap-1 cursor-pointer z-20"
+            <div key={id} data-node className="absolute flex flex-col items-center gap-1 z-20"
               style={{
                 left: x, top: y,
                 opacity: isDep ? 0.25 : 1,
                 filter: isDep ? "grayscale(1)" : "none",
-                transition: "opacity 0.5s, filter 0.5s",
-                animation: isNew
+                zIndex: isDrag ? 45 : 20,
+                touchAction: "none",
+                cursor: isDrag ? "grabbing" : "grab",
+                transition: isDrag
+                  ? "opacity 0.5s, filter 0.5s"
+                  : "left 0.5s cubic-bezier(0.22,1,0.36,1), top 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.5s, filter 0.5s",
+                animation: isDrag
+                  ? "none"
+                  : isNew
                   ? "wf-pop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards"
                   : `wf-float ${3.5 + idx * 0.4}s ease-in-out ${idx * 0.3}s infinite`,
+                transform: isDrag ? "translate(-50%,-50%) scale(1.12)" : undefined,
               }}
+              onPointerDown={fullscreen ? undefined : e => onNodePointerDown(e, id)}
+              onPointerMove={fullscreen ? undefined : onNodePointerMove}
+              onPointerUp={fullscreen ? undefined : () => void onNodePointerUp()}
               onMouseEnter={() => setHovered(id)}
               onMouseLeave={() => setHovered(null)}
               onContextMenu={e => { e.preventDefault(); setCtxMenu({ memberId: id, x: e.clientX, y: e.clientY }) }}>
               {m.avatar ? (
                 <img src={m.avatar} alt={m.nombre} referrerPolicy="no-referrer" className="object-cover"
                   style={{ width: 48, height: 48, borderRadius: "9999px",
-                    border: `2px solid ${isSel ? "#5e6ad2" : isHov ? color : color + "60"}`,
-                    boxShadow: isSel ? `0 0 0 3px rgba(94,106,210,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
+                    border: `2px solid ${isSel ? "#5e6ad2" : isHov || isDrag ? color : color + "60"}`,
+                    boxShadow: isDrag ? `0 18px 44px rgba(0,0,0,0.55), 0 0 26px ${color}70`
+                      : isSel ? `0 0 0 3px rgba(94,106,210,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
                     transition: "border-color 0.25s,box-shadow 0.25s", transform: "translate(-50%,-50%)" }} />
               ) : (
                 <div className="flex items-center justify-center font-semibold text-white"
                   style={{ width: 48, height: 48, fontSize: 18, borderRadius: "9999px",
                     background: `linear-gradient(135deg,${color},${color}99)`,
-                    border: `2px solid ${isSel ? "#5e6ad2" : isHov ? color : color + "55"}`,
-                    boxShadow: isSel ? `0 0 0 3px rgba(94,106,210,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
+                    border: `2px solid ${isSel ? "#5e6ad2" : isHov || isDrag ? color : color + "55"}`,
+                    boxShadow: isDrag ? `0 18px 44px rgba(0,0,0,0.55), 0 0 26px ${color}70`
+                      : isSel ? `0 0 0 3px rgba(94,106,210,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
                     transition: "border-color 0.25s,box-shadow 0.25s", transform: "translate(-50%,-50%)" }}>
                   {initial}
                 </div>
@@ -988,7 +1128,7 @@ function GestionView() {
         })}
 
         {/* Glassmorphism hover tooltip (Feature 7) */}
-        {hovered && hoveredMember && hoveredPos && (
+        {hovered && !draggingId && hoveredMember && hoveredPos && (
           <div className="absolute pointer-events-none z-40 rounded-xl p-3.5 w-56"
             style={{
               left: Math.min(Math.max(8, hoveredPos.x + (hoveredPos.x > fcx ? 60 : -228)), w - 228),
@@ -1078,10 +1218,21 @@ function GestionView() {
           <GBtn active={metricsOpen} onClick={() => setMetricsOpen(!metricsOpen)}>📊 Métricas</GBtn>
           {/* Feature 4: Milestones */}
           <GBtn onClick={() => setShowAddMS(true)}>🏁 Hito</GBtn>
+          {/* Reordenar el mapa en círculo */}
+          <GBtn onClick={() => void resetLayout()} title="Recoloca a todos en círculo">↺ Círculo</GBtn>
           {/* Feature 10: Pitch mode */}
           <GBtn onClick={() => setPitchMode(true)} title="Modo presentación">▶ Pitch</GBtn>
         </div>
       </div>
+
+      {/* Pista de uso del mapa */}
+      {members.length > 0 && (
+        <div className="shrink-0 px-5 md:px-6 pt-2 flex items-center gap-2">
+          <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>
+            💡 Arrastra a las personas para organizarlas a tu gusto — la disposición se guarda y la ve todo el equipo. Clic derecho para más opciones.
+          </span>
+        </div>
+      )}
 
       {/* Skill gap alert (Feature 8) */}
       {missingRoles.length > 0 && members.length > 0 && (
@@ -1288,7 +1439,7 @@ function CtxMenuPanel({ x, y, memberId, simDeparture, onSimulate, onRemove, onCl
   const m = members.find(x => x.id === memberId)
   return (
     <div ref={ref} className="fixed z-50 w-52 rounded-lg p-1.5"
-      style={{ top: y, left: x, background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.6)" }}>
+      style={{ top: y, left: x, background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
       <p className="px-2 py-1.5 text-[11px] font-semibold text-white truncate">{m?.nombre ?? "Miembro"}</p>
       <div className="h-px my-1" style={{ background: "var(--border)" }} />
       <button onClick={onSimulate}
@@ -1379,8 +1530,10 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
       style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)" }}
       onMouseDown={onClose}>
       <div className="w-full max-w-2xl flex rounded-2xl overflow-hidden"
-        style={{ background: "#131416", border: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.85)", maxHeight: "82vh",
+        style={{ background: "linear-gradient(180deg, rgba(30,32,38,0.9), rgba(19,21,25,0.9))",
+          WebkitBackdropFilter: "blur(24px) saturate(1.3)", backdropFilter: "blur(24px) saturate(1.3)",
+          border: "1px solid var(--glass-border)",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.08)", maxHeight: "82vh",
           animation: "modal-pop 0.28s cubic-bezier(0.34,1.2,0.64,1) both" }}
         onMouseDown={e => e.stopPropagation()}>
 
@@ -1521,7 +1674,7 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
               return (
                 <div key={cat.label}>
                   {!catFilter && (
-                    <div className="px-3 py-1.5 flex items-center gap-1.5 sticky top-0" style={{ background: "#131416" }}>
+                    <div className="px-3 py-1.5 flex items-center gap-1.5 sticky top-0" style={{ background: "rgba(21,23,27,0.95)", WebkitBackdropFilter: "blur(8px)", backdropFilter: "blur(8px)" }}>
                       <span style={{ fontSize: 11 }}>{cat.emoji}</span>
                       <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: cat.color }}>{cat.label}</span>
                     </div>
@@ -1641,7 +1794,7 @@ function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-2 z-30 w-64 rounded-xl overflow-hidden"
-          style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 16px 40px rgba(0,0,0,0.6)" }}>
+          style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
           {/* Search */}
           <div className="px-2.5 pt-2.5 pb-1.5">
             <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
@@ -1720,7 +1873,7 @@ function AddMemberButton({ open, onToggle, onClose, selectedUser, onSelectUser, 
   selectedUser: string | null; onSelectUser: (id: string) => void
   onBack: () => void; onAdd: (userId: string, role: string) => Promise<void>
 }) {
-  const { allUsers, members, allRoles } = useWF()
+  const { allUsers, members } = useWF()
   const ref = useOutsideClick<HTMLDivElement>(onClose)
   const available = allUsers.filter(u => !members.some(m => m.id === u.id))
   const picked = selectedUser ? allUsers.find(u => u.id === selectedUser) : null
@@ -1732,7 +1885,7 @@ function AddMemberButton({ open, onToggle, onClose, selectedUser, onSelectUser, 
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-2 z-30 w-60 rounded-lg p-1.5"
-          style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.5)" }}>
+          style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
           {available.length === 0 ? (
             <p className="px-2 py-3 text-[12px] text-center" style={{ color: "var(--text-dim)" }}>Todos los usuarios ya están en el equipo</p>
           ) : picked && selectedUser ? (
@@ -1790,7 +1943,7 @@ function CreateRoleButton({ open, onToggle, onClose, onSave }: {
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-2 z-30 w-56 rounded-lg p-3"
-          style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.5)" }}>
+          style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
           <p className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--text-dimmer)" }}>Nuevo rol</p>
           <input autoFocus value={name} onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === "Enter" && save()}
@@ -1862,7 +2015,7 @@ function TaskCard({ task, member, onDragStart, onMove, onToggleBlocked, onDelete
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>⋯</button>
           {menu && (
             <div className="absolute right-0 top-full mt-1 z-30 w-48 rounded-lg p-1.5"
-              style={{ background: "#17191b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 12px 32px rgba(0,0,0,0.5)" }}>
+              style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
               <p className="px-2 py-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Mover a</p>
               {COLUMNS.map(c => (
                 <button key={c.status} onClick={() => { onMove(c.status); setMenu(false) }}
@@ -1935,8 +2088,7 @@ function CreateTaskModal({ status, defaultAssignee, onClose, onCreate }: {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh]"
       style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }} onMouseDown={onClose}>
-      <div className="w-full max-w-md rounded-xl p-5"
-        style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}
+      <div className="glass-dark w-full max-w-md rounded-2xl p-5"
         onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[15px] font-semibold text-white">Nueva tarea</h3>
@@ -2009,7 +2161,7 @@ function SearchModal({ query, onQueryChange, onClose }: {
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh]"
       style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(3px)" }} onMouseDown={onClose}>
       <div className="w-full max-w-lg rounded-xl overflow-hidden"
-        style={{ background: "#131416", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 60px rgba(0,0,0,0.7)" }}
+        style={{ background: "linear-gradient(180deg, rgba(30,32,38,0.9), rgba(19,21,25,0.9))", WebkitBackdropFilter: "blur(24px) saturate(1.3)", backdropFilter: "blur(24px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)" }}
         onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
           <span style={{ color: "var(--text-dim)", fontSize: 14 }}>🔍</span>
@@ -2186,7 +2338,7 @@ function MatrixCard({ task, member, accent, onDragStart, onComplete }: {
   return (
     <div draggable onDragStart={e => { e.dataTransfer.effectAllowed = "move"; onDragStart() }}
       className="group relative rounded-lg p-2.5 cursor-grab active:cursor-grabbing"
-      style={{ background: "#17191b", border: `1px solid ${task.blocked ? "rgba(242,153,74,0.45)" : "var(--border)"}` }}>
+      style={{ background: "var(--surface)", WebkitBackdropFilter: "blur(8px)", backdropFilter: "blur(8px)", border: `1px solid ${task.blocked ? "rgba(242,153,74,0.45)" : "var(--glass-border)"}`, boxShadow: "0 4px 14px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
       <div className="flex items-start gap-2">
         <span className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PRIORITY_COLOR[task.priority] }} />
         <p className="flex-1 text-[12.5px] font-medium text-white leading-snug line-clamp-2">{task.title}</p>

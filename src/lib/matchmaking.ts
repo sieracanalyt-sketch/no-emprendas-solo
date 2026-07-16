@@ -18,6 +18,7 @@ export type MatchProfile = {
   created_at?: string | null   // fallback de actividad
   project_status?: string | null  // "has_project" | "no_project" | "looking"
   streak_days?: number | null     // días consecutivos de actividad
+  prestige?: number | null        // prestigio por aportar (0–100, cron diario)
 }
 
 export type MatchFactor = {
@@ -130,6 +131,14 @@ export function computeMatch(me: MatchProfile, other: MatchProfile): MatchResult
     reasons.push(`Proyecto afín: ${projOverlap[0]}`)
   }
 
+  // 3b) Prestigio por aportar ── hasta +6 pts (perfil completo, respuesta
+  // rápida, constancia). Premia a quien cuida la comunidad.
+  const prestigePts = Math.round(Math.max(0, Math.min(100, other.prestige ?? 0)) * 0.06)
+  if (prestigePts > 0) {
+    score += prestigePts
+    if ((other.prestige ?? 0) >= 70) reasons.push("Miembro de alto prestigio")
+  }
+
   // 4) Suelo determinista para perfiles escasos (estable entre recargas) ── 12–30
   const baseline = 12 + Math.round(pairJitter(me.id, other.id) * 18)
   const preBaseline = score
@@ -154,6 +163,7 @@ export function computeMatch(me: MatchProfile, other: MatchProfile): MatchResult
     { label: "También te busca a ti", pts: mutualPts, max: 12 },
     { label: "Intereses en común", pts: commonPts, max: 30 },
     { label: "Proyecto afín", pts: projPts, max: 18 },
+    { label: "Prestigio en la comunidad", pts: prestigePts, max: 6 },
     { label: "Base mínima garantizada", pts: preBaseline < baseline ? baseline - preBaseline : 0, max: 18 },
   ]
 

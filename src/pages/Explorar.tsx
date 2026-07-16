@@ -24,6 +24,7 @@ type Row = {
   last_login: string | null
   created_at: string | null
   streak_days: number | null
+  prestige: number | null
 }
 
 type Candidate = { profile: MatchProfile; match: MatchResult }
@@ -54,7 +55,7 @@ export default function Explorar() {
       try {
         const [{ data: users }, { data: roles }] = await Promise.all([
           supabase.from("users")
-            .select("id, nombre, avatar, biografia, proyecto, project_status, buscando, last_login, created_at, streak_days"),
+            .select("id, nombre, avatar, biografia, proyecto, project_status, buscando, last_login, created_at, streak_days, prestige"),
           supabase.from("workflow_roles").select("user_id, rol"),
         ])
         if (cancelled) return
@@ -70,6 +71,7 @@ export default function Explorar() {
           last_login: meRow?.last_login, created_at: meRow?.created_at,
           project_status: meRow?.project_status ?? null,
           streak_days: meRow?.streak_days ?? null,
+          prestige: meRow?.prestige ?? null,
         }
         setMeProfile(me)
         const ignored = getIgnored(user.id)
@@ -81,6 +83,7 @@ export default function Explorar() {
           last_login: u.last_login, created_at: u.created_at,
           project_status: u.project_status ?? null,
           streak_days: u.streak_days ?? null,
+          prestige: u.prestige ?? null,
         })
         const list: Candidate[] = others
           .filter(u => !ignored.has(u.id))
@@ -232,13 +235,17 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
 
   return (
     <div
-      className="relative rounded-xl p-4 sm:p-5 overflow-hidden"
+      className="relative rounded-2xl p-4 sm:p-5 overflow-hidden"
       style={{
         background: strong
           ? "linear-gradient(180deg, rgba(59,130,246,0.06), rgba(59,130,246,0.02)), var(--surface)"
           : "var(--surface)",
-        border: `1px solid ${strong ? "rgba(59,130,246,0.30)" : "var(--border)"}`,
-        boxShadow: strong ? "0 0 0 1px rgba(59,130,246,0.12), 0 8px 30px rgba(59,130,246,0.07)" : "none",
+        WebkitBackdropFilter: "blur(14px) saturate(1.2)",
+        backdropFilter: "blur(14px) saturate(1.2)",
+        border: `1px solid ${strong ? "rgba(59,130,246,0.30)" : "var(--glass-border)"}`,
+        boxShadow: strong
+          ? "0 0 0 1px rgba(59,130,246,0.12), 0 8px 30px rgba(59,130,246,0.07), inset 0 1px 0 rgba(255,255,255,0.06)"
+          : "0 8px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05)",
         opacity: leaving ? 0 : 1,
         transform: leaving ? "translateX(-110%)" : "translateX(0)",
         transition: "transform 0.36s cubic-bezier(0.4,0,0.2,1), opacity 0.36s ease",
@@ -276,6 +283,17 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
               <span className="text-[10.5px] px-1.5 py-0.5 rounded-md"
                 style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)", border: "1px solid var(--border)" }}>
                 {profile.role}
+              </span>
+            )}
+            {(profile.prestige ?? 0) > 0 && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md inline-flex items-center gap-1"
+                title="Prestigio por aportar: perfil completo, respuestas rápidas y constancia"
+                style={{
+                  background: (profile.prestige ?? 0) >= 70 ? "rgba(245,196,66,0.12)" : "rgba(255,255,255,0.05)",
+                  color: (profile.prestige ?? 0) >= 70 ? "#f5c442" : "var(--text-dim)",
+                  border: `1px solid ${(profile.prestige ?? 0) >= 70 ? "rgba(245,196,66,0.35)" : "var(--border)"}`,
+                }}>
+                ⭐ {profile.prestige}
               </span>
             )}
             {match.inactive && (
@@ -408,16 +426,18 @@ function MatchBreakdownModal({ match, name, scoreColor, onClose }: {
       aria-modal="true"
       aria-label={`Desglose de compatibilidad con ${name}`}
       className="nes-modal-overlay fixed inset-0 z-[140] flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.6)", animation: "nes-overlay-in 0.15s ease-out" }}
+      style={{
+        background: "rgba(5,5,7,0.55)",
+        WebkitBackdropFilter: "blur(4px)",
+        backdropFilter: "blur(4px)",
+        animation: "nes-overlay-in 0.15s ease-out",
+      }}
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="nes-modal-box relative w-[90%] max-w-[420px] max-h-[90vh] overflow-y-auto p-5 sm:p-6"
+        className="nes-modal-box glass-dark relative w-[90%] max-w-[420px] max-h-[90vh] overflow-y-auto p-5 sm:p-6"
         style={{
-          background: "#151618",
-          border: "1px solid #222326",
-          borderRadius: 10,
-          boxShadow: "0 24px 70px rgba(0,0,0,0.55)",
+          borderRadius: 20,
           animation: "nes-modal-in 0.15s ease-out",
         }}
       >
@@ -458,7 +478,7 @@ function MatchBreakdownModal({ match, name, scoreColor, onClose }: {
                   <span className="text-[14px]" style={{ color: "#b4bcd0" }}>{f.label}</span>
                   <span className="text-[14px] font-bold shrink-0" style={{ color: "#f7f8f8" }}>{pct}%</span>
                 </div>
-                <div className="h-1.5 w-full rounded-[4px] overflow-hidden" style={{ background: "#222326" }}>
+                <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
                   <div
                     className="h-full rounded-[4px]"
                     style={{
@@ -475,7 +495,7 @@ function MatchBreakdownModal({ match, name, scoreColor, onClose }: {
 
         {/* Nota de inactividad (si aplica) */}
         {match.inactive && (
-          <div className="mt-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: "rgba(98,102,109,0.10)", color: "#8a8f98", border: "1px solid #222326" }}>
+          <div className="mt-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: "rgba(98,102,109,0.10)", color: "#8a8f98", border: "1px solid var(--border)" }}>
             ⚠ Puntuación base {match.rawScore}% → reducida al 50% por inactividad ({match.daysInactive >= 999 ? `${INACTIVITY_DAYS}+` : match.daysInactive} días sin actividad).
           </div>
         )}

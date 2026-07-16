@@ -21,9 +21,11 @@ declare global {
           initTokenClient(config: {
             client_id: string
             scope: string
+            prompt?: string
+            login_hint?: string
             callback: (resp: { access_token?: string; error?: string }) => void
             error_callback?: (err: { type: string }) => void
-          }): { requestAccessToken(): void }
+          }): { requestAccessToken(overrides?: { prompt?: string; login_hint?: string }): void }
         }
       }
     }
@@ -96,12 +98,16 @@ function waitForGSI(ms = 6000): Promise<void> {
 }
 
 // ── OAuth: abre el popup de Google y devuelve el estado ─────────────────────
-export async function connectGoogle(): Promise<GoogleSyncState> {
+// `silent: true` intenta renovar el token SIN interacción (iframe oculto de GIS):
+// funciona si el usuario ya dio permiso antes y tiene sesión de Google abierta.
+export async function connectGoogle(opts: { silent?: boolean } = {}): Promise<GoogleSyncState> {
   const clientId = getClientId()
   if (!clientId) {
     throw new Error("No hay Client ID configurado.")
   }
   await waitForGSI()
+
+  const knownEmail = getGoogleState().email
 
   return new Promise<GoogleSyncState>((resolve, reject) => {
     const client = window.google!.accounts.oauth2.initTokenClient({
@@ -125,7 +131,7 @@ export async function connectGoogle(): Promise<GoogleSyncState> {
 
         const state: GoogleSyncState = {
           connected: true,
-          email,
+          email: email ?? knownEmail,
           lastSync: new Date().toISOString(),
           tokenLoaded: true,
         }
@@ -137,8 +143,23 @@ export async function connectGoogle(): Promise<GoogleSyncState> {
         else reject(new Error(err.type))
       },
     })
-    client.requestAccessToken()
+    // prompt "" → Google solo muestra UI si de verdad hace falta (primera vez).
+    // login_hint evita el selector de cuentas en reconexiones.
+    client.requestAccessToken(
+      opts.silent && knownEmail ? { prompt: "", login_hint: knownEmail } : undefined,
+    )
   })
+}
+
+/** Reintento silencioso al cargar la página: devuelve null si requiere interacción. */
+export async function reconnectGoogleSilent(): Promise<GoogleSyncState | null> {
+  const s = getGoogleState()
+  if (!s.connected || s.tokenLoaded || !hasClientId()) return null
+  try {
+    return await connectGoogle({ silent: true })
+  } catch {
+    return null
+  }
 }
 
 export async function disconnectGoogle(): Promise<GoogleSyncState> {

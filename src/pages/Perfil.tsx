@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react"
 import { supabase } from "../supabase"
 import { useNavigate, useLocation } from "react-router-dom"
 import { checkProfile, MIN_BIO, type ProjectStatus } from "../lib/profileCompletion"
+import { useUserTier } from "../hooks/useUserTier"
+import AdvancedMatchProfile from "../components/AdvancedMatchProfile"
+import UpgradeModal from "../components/UpgradeModal"
+import PrestigeCard from "../components/PrestigeCard"
 
 // ─── Gamification helpers ────────────────────────────────────────────────────
 
@@ -41,8 +45,15 @@ export default function Perfil() {
   const [connectionCount, setConnectionCount] = useState(0)
   const [showMissing, setShowMissing] = useState(false)
   const [displayPct, setDisplayPct] = useState(0)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [showUpgrade, setShowUpgrade] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Premium gate para el perfil avanzado (mismo criterio que Conexión Avanzada)
+  const { tier, isAdmin, trialUntil } = useUserTier()
+  const isPremium =
+    isAdmin || tier === "premium" || (trialUntil ? trialUntil.getTime() > Date.now() : false)
 
   // Refs para scroll-to-field desde el drawer
   const sectionNombre   = useRef<HTMLDivElement>(null)
@@ -50,7 +61,7 @@ export default function Perfil() {
   const sectionProyecto = useRef<HTMLDivElement>(null)
   const sectionBuscando = useRef<HTMLDivElement>(null)
 
-  const fieldRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+  const fieldRefs: Record<string, React.RefObject<HTMLDivElement | null>> = {
     nombre:    sectionNombre,
     biografia: sectionBio,
     proyecto:  sectionProyecto,
@@ -65,6 +76,7 @@ export default function Perfil() {
         const { data: { session } } = await supabase.auth.getSession()
         const user = session?.user
         if (!user) { setLoading(false); return }
+        setUserId(user.id)
 
         const [{ data: profileData }, { data: sentMsgs }] = await Promise.all([
           supabase
@@ -206,10 +218,7 @@ export default function Perfil() {
       </div>
 
       {/* ── Gamificación (≤ 80px excluyendo colapsable) ─────────────────── */}
-      <div
-        className="mb-6 rounded-xl px-4 py-3"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      >
+      <div className="glass mb-6 rounded-2xl px-4 py-3">
         {/* Fila 1: barra de progreso + label */}
         <div className="flex items-center gap-3">
           <div
@@ -250,7 +259,7 @@ export default function Perfil() {
           </div>
           <span
             className="text-[12px] px-2 py-0.5"
-            style={{ color: "#8a8f98", border: "1px solid #222326", borderRadius: 4 }}
+            style={{ color: "#8a8f98", border: "1px solid var(--border-strong)", borderRadius: 999, padding: "2px 10px" }}
             title="Tu rango refleja el número de conexiones activas en NES."
           >
             {getConnectionRank(connectionCount)}
@@ -298,11 +307,15 @@ export default function Perfil() {
         )}
       </div>
 
+      {/* ── Prestigio por aportar (cron diario) ─────────────────────────── */}
+      {userId && (
+        <div className="my-5">
+          <PrestigeCard userId={userId} />
+        </div>
+      )}
+
       {/* ── Formulario ──────────────────────────────────────────────────── */}
-      <div
-        className="rounded-lg p-6 space-y-5"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      >
+      <div className="glass rounded-3xl p-6 space-y-5">
         {/* Nombre */}
         <div ref={sectionNombre} id="field-nombre">
           <Field label="Nombre">
@@ -349,10 +362,10 @@ export default function Perfil() {
                     key={opt.value}
                     type="button"
                     onClick={() => setProjectStatus(active ? null : opt.value as ProjectStatus)}
-                    className="flex-1 py-2 px-2 rounded-md text-[12.5px] font-medium transition-all text-center"
+                    className="flex-1 py-2 px-2 rounded-xl text-[12.5px] font-medium transition-all text-center"
                     style={{
-                      background: active ? "#1e1f23" : "#121315",
-                      border: `1px solid ${active ? "#6366f1" : "#222326"}`,
+                      background: active ? "rgba(94,106,210,0.15)" : "var(--surface-3)",
+                      border: `1px solid ${active ? "#6366f1" : "var(--border)"}`,
                       color: active ? "#f7f8f8" : "#8a8f98",
                     }}
                   >
@@ -423,11 +436,54 @@ export default function Perfil() {
         <button
           onClick={guardarPerfil}
           disabled={saving}
-          className="px-5 py-2 bg-white text-black text-[13px] font-semibold rounded-md hover:bg-white/90 transition disabled:opacity-50"
+          className="px-5 py-2 bg-white text-black text-[13px] font-semibold rounded-full hover:bg-white/90 transition disabled:opacity-50"
+          style={{ boxShadow: "0 8px 24px rgba(255,255,255,0.12)" }}
         >
           {saving ? "Guardando…" : "Guardar cambios"}
         </button>
       </div>
+
+      {/* ── Perfil avanzado (premium): los 9 campos del matchmaking ─────── */}
+      <section className="glass rounded-3xl p-6 mt-8">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2 className="text-[17px] font-semibold tracking-tight text-white">Perfil avanzado</h2>
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+            style={{ background: "rgba(94,106,210,0.15)", color: "var(--accent)", border: "1px solid rgba(94,106,210,0.35)" }}
+          >
+            Premium
+          </span>
+        </div>
+        <p className="text-[13px] mt-1 mb-6" style={{ color: "var(--text-dim)" }}>
+          9 preguntas rápidas de conducta real. Alimentan el Matchmaking Avanzado: cuanto más
+          honesto respondas, mejores conexiones te propondrá MERGE.
+        </p>
+
+        {isPremium && userId ? (
+          <AdvancedMatchProfile userId={userId} />
+        ) : (
+          <div
+            className="rounded-2xl p-7 text-center"
+            style={{ border: "1px dashed rgba(94,106,210,0.4)", background: "rgba(94,106,210,0.05)" }}
+          >
+            <div className="text-2xl">🔒</div>
+            <p className="mt-2 text-[14px] font-medium" style={{ color: "var(--text)" }}>
+              El perfil avanzado es una función Premium
+            </p>
+            <p className="mx-auto mt-1 max-w-sm text-[13px]" style={{ color: "var(--text-dim)" }}>
+              Desbloquéalo para que la IA cruce tu perfil con toda la red y te proponga
+              tus mejores co-fundadores.
+            </p>
+            <button
+              onClick={() => setShowUpgrade(true)}
+              className="btn-linear mt-4 rounded-full px-5 py-2 text-[13px] font-medium"
+            >
+              Ver Premium
+            </button>
+            <UpgradeModal feature="matching_advanced" open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+          </div>
+        )}
+      </section>
 
       {/* ── Separador ────────────────────────────────────────────────────── */}
       <div className="my-7" style={{ height: "1px", background: "var(--border)" }} />

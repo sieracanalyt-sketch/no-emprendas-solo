@@ -1,13 +1,11 @@
-import { useNavigate } from "react-router-dom"
 import { useUserTier } from "../hooks/useUserTier"
-import JarvisHud from "../jarvis/JarvisHud"
+import MergeConsole from "../jarvis/JarvisHud"
 
-// El cockpit de voz de JARVIS (AIOS) — puesto de mando del fundador. Solo admin.
-// El agente Python (cerebro) corre en la máquina del fundador y se une a la misma
+// MERGE — asistente de voz del fundador, embebido en NES (solo admin).
+// El agente (cerebro) corre en la máquina del fundador y se une a la misma
 // sala de LiveKit automáticamente.
-export default function Jarvis() {
+export default function Merge() {
   const { isAdmin, loading } = useUserTier()
-  const navigate = useNavigate()
 
   if (loading) return null
   if (!isAdmin) {
@@ -15,7 +13,7 @@ export default function Jarvis() {
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <div className="text-3xl">🔒</div>
         <p className="mt-3 text-base font-medium" style={{ color: "var(--text)" }}>
-          JARVIS AIOS es el puesto de mando del fundador
+          MERGE es el puesto de mando del fundador
         </p>
         <p className="mt-1 text-sm" style={{ color: "var(--text-dim)" }}>
           Esta vista está reservada a la administración de NES.
@@ -24,5 +22,5 @@ export default function Jarvis() {
     )
   }
 
-  return <JarvisHud onClose={() => navigate("/explorar")} />
+  return <MergeConsole />
 }

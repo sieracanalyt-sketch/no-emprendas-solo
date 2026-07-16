@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "../supabase"
 import { lastReadIso } from "../lib/reads"
+import { chatListComparator } from "../lib/matchDeadline"
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tipos compartidos
@@ -14,6 +15,8 @@ export type ChatListItem = {
   lastText: string
   timestamp: string | null
   unread: number
+  /** true si el último mensaje lo envié yo (null = chat sin mensajes) */
+  lastFromMe: boolean | null
 }
 
 export type GroupListItem = {
@@ -55,7 +58,7 @@ export function useChatList(user: User | null) {
           await Promise.all([
             supabase
               .from("messages")
-              .select("text, created_at")
+              .select("text, created_at, from_uid")
               .eq("chat_id", chat.id)
               .order("created_at", { ascending: false })
               .limit(1),
@@ -81,15 +84,14 @@ export function useChatList(user: User | null) {
           lastText: last?.text ?? "",
           timestamp: last?.created_at ?? null,
           unread: count ?? 0,
+          lastFromMe: last ? last.from_uid === user.id : null,
         }
       })
     )
 
-    list.sort(
-      (a, b) =>
-        new Date(b.timestamp ?? 0).getTime() -
-        new Date(a.timestamp ?? 0).getTime()
-    )
+    // FIFO social: primero los matches que esperan TU respuesta (72 h),
+    // el más urgente arriba; después el resto por actividad.
+    list.sort(chatListComparator)
 
     setItems(list)
     setLoading(false)

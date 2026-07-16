@@ -40,6 +40,8 @@ function LockedPanel({ feature }: { feature: string }) {
         style={{
           background:
             "linear-gradient(180deg, rgba(94,106,210,0.07), rgba(94,106,210,0.015) 40%), var(--surface)",
+          WebkitBackdropFilter: "blur(16px)",
+          backdropFilter: "blur(16px)",
           border: "1px dashed rgba(94,106,210,0.35)",
         }}
       >

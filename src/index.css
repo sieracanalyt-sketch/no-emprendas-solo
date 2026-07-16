@@ -1,21 +1,51 @@
 @import "tailwindcss";
 
 /* ============================================================
-   LINEAR-STYLE DESIGN TOKENS
-   Paleta técnica: grises fríos, bordes ultra-finos, acento índigo.
+   GLASSMORPHISM DESIGN TOKENS
+   Cristal flotante sobre glows de ambiente: superficies
+   translúcidas, bordes semi-transparentes, acento índigo.
 ============================================================ */
 :root {
   --bg: #0c0d0e;            /* fondo general */
-  --surface: #151618;      /* tarjetas / navbar */
-  --surface-2: #121315;    /* sidebar mensajería */
-  --surface-3: #191b1d;    /* burbujas recibidas */
-  --border: rgba(255, 255, 255, 0.05);    /* borde ultra-fino */
-  --border-strong: rgba(255, 255, 255, 0.10);
+  --surface: rgba(255, 255, 255, 0.05);   /* tarjetas translúcidas (cristal) */
+  --surface-2: rgba(255, 255, 255, 0.03); /* sidebar mensajería */
+  --surface-3: rgba(255, 255, 255, 0.07); /* burbujas recibidas / inputs */
+  --border: rgba(255, 255, 255, 0.09);    /* borde de cristal */
+  --border-strong: rgba(255, 255, 255, 0.16);
   --text: #f7f8f8;         /* texto brillante */
   --text-dim: #8a8f98;     /* texto gris apagado */
   --text-dimmer: #62666d;  /* texto terciario */
   --accent: #5e6ad2;       /* índigo Linear */
   --accent-blue: #3b82f6;  /* azul eléctrico (focus) */
+  /* receta del cristal, reutilizable en cualquier componente */
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  /* Cromo de la app: navbar flotante (ocupa h-14 en el flujo) y tab bar móvil */
+  --chrome-top: 3.5rem;
+  --chrome-bottom: 0px;
+}
+
+/* En móvil la tab bar inferior ocupa espacio (+ safe area de iPhone) */
+@media (max-width: 767px) {
+  :root {
+    --chrome-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Altura útil de página bajo la navbar (y sobre la tab bar en móvil).
+   100dvh en lugar de 100vh: en móvil, la barra del navegador ya no rompe
+   el layout al aparecer/desaparecer. */
+.page-viewport {
+  height: calc(100dvh - var(--chrome-top) - var(--chrome-bottom));
+}
+
+/* Las páginas con scroll normal reservan hueco bajo la tab bar móvil */
+@media (max-width: 767px) {
+  .app-content {
+    padding-bottom: var(--chrome-bottom);
+  }
 }
 
 /* ============================================================
@@ -54,16 +84,16 @@
   }
 }
 
-/* Profundidad sutil del fondo (sin colores saturados) */
+/* Glows de ambiente fijos: dan color real detrás del cristal en TODA la app.
+   Sin ellos, las superficies translúcidas y el backdrop-blur no se aprecian. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background: radial-gradient(
-    ellipse at 50% 0%,
-    rgba(255, 255, 255, 0.025),
-    transparent 55%
-  );
+  background:
+    radial-gradient(ellipse 620px 480px at 8% -6%, rgba(94, 106, 210, 0.16), transparent 65%),
+    radial-gradient(ellipse 560px 460px at 96% 104%, rgba(47, 141, 160, 0.13), transparent 65%),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.03), transparent 55%);
   pointer-events: none;
   z-index: -1;
 }
@@ -87,8 +117,28 @@ body::before {
 }
 
 /* ============================================================
-   HELPERS REUTILIZABLES (estética Linear)
+   HELPERS REUTILIZABLES (estética glassmorphism)
 ============================================================ */
+
+/* El cristal flotante: aplícalo a cualquier contenedor principal */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.glass-pill { border-radius: 999px; }
+
+/* Cristal oscuro: para capas que FLOTAN sobre contenido (modales, menús,
+   popovers). Más opaco que .glass para que el texto de debajo no ensucie. */
+.glass-dark {
+  background: linear-gradient(180deg, rgba(32, 34, 40, 0.88), rgba(21, 23, 27, 0.88));
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  backdrop-filter: blur(22px) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
 
 /* Enlaces de navegación: gris apagado → blanco brillante en hover */
 .nav-link {
@@ -99,41 +149,122 @@ body::before {
   color: var(--text);
 }
 
-/* Tarjeta / fila técnica con borde de 1px y hover sutil */
+/* ============================================================
+   TAB BAR MÓVIL — navegación inferior fija (solo < md)
+============================================================ */
+.bottomnav {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.5rem;
+  z-index: 60;
+  height: 3.5rem;
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+  border-radius: 999px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  background: linear-gradient(180deg, rgba(32, 34, 40, 0.9), rgba(21, 23, 27, 0.9));
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.bottomnav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-dim);
+  border-radius: 999px;
+  transition: color 0.15s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.bottomnav-item:active { transform: scale(0.94); }
+.bottomnav-item .bn-icon {
+  font-size: 19px;
+  line-height: 1;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bottomnav-item.active {
+  color: #fff;
+}
+.bottomnav-item.active .bn-icon {
+  transform: translateY(-1px) scale(1.12);
+}
+.bottomnav-item.active .bn-dot {
+  opacity: 1;
+  transform: scaleX(1);
+}
+.bn-dot {
+  width: 14px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleX(0.3);
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* La tab bar solo existe en móvil. Media query explícita porque `.bottomnav`
+   (display:flex) vencería a la utilidad `md:hidden` de Tailwind por orden de
+   cascada — con esto queda garantizado que desaparece en escritorio. */
+@media (min-width: 768px) {
+  .bottomnav { display: none !important; }
+}
+
+/* Tarjeta / fila de cristal con hover que "levanta" */
 .row-card {
   background: var(--surface);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .row-card:hover {
-  background: #17191b;
+  background: rgba(255, 255, 255, 0.08);
   border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-/* Botón minimalista estilo Linear (gradiente interno sutil) */
+/* Botón de cristal (gradiente interno + blur) */
 .btn-linear {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border-strong);
   color: var(--text);
-  transition: background 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .btn-linear:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
-  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.07));
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
+.btn-linear:active { transform: translateY(0); }
 
-/* Input de formulario premium con anillo azul en focus */
+/* Input de cristal con anillo azul en focus */
 .field-input {
-  background: #080710;
+  background: rgba(255, 255, 255, 0.045);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border-strong);
   color: var(--text);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .field-input::placeholder {
   color: var(--text-dimmer);
 }
 .field-input:focus {
   outline: none;
+  background: rgba(255, 255, 255, 0.06);
   border-color: rgba(59, 130, 246, 0.65);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
@@ -274,12 +405,14 @@ select {
   z-index: 9999;
   width: 340px;
   max-width: calc(100vw - 24px);
-  background: linear-gradient(180deg, #17181b, #141517);
-  border: 1px solid var(--border-strong);
-  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(38, 40, 46, 0.82), rgba(28, 30, 34, 0.82));
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
   padding: 20px;
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(255, 255, 255, 0.02);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   animation: tourCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .tour-card--centered {
@@ -414,7 +547,7 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -463,11 +596,14 @@ select {
   left: 0;
   right: 0;
   z-index: 9001;
-  background: #151618;
-  border-top: 1px solid #222326;
-  border-radius: 16px 16px 0 0;
+  background: rgba(26, 28, 32, 0.82);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  backdrop-filter: blur(22px) saturate(1.3);
+  border-top: 1px solid var(--glass-border);
+  border-radius: 20px 20px 0 0;
   max-height: 72vh;
   overflow-y: auto;
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   animation: gateSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -480,8 +616,8 @@ select {
     right: 24px;
     width: 380px;
     max-height: none;
-    border: 1px solid #222326;
-    border-radius: 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
     transform: translateY(-50%);
     animation: gateSlideRight 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }

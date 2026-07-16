@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from "react"
 import { Routes, Route, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
 import OnboardingTour from "./components/OnboardingTour"
+import CallProvider from "./calls/CallProvider"
 import { supabase } from "./supabase"
 import { saveUser } from "./lib/saveUser"
 
@@ -19,9 +20,9 @@ import GroupInfo from "./pages/GroupInfo"
 import AddMembers from "./pages/AddMembers"
 import Admin from "./pages/Admin"
 import ConexionAvanzada from "./pages/ConexionAvanzada"
-// El cockpit de voz arrastra livekit-client (~500 kB): carga diferida para no
-// pesar en el bundle principal de los usuarios normales (solo admin lo abre).
-const Jarvis = lazy(() => import("./pages/Jarvis"))
+// MERGE arrastra livekit-client (~500 kB): carga diferida para no pesar en el
+// bundle principal de los usuarios normales (solo admin lo abre).
+const Merge = lazy(() => import("./pages/Jarvis"))
 
 export default function App() {
   const location = useLocation()
@@ -47,9 +48,10 @@ export default function App() {
 
   return (
     <div className="w-full min-h-screen bg-[#0c0d0e] text-white">
+      <CallProvider>
       {!hideNavbar && <Navbar />}
       {!hideNavbar && <OnboardingTour />}
-      <div className="w-full">
+      <div className={hideNavbar ? "w-full" : "w-full app-content"}>
         <Routes>
           {/* Login accesible tanto en "/" como en "/login" para enlaces
               entrantes desde la landing externa (nes-landing). */}
@@ -59,7 +61,7 @@ export default function App() {
 
           <Route path="/explorar" element={<Explorar />} />
           <Route path="/conexion-avanzada" element={<ConexionAvanzada />} />
-          <Route path="/jarvis" element={<Suspense fallback={null}><Jarvis /></Suspense>} />
+          <Route path="/merge" element={<Suspense fallback={null}><Merge /></Suspense>} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/perfil-publico/:id" element={<PerfilPublico />} />
           <Route path="/completar-perfil" element={<CompletarPerfil />} />
@@ -82,6 +84,7 @@ export default function App() {
           <Route path="/admin" element={<Admin />} />
         </Routes>
       </div>
+      </CallProvider>
     </div>
   )
 }

@@ -43,13 +43,22 @@ export interface IntelData { query: string; timeline: IntelItem[] }
 export interface ActionItem { rank: number; title: string; why: string; effort: string }
 export interface ActionsData { date: string; actions: ActionItem[] }
 export interface FocusData { minutes: number; label: string; started_ts: number }
-export interface MatchReason { framework: string; text: string }
-export interface MatchPair {
-  a: string; b: string; score: number; mutual: boolean; reasons: MatchReason[]
+// Matchmaking avanzado (motor Mergie, doc de investigación NES): tarjetas con
+// explicación humana en vez de pares con puntuación. Sin puntuaciones visibles.
+export interface MergieMatch {
+  posicion: number
+  id_perfil: string
+  nombre: string
+  porque_encaja: string
+  punto_fuerte: string
+  a_hablar_desde_el_principio: string | null
+  primer_paso: string
 }
 export interface MatchData {
   generated: string | null; engine?: string
-  pairs: MatchPair[]
+  resumen?: string | null
+  matches: MergieMatch[]
+  nota_honesta?: string | null
   gaps: { total_members?: number; premium_members?: number; advanced_profiles?: number; eligible?: number; free_members?: number }
   unavailable?: string
 }

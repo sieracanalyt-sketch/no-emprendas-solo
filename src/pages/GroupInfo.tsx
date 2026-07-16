@@ -78,8 +78,7 @@ export default function GroupInfo() {
         <div className="space-y-5">
           {/* NOMBRE */}
           <section
-            className="rounded-xl border border-white/[0.08] overflow-hidden"
-            style={{ background: "rgba(255,255,255,0.03)" }}
+            className="glass rounded-2xl overflow-hidden"
           >
             <div className="px-5 pt-4 pb-1">
               <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">
@@ -105,8 +104,7 @@ export default function GroupInfo() {
 
           {/* MIEMBROS */}
           <section
-            className="rounded-xl border border-white/[0.08] overflow-hidden"
-            style={{ background: "rgba(255,255,255,0.03)" }}
+            className="glass rounded-2xl overflow-hidden"
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
               <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">

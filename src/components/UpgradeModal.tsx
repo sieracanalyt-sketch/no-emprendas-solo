@@ -29,13 +29,8 @@ export default function UpgradeModal({ feature, open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg rounded-2xl overflow-hidden my-8"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border-strong)",
-          boxShadow: "0 24px 60px -12px rgba(0,0,0,0.7)",
-          animation: "tourCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
+        className="glass-dark relative w-full max-w-lg rounded-2xl overflow-hidden my-8"
+        style={{ animation: "tourCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera */}

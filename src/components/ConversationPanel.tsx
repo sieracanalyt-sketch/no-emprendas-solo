@@ -7,7 +7,8 @@ import { uploadChatMedia, type AttachmentKind, type UploadResult } from "../lib/
 import { useAudioRecorder } from "../hooks/useAudioRecorder"
 import Avatar from "./Avatar"
 import MessageAttachment, { type Attachment } from "./MessageAttachment"
-import CallModal, { type CallInfo } from "./CallModal"
+import { useCalls } from "../calls/CallProvider"
+import { deadlineInfo, deadlineColor, fmtTimeLeft } from "../lib/matchDeadline"
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -93,7 +94,7 @@ export default function ConversationPanel({ target, user, online, onActivity, on
   const [text, setText] = useState("")
   const [sending, setSending] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [call, setCall] = useState<CallInfo | null>(null)
+  const { startCall, inCall } = useCalls()
 
   // Cabecera
   const [headerName, setHeaderName] = useState("")
@@ -326,6 +327,28 @@ export default function ConversationPanel({ target, user, online, onActivity, on
   const otherOnline = target.type === "chat" && online.has(target.otherUserId)
   const recording = recorder.state === "recording"
 
+  // ── Iniciar llamada real (voz/vídeo) sobre la conversación abierta ──────────
+  const startConversationCall = (video: boolean) => {
+    if (target.type === "chat") {
+      startCall({
+        type: "user",
+        video,
+        peer: { id: target.otherUserId, nombre: headerName || "Usuario", avatar: headerAvatar },
+        chatId,
+      })
+    } else {
+      const memberIds = Object.keys(memberNames)
+      if (memberIds.length === 0) return
+      startCall({
+        type: "group",
+        video,
+        groupId: target.groupId,
+        groupName: headerName || "Grupo",
+        memberIds,
+      })
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full min-w-0">
@@ -372,18 +395,20 @@ export default function ConversationPanel({ target, user, online, onActivity, on
           </p>
         </div>
 
-        {/* Llamadas de voz / vídeo */}
+        {/* Llamadas de voz / vídeo — reales (LiveKit) */}
         <button
-          onClick={() => setCall({ type: "voice", peerName: headerName, peerAvatar: headerAvatar, direction: "outgoing" })}
-          className="shrink-0 w-9 h-9 rounded-md flex items-center justify-center text-[15px] btn-linear"
+          onClick={() => startConversationCall(false)}
+          disabled={inCall}
+          className="shrink-0 w-9 h-9 rounded-md flex items-center justify-center text-[15px] btn-linear disabled:opacity-40"
           title="Llamada de voz"
           aria-label="Llamada de voz"
         >
           📞
         </button>
         <button
-          onClick={() => setCall({ type: "video", peerName: headerName, peerAvatar: headerAvatar, direction: "outgoing" })}
-          className="shrink-0 w-9 h-9 rounded-md flex items-center justify-center text-[15px] btn-linear"
+          onClick={() => startConversationCall(true)}
+          disabled={inCall}
+          className="shrink-0 w-9 h-9 rounded-md flex items-center justify-center text-[15px] btn-linear disabled:opacity-40"
           title="Videollamada"
           aria-label="Videollamada"
         >
@@ -486,6 +511,33 @@ export default function ConversationPanel({ target, user, online, onActivity, on
         <div ref={bottomRef} />
       </div>
 
+      {/* Deadline social 72 h — solo chats 1:1 con el último mensaje del otro */}
+      {(() => {
+        if (isGroup || messages.length === 0) return null
+        const last = messages[messages.length - 1]
+        const dl = deadlineInfo(last.from_uid === user.id, last.created_at)
+        if (!dl?.waitingYou) return null
+        if (dl.expired) {
+          return (
+            <div className="px-4 md:px-6 py-2 shrink-0 flex items-center gap-2 text-[12px]"
+              style={{ background: "rgba(138,143,152,0.07)", borderTop: "1px solid var(--border)", color: "var(--text-dim)" }}>
+              <span>💤</span>
+              <span>Este match se enfrió por falta de respuesta — un mensaje lo reactiva. 🔥</span>
+            </div>
+          )
+        }
+        const col = deadlineColor(dl.msLeft)
+        return (
+          <div className="px-4 md:px-6 py-2 shrink-0 flex items-center gap-2 text-[12px]"
+            style={{ background: `${col}0f`, borderTop: `1px solid ${col}33`, color: col }}>
+            <span>⏳</span>
+            <span>
+              <strong>{fmtTimeLeft(dl.msLeft)}</strong> para responder — los matches sin respuesta se enfrían y tu velocidad de respuesta alimenta tu prestigio.
+            </span>
+          </div>
+        )
+      })()}
+
       {/* ENTRADA */}
       <div className="px-4 md:px-6 py-3.5 shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
         <input ref={fileRef} type="file" hidden onChange={onPickFile} />
@@ -493,8 +545,8 @@ export default function ConversationPanel({ target, user, online, onActivity, on
         {recording ? (
           // ── Barra de grabación ──────────────────────────────────────────────
           <div
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
-            style={{ background: "#080710", border: "1px solid var(--border-strong)" }}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-2xl"
+            style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))", WebkitBackdropFilter: "blur(18px) saturate(1.3)", backdropFilter: "blur(18px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 8px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)" }}
           >
             <button
               onClick={recorder.cancel}
@@ -534,8 +586,8 @@ export default function ConversationPanel({ target, user, online, onActivity, on
         ) : (
           // ── Entrada normal ──────────────────────────────────────────────────
           <div
-            className="flex items-end gap-2 px-3 py-2 rounded-lg"
-            style={{ background: "#080710", border: "1px solid var(--border-strong)" }}
+            className="flex items-end gap-2 px-3 py-2 rounded-2xl"
+            style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))", WebkitBackdropFilter: "blur(18px) saturate(1.3)", backdropFilter: "blur(18px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 8px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)" }}
           >
             <button
               type="button"
@@ -590,8 +642,6 @@ export default function ConversationPanel({ target, user, online, onActivity, on
         )}
       </div>
 
-      {/* Modal de llamada */}
-      {call && <CallModal call={call} onEnd={() => setCall(null)} />}
     </div>
   )
 }

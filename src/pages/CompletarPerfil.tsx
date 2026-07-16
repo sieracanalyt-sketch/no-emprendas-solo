@@ -32,7 +32,7 @@ export default function CompletarPerfil() {
 
   return (
     <div className="w-full flex justify-center px-4 mt-10">
-      <div className="w-full max-w-3xl bg-[#111] border border-white/10 rounded-2xl p-10 shadow-xl">
+      <div className="glass w-full max-w-3xl rounded-3xl p-10">
         <h2 className="text-3xl font-bold text-white mb-10 text-center tracking-tight">
           Completa tu perfil
         </h2>
@@ -44,7 +44,7 @@ export default function CompletarPerfil() {
               placeholder="Tu nombre"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-[#1a1a1d] border border-white/10 focus:border-purple-500 outline-none transition text-white"
+              className="w-full px-4 py-3 rounded-xl field-input text-white"
             />
           </div>
           <div>
@@ -53,7 +53,7 @@ export default function CompletarPerfil() {
               placeholder="Cuéntanos sobre ti"
               value={biografia}
               onChange={(e) => setBiografia(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-[#1a1a1d] border border-white/10 focus:border-purple-500 outline-none transition text-white h-32 resize-none"
+              className="w-full px-4 py-3 rounded-xl field-input text-white h-32 resize-none"
             />
           </div>
           <div>
@@ -63,7 +63,7 @@ export default function CompletarPerfil() {
               placeholder="¿En qué proyecto trabajas?"
               value={proyecto}
               onChange={(e) => setProyecto(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-[#1a1a1d] border border-white/10 focus:border-purple-500 outline-none transition text-white"
+              className="w-full px-4 py-3 rounded-xl field-input text-white"
             />
           </div>
         </div>
@@ -73,7 +73,12 @@ export default function CompletarPerfil() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full mt-10 py-4 bg-purple-600 hover:bg-purple-500 rounded-xl font-semibold text-lg text-white shadow-lg transition disabled:opacity-50"
+          className="w-full mt-10 py-4 rounded-full font-semibold text-lg text-white transition disabled:opacity-50 hover:brightness-110"
+          style={{
+            background: "linear-gradient(180deg, #6b77e0, #5e6ad2)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            boxShadow: "0 10px 30px rgba(94,106,210,0.35), inset 0 1px 0 rgba(255,255,255,0.18)",
+          }}
         >
           {saving ? "Guardando…" : "Guardar y continuar"}
         </button>

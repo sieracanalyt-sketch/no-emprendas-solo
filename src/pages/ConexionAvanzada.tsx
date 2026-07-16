@@ -11,11 +11,13 @@ import UpgradeModal from "../components/UpgradeModal"
 //   · premium/trial/admin → editar perfil de frameworks + ver conexiones reales
 // ──────────────────────────────────────────────────────────────────────────────
 
-const BOOKS = [
-  { name: "Rocket Fuel", desc: "Visionario + Integrador: el emparejamiento que escala." },
-  { name: "Working Genius", desc: "Tus frustraciones = el genio del otro." },
-  { name: "Give and Take", desc: "Reciprocidad sana: Givers construyen confianza." },
-  { name: "DISC", desc: "Estilos de comunicación complementarios." },
+// Los cuatro pilares del nuevo motor (doc de investigación NES): alineación por
+// encima de similitud, complementariedad de rol, fiabilidad, y cero tests raros.
+const PILLARS = [
+  { name: "Alineación", desc: "Misma ambición y mismo compromiso real: lo que hace que un equipo dure." },
+  { name: "Complementariedad", desc: "Lo que tú necesitas es justo lo que la otra persona tiene." },
+  { name: "Fiabilidad", desc: "Gente que cumple lo que promete. Es lo que más predice que aguante." },
+  { name: "Sin tests raros", desc: "9 preguntas de conducta real, no un examen de personalidad." },
 ]
 
 export default function ConexionAvanzada() {
@@ -36,12 +38,12 @@ export default function ConexionAvanzada() {
           style={{ background: "rgba(94,106,210,0.15)", color: "var(--accent)" }}>Premium</span>
       </div>
       <p className="mb-6 text-sm" style={{ color: "var(--text-dim)" }}>
-        Conexiones basadas en cuatro marcos reales de equipos y personalidad, no solo en tokens de texto.
+        Conexiones basadas en la evidencia de qué hace durar a los equipos fundadores — no en tener buen rollo.
       </p>
 
-      {/* franja de libros */}
+      {/* pilares del motor */}
       <div className="mb-7 grid gap-2 sm:grid-cols-2">
-        {BOOKS.map((b) => (
+        {PILLARS.map((b) => (
           <div key={b.name} className="rounded-xl p-3" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div className="text-sm font-semibold" style={{ color: "var(--accent)" }}>{b.name}</div>
             <div className="text-xs" style={{ color: "var(--text-dim)" }}>{b.desc}</div>
@@ -54,6 +56,8 @@ export default function ConexionAvanzada() {
       ) : !isPremium ? (
         <div className="rounded-2xl p-8 text-center" style={{
           background: "linear-gradient(180deg, rgba(94,106,210,0.08), transparent 60%), var(--surface)",
+          WebkitBackdropFilter: "blur(16px)",
+          backdropFilter: "blur(16px)",
           border: "1px dashed rgba(94,106,210,0.35)",
         }}>
           <div className="text-3xl">🔒</div>
@@ -61,7 +65,7 @@ export default function ConexionAvanzada() {
             El matchmaking avanzado es una función Premium
           </p>
           <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: "var(--text-dim)" }}>
-            Completa tu perfil psicométrico y deja que la IA cruce toda la red para encontrar tus mejores co-fundadores.
+            Responde 9 preguntas rápidas de conducta real y deja que la IA cruce toda la red para encontrar tus mejores co-fundadores.
           </p>
           <button onClick={() => setShowUpgrade(true)}
             className="mt-4 rounded-lg px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
@@ -80,7 +84,7 @@ export default function ConexionAvanzada() {
           </section>
           <section>
             <h2 className="mb-4 text-lg font-semibold" style={{ color: "var(--text)" }}>Conexiones sugeridas</h2>
-            <AdvancedMatchPanel />
+            <AdvancedMatchPanel userId={user.id} />
           </section>
         </div>
       )}

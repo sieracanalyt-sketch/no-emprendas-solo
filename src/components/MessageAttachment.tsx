@@ -3,7 +3,7 @@ import { formatBytes } from "../lib/uploadMedia"
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Previsualización de adjuntos dentro del chat.
-// Contenedores de borde fino y fondo #151618 (estética Linear).
+// Contenedores de cristal translúcido (estética glassmorphism NES).
 // ──────────────────────────────────────────────────────────────────────────────
 
 export type Attachment = {
@@ -34,7 +34,7 @@ function ImageAttachment({ att }: { att: Attachment }) {
       <button
         onClick={() => setOpen(true)}
         className="block overflow-hidden rounded-lg"
-        style={{ border: "1px solid var(--border)", background: "#151618", maxWidth: 260 }}
+        style={{ border: "1px solid var(--glass-border)", background: "var(--surface-3)", maxWidth: 260 }}
       >
         <img
           src={att.url}
@@ -111,7 +111,7 @@ function AudioAttachment({ att }: { att: Attachment }) {
   return (
     <div
       className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
-      style={{ background: "#151618", border: "1px solid var(--border)", minWidth: 200, maxWidth: 280 }}
+      style={{ background: "var(--surface-3)", WebkitBackdropFilter: "blur(10px)", backdropFilter: "blur(10px)", border: "1px solid var(--glass-border)", minWidth: 200, maxWidth: 280 }}
     >
       <audio ref={audioRef} src={att.url} preload="metadata" />
       <button
@@ -168,7 +168,7 @@ function FileAttachment({ att }: { att: Attachment }) {
       rel="noopener noreferrer"
       download={name}
       className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition"
-      style={{ background: "#151618", border: "1px solid var(--border)", minWidth: 200, maxWidth: 280 }}
+      style={{ background: "var(--surface-3)", WebkitBackdropFilter: "blur(10px)", backdropFilter: "blur(10px)", border: "1px solid var(--glass-border)", minWidth: 200, maxWidth: 280 }}
     >
       <div
         className="shrink-0 w-10 h-10 rounded-md flex items-center justify-center text-lg"

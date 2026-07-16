@@ -1,96 +1,223 @@
-/* JARVIS cockpit — fully self-contained, scoped under .jarvis-root so it never
-   touches NES's global Linear theme. Plain CSS (no Tailwind dependency). */
-.jarvis-root {
-  --j-bg: #010306;
-  --j-line: #16304f;
-  --j-cyan: #4de8ff;
-  --j-blue: #3d7bff;
-  --j-text: #d9ecff;
-  --j-dim: #5c7ca6;
-  --j-risk: #ff3d55;
-  --j-good: #2fffb0;
-  --j-warn: #ffc14d;
-  --j-panel: rgba(6, 13, 29, 0.72);
+/* MERGE — glassmorphism: paneles de cristal flotante sobre glows de ambiente.
+   backdrop-blur profundo + capas translúcidas + bordes semi-transparentes +
+   sombras suaves pronunciadas. Scoped under .merge-root. */
+.merge-root { color: var(--text); position: relative; isolation: isolate; }
+.merge-root * { box-sizing: border-box; }
 
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 20px 28px;
-  background:
-    radial-gradient(1200px 700px at 50% -15%, rgba(61, 123, 255, 0.12), transparent 55%),
-    var(--j-bg);
-  color: var(--j-text);
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  overflow: hidden;
+/* ── glows de ambiente: dan color real detrás del cristal para que el blur se vea ── */
+.mg-glow {
+  position: absolute; border-radius: 50%; pointer-events: none; z-index: -1;
+  filter: blur(90px); opacity: 0.55;
 }
-.jarvis-root * { box-sizing: border-box; }
+.mg-glow-a {
+  width: 480px; height: 480px; top: -120px; left: -140px;
+  background: radial-gradient(circle, rgba(94, 106, 210, 0.55), transparent 70%);
+  animation: mg-drift 14s ease-in-out infinite alternate;
+}
+.mg-glow-b {
+  width: 420px; height: 420px; bottom: -80px; right: -120px;
+  background: radial-gradient(circle, rgba(47, 141, 160, 0.45), transparent 70%);
+  animation: mg-drift 18s ease-in-out infinite alternate-reverse;
+}
+@keyframes mg-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(60px, 40px) scale(1.15); }
+}
 
-.jx-header { display: flex; align-items: center; justify-content: space-between; }
-.jx-title { font-size: 15px; font-weight: 600; letter-spacing: 0.4em; color: #fff; }
-.jx-title span { color: var(--j-cyan); }
-.jx-status { font-size: 10px; text-transform: uppercase; letter-spacing: 0.3em; color: var(--j-dim); }
-.jx-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--j-cyan);
-  box-shadow: 0 0 14px var(--j-cyan), 0 0 34px rgba(77, 232, 255, 0.5); }
+/* ── el cristal: panel flotante base ─────────────────────────────────────── */
+.mg-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+.mg-glass-pill { border-radius: 999px; }
 
-.jx-btn { border-radius: 7px; padding: 7px 15px; font-size: 10px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.28em; cursor: pointer; transition: all 0.2s;
-  background: transparent; }
-.jx-btn-primary { border: 1px solid rgba(77, 232, 255, 0.6); color: var(--j-cyan); background: rgba(77, 232, 255, 0.06); }
-.jx-btn-primary:hover { background: rgba(77, 232, 255, 0.16); }
-.jx-btn-ghost { border: 1px solid rgba(22, 48, 79, 0.7); color: var(--j-dim); }
-.jx-btn-ghost:hover { color: var(--j-text); }
-.jx-btn-risk { border: 1px solid rgba(255, 61, 85, 0.6); color: var(--j-risk); }
-.jx-btn:disabled { opacity: 0.4; cursor: default; }
+/* tarjetas internas (dentro de un panel): cristal más ligero */
+.mg-card {
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
 
-.jx-hairline { height: 1px; width: 100%;
-  background: linear-gradient(90deg, transparent, rgba(77, 232, 255, 0.35) 20%, rgba(77, 232, 255, 0.35) 80%, transparent); }
+.mg-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dimmer);
+  font-weight: 500;
+}
 
-.jx-stage { position: relative; flex: 1; overflow: hidden; border-radius: 12px;
-  border: 1px solid rgba(22, 48, 79, 0.5); background: var(--j-panel);
-  box-shadow: 0 0 32px rgba(77, 232, 255, 0.08), inset 0 0 32px rgba(77, 232, 255, 0.03); }
+/* ── botones ──────────────────────────────────────────────────────────────── */
+.mg-btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, transform 0.15s;
+  color: var(--text-dim);
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.mg-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.11); transform: translateY(-1px); }
+.mg-btn:active { transform: translateY(0); }
+.mg-btn-primary {
+  background: linear-gradient(180deg, rgba(114, 126, 226, 0.9), rgba(94, 106, 210, 0.9));
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff; padding: 10px 24px; font-weight: 600;
+  box-shadow: 0 8px 28px rgba(94, 106, 210, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.mg-btn-primary:hover { background: linear-gradient(180deg, rgba(124, 136, 236, 0.95), rgba(104, 116, 220, 0.95)); color: #fff; }
+.mg-btn-danger { color: #f8817b; border-color: rgba(248, 81, 73, 0.35); }
+.mg-btn-danger:hover { background: rgba(248, 81, 73, 0.12); color: #f8817b; }
+.mg-btn-accent {
+  color: #aeb6f5; background: rgba(94, 106, 210, 0.16);
+  border: 1px solid rgba(94, 106, 210, 0.45); font-weight: 600;
+}
+.mg-btn-accent:hover { background: rgba(94, 106, 210, 0.26); color: #c7ccf8; }
+.mg-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
 
-.jx-panel { border-radius: 10px; border: 1px solid rgba(22, 48, 79, 0.55); background: var(--j-panel); }
-.jx-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.32em; color: var(--j-dim); }
-.jx-glow { text-shadow: 0 0 14px rgba(77, 232, 255, 0.45); }
-.jx-err { border: 1px solid rgba(255, 61, 85, 0.5); background: rgba(255, 61, 85, 0.06);
-  color: var(--j-risk); border-radius: 8px; padding: 8px 14px; font-size: 13px; }
+/* botón redondo de icono (controles flotantes: micro, cerrar, enviar) */
+.mg-icon-btn {
+  width: 42px; height: 42px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, transform 0.15s;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.mg-icon-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.13); transform: translateY(-1px); }
+.mg-icon-btn:active { transform: translateY(0); }
+.mg-icon-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+.mg-icon-on { color: #4fd07a; border-color: rgba(63, 185, 80, 0.45); background: rgba(63, 185, 80, 0.12); }
+.mg-icon-on:hover { background: rgba(63, 185, 80, 0.2); color: #6fe094; }
+.mg-icon-off { color: #f8817b; border-color: rgba(248, 81, 73, 0.45); background: rgba(248, 81, 73, 0.1); }
+.mg-icon-off:hover { background: rgba(248, 81, 73, 0.18); color: #fa9d98; }
+.mg-icon-send {
+  color: #fff; border-color: rgba(255, 255, 255, 0.25);
+  background: linear-gradient(180deg, rgba(114, 126, 226, 0.95), rgba(94, 106, 210, 0.95));
+  box-shadow: 0 6px 20px rgba(94, 106, 210, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.mg-icon-send:hover { color: #fff; background: linear-gradient(180deg, rgba(124, 136, 236, 1), rgba(104, 116, 220, 1)); }
 
-.jx-cap { position: absolute; left: 0; right: 0; bottom: 18px; display: flex; justify-content: center; padding: 0 28px; pointer-events: none; }
-.jx-cap > div { max-width: 760px; border-radius: 9px; border: 1px solid rgba(22, 48, 79, 0.5);
-  background: rgba(0, 0, 0, 0.5); padding: 9px 18px; backdrop-filter: blur(8px); }
-.jx-cap-who { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3em; margin-right: 8px; }
+/* ── barra de entrada dual (texto + voz) ──────────────────────────────────── */
+.mg-composer {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px 8px 20px;
+}
+.mg-input {
+  flex: 1; min-width: 0;
+  background: transparent; border: none; outline: none;
+  font-size: 14.5px; color: var(--text);
+  padding: 10px 0;
+}
+.mg-input::placeholder { color: var(--text-dimmer); }
 
-.jx-foot { text-align: center; font-size: 10px; text-transform: uppercase; letter-spacing: 0.25em; color: rgba(92, 124, 166, 0.7); }
+.mg-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-/* caret */
-.jx-caret::after { content: "▍"; color: var(--j-cyan); animation: jx-blink 1s steps(1) infinite; }
-@keyframes jx-blink { 50% { opacity: 0; } }
+/* el orbe que respira — la firma visual */
+.mg-orb {
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #9aa3f0, var(--accent) 70%);
+  box-shadow: 0 0 24px rgba(94, 106, 210, 0.55);
+  animation: mg-breathe 3.2s ease-in-out infinite;
+}
+@keyframes mg-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
 
-/* animations */
-@keyframes jx-fade-up { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
-@keyframes jx-grow-x { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
-@keyframes jx-pulse-risk { 0%, 100% { box-shadow: 0 0 0 rgba(255,61,85,0); border-color: rgba(255,61,85,0.35); } 50% { box-shadow: 0 0 20px rgba(255,61,85,0.5); border-color: rgba(255,61,85,0.9); } }
-@keyframes jx-spin { to { transform: rotate(360deg); } }
-@keyframes jx-core { 0%,100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.12); opacity: 1; } }
-@keyframes jx-flick { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-.jx-fade { animation: jx-fade-up 0.5s ease-out both; }
-.jx-growx { transform-origin: left; animation: jx-grow-x 0.9s cubic-bezier(0.2,0.8,0.2,1) both; }
-.jx-riskpulse { animation: jx-pulse-risk 1.4s ease-in-out infinite; }
+.mg-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 999px; padding: 3px 10px; font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+}
 
-/* idle reactor */
-.jx-idle { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 34px; }
-.jx-reactor { position: relative; width: 168px; height: 168px; }
-.jx-ring { position: absolute; border-radius: 50%; }
-.jx-ring1 { inset: 0; border: 1px dashed rgba(77,232,255,0.3); animation: jx-spin 14s linear infinite; }
-.jx-ring2 { inset: 40px; border: 1px solid rgba(77,232,255,0.4); box-shadow: inset 0 0 24px rgba(77,232,255,0.12); }
-.jx-core { position: absolute; inset: 40%; border-radius: 50%; background: var(--j-cyan);
-  box-shadow: 0 0 28px var(--j-cyan), 0 0 90px rgba(77,232,255,0.5); animation: jx-core 2.8s ease-in-out infinite; }
+.mg-err {
+  color: #e3b341;
+  font-size: 13px; line-height: 1.6;
+  padding: 10px 0;
+}
 
-/* generic helpers used by panels */
-.jx-chip { border-radius: 6px; padding: 2px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 6px; }
-.jx-scroll { overflow-y: auto; }
-.jx-scroll::-webkit-scrollbar { width: 6px; }
-.jx-scroll::-webkit-scrollbar-thumb { background: rgba(77,232,255,0.18); border-radius: 3px; }
+.mg-scroll { overflow-y: auto; }
+.mg-scroll::-webkit-scrollbar { width: 5px; }
+.mg-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+
+/* caption over a graphic panel: fades up from the glass bottom */
+.mg-cap {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center;
+  padding: 44px 24px 18px; pointer-events: none;
+  background: linear-gradient(transparent, rgba(12, 13, 14, 0.85) 72%);
+  border-radius: 0 0 24px 24px;
+}
+.mg-cap > div {
+  max-width: 620px; font-size: 14.5px; line-height: 1.6; text-align: center;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mg-cap-who { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-right: 8px; }
+
+/* animations — subtle only */
+@keyframes mg-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mg-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes mg-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes mg-blink { 50% { opacity: 0; } }
+.mg-fade { animation: mg-fade 0.4s ease-out both; }
+.mg-grow { transform-origin: left; animation: mg-grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.mg-pulse { animation: mg-pulse 2s ease-in-out infinite; }
+.mg-caret::after { content: "▍"; color: var(--accent); animation: mg-blink 1s steps(1) infinite; }
+
+/* ── agent state: píldora de cristal flotante sobre el escenario ──────────── */
+.mg-state {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 2;
+  display: inline-flex; align-items: center; gap: 9px;
+  font-size: 12.5px; font-weight: 500; color: var(--text-dim);
+  padding: 6px 14px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  animation: mg-fade 0.3s ease-out both;
+}
+/* listening → soft green pulse (your turn to talk) */
+.mg-listen-ring { width: 9px; height: 9px; border-radius: 50%; background: #3fb950; animation: mg-listen 1.6s ease-out infinite; }
+@keyframes mg-listen {
+  0% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.45); }
+  70% { box-shadow: 0 0 0 8px rgba(63, 185, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+}
+/* thinking → bouncing dots */
+.mg-dots { display: inline-flex; gap: 3px; }
+.mg-dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: mg-bounce 1s infinite; }
+.mg-dots i:nth-child(2) { animation-delay: 0.15s; }
+.mg-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes mg-bounce { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+/* speaking → equalizer bars */
+.mg-bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 12px; }
+.mg-bars i { width: 2.5px; background: currentColor; border-radius: 2px; animation: mg-eq 0.8s ease-in-out infinite; }
+.mg-bars i:nth-child(1) { height: 5px; }
+.mg-bars i:nth-child(2) { height: 11px; animation-delay: 0.15s; }
+.mg-bars i:nth-child(3) { height: 7px; animation-delay: 0.3s; }
+.mg-bars i:nth-child(4) { height: 11px; animation-delay: 0.45s; }
+@keyframes mg-eq { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }

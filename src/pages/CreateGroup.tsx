@@ -60,8 +60,7 @@ export default function CreateGroup() {
       </div>
 
       <div
-        className="rounded-xl p-6 space-y-5 mb-5"
-        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+        className="glass rounded-2xl p-6 space-y-5 mb-5"
       >
         <div>
           <label className="block text-[11px] font-medium text-white/40 uppercase tracking-wider mb-2">
@@ -91,8 +90,7 @@ export default function CreateGroup() {
       </div>
 
       <div
-        className="rounded-xl overflow-hidden mb-5"
-        style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+        className="glass rounded-2xl overflow-hidden mb-5"
       >
         <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">

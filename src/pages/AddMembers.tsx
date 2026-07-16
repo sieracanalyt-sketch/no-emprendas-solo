@@ -67,7 +67,7 @@ export default function AddMembers() {
       {available.length === 0 ? (
         <p className="text-white/40 text-sm">Todos los usuarios ya son miembros.</p>
       ) : (
-        <div className="rounded-xl overflow-hidden mb-5" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="glass rounded-2xl overflow-hidden mb-5">
           {available.map((u, i) => {
             const isSelected = selected.includes(u.id)
             return (

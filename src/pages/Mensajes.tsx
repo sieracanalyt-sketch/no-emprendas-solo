@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom"
 import { useUser } from "../hooks/useUser"
 import { usePresence } from "../hooks/usePresence"
 import { useChatList, useGroupList } from "../hooks/useConversations"
+import { deadlineInfo, deadlineColor, fmtTimeLeft } from "../lib/matchDeadline"
 import ConversationPanel, {
   type ConversationTarget,
 } from "../components/ConversationPanel"
@@ -49,6 +50,13 @@ export default function Mensajes() {
 
   const [search, setSearch] = useState("")
 
+  // Tic por minuto: mantiene vivos los contadores de 72 h sin recargar
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const i = window.setInterval(() => setTick((t) => t + 1), 60000)
+    return () => window.clearInterval(i)
+  }, [])
+
   // ── Derivar pestaña activa y selección desde la URL ─────────────────────────
   const segment = location.pathname.split("/")[1] // chats | chat | grupos | group
   const tab: Tab = segment === "grupos" || segment === "group" ? "grupos" : "chats"
@@ -73,17 +81,14 @@ export default function Mensajes() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
+      <div className="flex items-center justify-center page-viewport">
         <p className="text-[13px]" style={{ color: "var(--text-dim)" }}>Cargando…</p>
       </div>
     )
   }
 
   return (
-    <div
-      className="flex w-full overflow-hidden"
-      style={{ height: "calc(100vh - 3.5rem)" }}
-    >
+    <div className="flex w-full overflow-hidden page-viewport">
       {/* ════════════════ PANEL IZQUIERDO (lista) ════════════════ */}
       <aside
         className={`${
@@ -91,6 +96,8 @@ export default function Mensajes() {
         } flex-col w-full md:w-[320px] md:shrink-0 h-full`}
         style={{
           background: "var(--surface-2)",
+          WebkitBackdropFilter: "blur(16px)",
+          backdropFilter: "blur(16px)",
           borderRight: "1px solid var(--border)",
         }}
       >
@@ -243,19 +250,47 @@ function ChatList({
 
   return (
     <div className="flex flex-col">
-      {items.map((c) => (
-        <Row
-          key={c.chatId}
-          active={activeId === c.otherUserId}
-          onClick={() => onSelect(c.otherUserId)}
-          avatar={<Avatar name={c.name} src={c.avatar} size={42} />}
-          online={onlineSet.has(c.otherUserId)}
-          name={c.name}
-          text={c.lastText}
-          time={listTime(c.timestamp)}
-          unread={c.unread}
-        />
-      ))}
+      {items.map((c) => {
+        // Deadline social 72 h: chip de cuenta atrás / match enfriado
+        const dl = deadlineInfo(c.lastFromMe, c.timestamp)
+        let badge: React.ReactNode = null
+        if (dl?.waitingYou && !dl.expired) {
+          const col = deadlineColor(dl.msLeft)
+          badge = (
+            <span
+              className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+              style={{ background: `${col}1c`, color: col, border: `1px solid ${col}44` }}
+              title="Tiempo restante para responder — los matches sin respuesta se enfrían"
+            >
+              ⏳ {fmtTimeLeft(dl.msLeft)}
+            </span>
+          )
+        } else if (dl?.expired) {
+          badge = (
+            <span
+              className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+              style={{ background: "rgba(138,143,152,0.12)", color: "var(--text-dimmer)", border: "1px solid var(--border)" }}
+              title={dl.waitingYou ? "Se acabó el tiempo de respuesta — un mensaje lo reactiva" : "No respondió a tiempo"}
+            >
+              💤 {dl.waitingYou ? "enfriado" : "sin respuesta"}
+            </span>
+          )
+        }
+        return (
+          <Row
+            key={c.chatId}
+            active={activeId === c.otherUserId}
+            onClick={() => onSelect(c.otherUserId)}
+            avatar={<Avatar name={c.name} src={c.avatar} size={42} />}
+            online={onlineSet.has(c.otherUserId)}
+            name={c.name}
+            text={c.lastText}
+            time={listTime(c.timestamp)}
+            unread={c.unread}
+            badge={badge}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -309,6 +344,7 @@ function Row({
   time,
   unread,
   subtitle,
+  badge,
 }: {
   active: boolean
   onClick: () => void
@@ -319,6 +355,7 @@ function Row({
   time: string
   unread: number
   subtitle?: string
+  badge?: React.ReactNode
 }) {
   return (
     <button
@@ -361,6 +398,7 @@ function Row({
           >
             {subtitle ? subtitle : text || "—"}
           </p>
+          {badge}
           {unread > 0 && (
             <span
               className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-black"

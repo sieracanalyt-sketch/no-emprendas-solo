@@ -43,7 +43,7 @@ export default function Login() {
         position: "fixed",
         inset: 0,
         display: "flex",
-        background: "#0d0d0d",
+        background: "transparent", /* deja ver los glows de ambiente del body */
         fontFamily: "'Inter','Segoe UI',system-ui,sans-serif",
         overflow: "hidden",
       }}
@@ -59,7 +59,11 @@ export default function Login() {
           justifyContent: "center",
           alignItems: "center",
           padding: "3rem 4rem",
-          background: "#111",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+          WebkitBackdropFilter: "blur(24px) saturate(1.3)",
+          backdropFilter: "blur(24px) saturate(1.3)",
+          borderRight: "1px solid var(--glass-border)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
           overflowY: "auto",
           animation: "fadeIn 0.5s ease both",
         }}
@@ -114,11 +118,11 @@ export default function Login() {
               marginBottom: "1.5rem",
             }}
           >
-            <div style={{ flex: 1, height: "1px", background: "#222" }} />
-            <span style={{ color: "#555", fontSize: "0.78rem", letterSpacing: "0.04em" }}>
+            <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+            <span style={{ color: "var(--text-dimmer)", fontSize: "0.78rem", letterSpacing: "0.04em" }}>
               o con correo
             </span>
-            <div style={{ flex: 1, height: "1px", background: "#222" }} />
+            <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
           </div>
 
           {/* Form */}
@@ -154,8 +158,8 @@ export default function Login() {
                 width: "100%",
                 padding: "0.88rem",
                 marginTop: "1rem",
-                background: loading ? "#1e1e1e" : "#fff",
-                color: loading ? "#555" : "#111",
+                background: loading ? "rgba(255,255,255,0.08)" : "#fff",
+                color: loading ? "var(--text-dimmer)" : "#111",
                 border: "none",
                 borderRadius: "10px",
                 fontSize: "0.95rem",
@@ -168,9 +172,9 @@ export default function Login() {
             </button>
           </form>
 
-          <p style={{ marginTop: "1.8rem", textAlign: "center", color: "#555", fontSize: "0.87rem" }}>
+          <p style={{ marginTop: "1.8rem", textAlign: "center", color: "var(--text-dimmer)", fontSize: "0.87rem" }}>
             ¿No tienes una cuenta?{" "}
-            <Link to="/register" style={{ color: "#888", textDecoration: "underline", fontWeight: 500 }}>
+            <Link to="/register" style={{ color: "var(--text-dim)", textDecoration: "underline", fontWeight: 500 }}>
               Regístrate
             </Link>
           </p>
@@ -186,7 +190,7 @@ export default function Login() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#0d0d0d",
+          background: "transparent",
           padding: "3rem",
           animation: "fadeIn 0.6s ease 0.1s both",
         }}
@@ -222,10 +226,12 @@ export default function Login() {
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "0.85rem 1rem",
-  background: "#181818",
-  border: "1px solid #2a2a2a",
-  borderRadius: "10px",
-  color: "#e0e0e0",
+  background: "rgba(255,255,255,0.05)",
+  WebkitBackdropFilter: "blur(10px)",
+  backdropFilter: "blur(10px)",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "12px",
+  color: "var(--text)",
   fontSize: "0.92rem",
   outline: "none",
   transition: "border-color 0.18s",

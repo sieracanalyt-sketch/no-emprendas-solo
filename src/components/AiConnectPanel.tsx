@@ -53,11 +53,13 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
 
   return (
     <div
-      className="rounded-xl p-5 overflow-hidden relative"
+      className="rounded-2xl p-5 overflow-hidden relative"
       style={{
         background: "linear-gradient(180deg, rgba(249,115,22,0.07), rgba(249,115,22,0.015) 40%), var(--surface)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.3)",
+        backdropFilter: "blur(20px) saturate(1.3)",
         border: "1px solid rgba(249,115,22,0.28)",
-        boxShadow: "0 0 0 1px rgba(249,115,22,0.08), 0 8px 30px rgba(249,115,22,0.06)",
+        boxShadow: "0 0 0 1px rgba(249,115,22,0.08), 0 8px 30px rgba(249,115,22,0.06), inset 0 1px 0 rgba(255,255,255,0.06)",
       }}
     >
       <style>{`
