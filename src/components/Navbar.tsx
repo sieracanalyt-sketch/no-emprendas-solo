@@ -1,11 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { supabase } from "../supabase"
-import { useUserTier } from "../hooks/useUserTier"
 
 export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAdmin } = useUserTier()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -67,7 +65,7 @@ export default function Navbar() {
             {items.map(it => (
               <NavItem key={it.to} to={it.to} label={it.label} active={it.active} tour={it.tour} />
             ))}
-            {isAdmin && <NavItem to="/merge" label="MERGE" active={isActive("/merge")} accent />}
+            <NavItem to="/merge" label="MERGE" active={isActive("/merge")} accent premium />
           </nav>
 
           {/* RIGHT */}
@@ -105,28 +103,32 @@ export default function Navbar() {
             <span className="bn-dot" aria-hidden />
           </Link>
         ))}
-        {isAdmin && (
-          <Link
-            to="/merge"
-            className={`bottomnav-item ${isActive("/merge") ? "active" : ""}`}
-            style={{ color: isActive("/merge") ? "#fff" : "#5e6ad2" }}
+        <Link
+          to="/merge"
+          className={`bottomnav-item ${isActive("/merge") ? "active" : ""}`}
+          style={{ color: isActive("/merge") ? "#fff" : "#5e6ad2" }}
+        >
+          <span className="bn-icon" aria-hidden>◆</span>
+          MERGE
+          <span
+            className="rounded-full px-1 text-[8px] font-semibold uppercase tracking-wider"
+            style={{ background: "rgba(94,106,210,0.18)", color: "#9aa4f0" }}
           >
-            <span className="bn-icon" aria-hidden>◆</span>
-            MERGE
-            <span className="bn-dot" aria-hidden />
-          </Link>
-        )}
+            Pro
+          </span>
+          <span className="bn-dot" aria-hidden />
+        </Link>
       </nav>
     </>
   )
 }
 
-function NavItem({ to, label, active, tour, accent }: { to: string; label: string; active: boolean; tour?: string; accent?: boolean }) {
+function NavItem({ to, label, active, tour, accent, premium }: { to: string; label: string; active: boolean; tour?: string; accent?: boolean; premium?: boolean }) {
   return (
     <Link
       to={to}
       data-tour={tour}
-      className="nav-link relative px-3 py-1.5 text-[13px] rounded-full"
+      className="nav-link relative flex items-center gap-1.5 px-3 py-1.5 text-[13px] rounded-full"
       style={{
         color: active ? "#f7f8f8" : accent ? "#5e6ad2" : undefined,
         background: active ? (accent ? "rgba(94,106,210,0.14)" : "rgba(255,255,255,0.06)") : "transparent",
@@ -135,6 +137,14 @@ function NavItem({ to, label, active, tour, accent }: { to: string; label: strin
       }}
     >
       {label}
+      {premium && (
+        <span
+          className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
+          style={{ background: "rgba(94,106,210,0.18)", color: "#9aa4f0" }}
+        >
+          Premium
+        </span>
+      )}
     </Link>
   )
 }

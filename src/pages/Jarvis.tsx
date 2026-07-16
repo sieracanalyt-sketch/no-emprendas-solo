@@ -1,26 +1,23 @@
-import { useUserTier } from "../hooks/useUserTier"
 import MergeConsole from "../jarvis/JarvisHud"
 
-// MERGE — asistente de voz del fundador, embebido en NES (solo admin).
-// El agente (cerebro) corre en la máquina del fundador y se une a la misma
-// sala de LiveKit automáticamente.
+// MERGE — asistente de voz del fundador, embebido en NES. Función premium,
+// abierta a todos durante la beta (ver banner). El agente (cerebro) corre en
+// la máquina del fundador y se une a la misma sala de LiveKit automáticamente.
 export default function Merge() {
-  const { isAdmin, loading } = useUserTier()
-
-  if (loading) return null
-  if (!isAdmin) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <div className="text-3xl">🔒</div>
-        <p className="mt-3 text-base font-medium" style={{ color: "var(--text)" }}>
-          MERGE es el puesto de mando del fundador
-        </p>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-dim)" }}>
-          Esta vista está reservada a la administración de NES.
-        </p>
+  return (
+    <div>
+      <div
+        className="mx-auto mt-3 flex max-w-6xl items-center gap-2 px-4 text-[11px] font-semibold uppercase tracking-wider"
+        style={{ color: "var(--accent)" }}
+      >
+        <span
+          className="rounded-full px-2 py-0.5"
+          style={{ background: "rgba(94,106,210,0.15)", border: "1px solid rgba(94,106,210,0.35)" }}
+        >
+          Premium · gratis en beta
+        </span>
       </div>
-    )
-  }
-
-  return <MergeConsole />
+      <MergeConsole />
+    </div>
+  )
 }

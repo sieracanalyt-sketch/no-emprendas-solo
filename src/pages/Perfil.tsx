@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { supabase } from "../supabase"
 import { useNavigate, useLocation } from "react-router-dom"
 import { checkProfile, MIN_BIO, type ProjectStatus } from "../lib/profileCompletion"
-import { useUserTier } from "../hooks/useUserTier"
 import AdvancedMatchProfile from "../components/AdvancedMatchProfile"
-import UpgradeModal from "../components/UpgradeModal"
 import PrestigeCard from "../components/PrestigeCard"
 
 // ─── Gamification helpers ────────────────────────────────────────────────────
@@ -46,14 +44,8 @@ export default function Perfil() {
   const [showMissing, setShowMissing] = useState(false)
   const [displayPct, setDisplayPct] = useState(0)
   const [userId, setUserId] = useState<string | null>(null)
-  const [showUpgrade, setShowUpgrade] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-
-  // Premium gate para el perfil avanzado (mismo criterio que Conexión Avanzada)
-  const { tier, isAdmin, trialUntil } = useUserTier()
-  const isPremium =
-    isAdmin || tier === "premium" || (trialUntil ? trialUntil.getTime() > Date.now() : false)
 
   // Refs para scroll-to-field desde el drawer
   const sectionNombre   = useRef<HTMLDivElement>(null)
@@ -443,7 +435,7 @@ export default function Perfil() {
         </button>
       </div>
 
-      {/* ── Perfil avanzado (premium): los 9 campos del matchmaking ─────── */}
+      {/* ── Perfil avanzado (premium, gratis durante la beta) ────────────── */}
       <section className="glass rounded-3xl p-6 mt-8">
         <div className="flex items-center gap-3 flex-wrap">
           <h2 className="text-[17px] font-semibold tracking-tight text-white">Perfil avanzado</h2>
@@ -451,7 +443,7 @@ export default function Perfil() {
             className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
             style={{ background: "rgba(94,106,210,0.15)", color: "var(--accent)", border: "1px solid rgba(94,106,210,0.35)" }}
           >
-            Premium
+            Premium · gratis en beta
           </span>
         </div>
         <p className="text-[13px] mt-1 mb-6" style={{ color: "var(--text-dim)" }}>
@@ -459,30 +451,7 @@ export default function Perfil() {
           honesto respondas, mejores conexiones te propondrá MERGE.
         </p>
 
-        {isPremium && userId ? (
-          <AdvancedMatchProfile userId={userId} />
-        ) : (
-          <div
-            className="rounded-2xl p-7 text-center"
-            style={{ border: "1px dashed rgba(94,106,210,0.4)", background: "rgba(94,106,210,0.05)" }}
-          >
-            <div className="text-2xl">🔒</div>
-            <p className="mt-2 text-[14px] font-medium" style={{ color: "var(--text)" }}>
-              El perfil avanzado es una función Premium
-            </p>
-            <p className="mx-auto mt-1 max-w-sm text-[13px]" style={{ color: "var(--text-dim)" }}>
-              Desbloquéalo para que la IA cruce tu perfil con toda la red y te proponga
-              tus mejores co-fundadores.
-            </p>
-            <button
-              onClick={() => setShowUpgrade(true)}
-              className="btn-linear mt-4 rounded-full px-5 py-2 text-[13px] font-medium"
-            >
-              Ver Premium
-            </button>
-            <UpgradeModal feature="matching_advanced" open={showUpgrade} onClose={() => setShowUpgrade(false)} />
-          </div>
-        )}
+        {userId && <AdvancedMatchProfile userId={userId} />}
       </section>
 
       {/* ── Separador ────────────────────────────────────────────────────── */}
