@@ -22,11 +22,13 @@ export default function CohortGate({ children }: { children: ReactNode }) {
       }
       const { data } = await supabase
         .from("users")
-        .select("cohort_approved")
+        .select("cohort_approved, is_admin")
         .eq("id", session.user.id)
         .maybeSingle()
       if (cancelled) return
-      setStatus(data?.cohort_approved ? "approved" : "gated")
+      // Los admins nunca quedan bloqueados: si no, quien gestiona la cohorte
+      // (generar códigos en /admin) podría quedarse fuera de su propia app.
+      setStatus(data?.cohort_approved || data?.is_admin ? "approved" : "gated")
     }
 
     check()
