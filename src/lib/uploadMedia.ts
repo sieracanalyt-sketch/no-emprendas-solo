@@ -54,6 +54,29 @@ export async function uploadChatMedia(
   }
 }
 
+const AVATAR_BUCKET = "avatars"
+
+/**
+ * Sube la foto de perfil al bucket `avatars`, siempre bajo el mismo nombre
+ * de archivo (`{userId}/avatar.ext`) con upsert para no dejar huérfanos ni
+ * tener que borrar el anterior a mano. Devuelve la URL pública.
+ */
+export async function uploadAvatar(file: File, userId: string): Promise<string> {
+  const ext = extFromName(file.name, "png")
+  const path = `${userId}/avatar.${ext}`
+
+  const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, {
+    contentType: file.type || "image/png",
+    upsert: true,
+  })
+  if (error) throw error
+
+  const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
+  // Cache-bust: la ruta no cambia entre subidas, así que sin esto el navegador
+  // (y cualquier CDN por delante) seguiría sirviendo la imagen vieja.
+  return `${data.publicUrl}?v=${Date.now()}`
+}
+
 /** Formatea un tamaño en bytes a una cadena legible. */
 export function formatBytes(bytes: number): string {
   if (!bytes) return ""

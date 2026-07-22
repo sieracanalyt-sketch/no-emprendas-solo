@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { supabase } from "../supabase"
 import { useNavigate, useLocation } from "react-router-dom"
 import { checkProfile, MIN_BIO, type ProjectStatus } from "../lib/profileCompletion"
+import { uploadAvatar } from "../lib/uploadMedia"
 import AdvancedMatchProfile from "../components/AdvancedMatchProfile"
 import PrestigeCard from "../components/PrestigeCard"
 
@@ -45,6 +46,9 @@ export default function Perfil() {
   const [showMissing, setShowMissing] = useState(false)
   const [displayPct, setDisplayPct] = useState(0)
   const [userId, setUserId] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState("")
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -189,6 +193,32 @@ export default function Perfil() {
     setBuscando(buscando.filter((_, i) => i !== index))
   }
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file || !userId) return
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("Elige un archivo de imagen.")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError("La imagen no puede superar los 5 MB.")
+      return
+    }
+    setAvatarError("")
+    setUploadingAvatar(true)
+    try {
+      const url = await uploadAvatar(file, userId)
+      const { error } = await supabase.from("users").update({ avatar: url }).eq("id", userId)
+      if (error) throw error
+      setAvatar(url)
+    } catch {
+      setAvatarError("No se pudo subir la foto. Inténtalo de nuevo.")
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   const handleMissingClick = (key: string) => {
     if (key === "conexion") { navigate("/explorar"); return }
     fieldRefs[key]?.current?.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -205,25 +235,49 @@ export default function Perfil() {
     <div className="max-w-2xl mx-auto px-5 py-10 animate-in">
       {/* ── Header de identidad ─────────────────────────────────────────── */}
       <div className="mb-6 flex items-center gap-4">
-        {avatar ? (
-          <img
-            src={avatar}
-            alt={perfil.nombre || "Avatar"}
-            style={{ width: 66, height: 66, borderRadius: 20, objectFit: "cover", border: "1px solid var(--border-strong)" }}
-          />
-        ) : (
+        <button
+          type="button"
+          onClick={() => avatarInputRef.current?.click()}
+          disabled={uploadingAvatar}
+          title="Cambiar foto de perfil"
+          className="relative shrink-0 group"
+          style={{ width: 66, height: 66, borderRadius: 20, cursor: uploadingAvatar ? "wait" : "pointer" }}
+        >
+          {avatar ? (
+            <img
+              src={avatar}
+              alt={perfil.nombre || "Avatar"}
+              style={{ width: 66, height: 66, borderRadius: 20, objectFit: "cover", border: "1px solid var(--border-strong)" }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 66, height: 66, borderRadius: 20,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 27, fontWeight: 700, color: "#fff",
+                background: "linear-gradient(150deg, #6b77e0, #4b56b8)",
+                boxShadow: "0 10px 26px rgba(94,106,210,0.4), inset 0 1px 0 rgba(255,255,255,0.25)",
+              }}
+            >
+              {(perfil.nombre || "?").trim()[0]?.toUpperCase() || "?"}
+            </div>
+          )}
           <div
-            style={{
-              width: 66, height: 66, borderRadius: 20,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 27, fontWeight: 700, color: "#fff",
-              background: "linear-gradient(150deg, #6b77e0, #4b56b8)",
-              boxShadow: "0 10px 26px rgba(94,106,210,0.4), inset 0 1px 0 rgba(255,255,255,0.25)",
-            }}
+            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ borderRadius: 20, background: "rgba(0,0,0,0.5)" }}
           >
-            {(perfil.nombre || "?").trim()[0]?.toUpperCase() || "?"}
+            <span style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>
+              {uploadingAvatar ? "Subiendo…" : "Cambiar"}
+            </span>
           </div>
-        )}
+        </button>
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleAvatarChange}
+          className="sr-only"
+        />
         <div className="min-w-0">
           <h1 className="text-[23px] font-semibold tracking-tight text-white truncate">
             {perfil.nombre || "Tu perfil"}
@@ -231,6 +285,9 @@ export default function Perfil() {
           <p className="text-[13px] mt-0.5" style={{ color: "var(--text-dim)" }}>
             {getConnectionRank(connectionCount)}
           </p>
+          {avatarError && (
+            <p className="text-[12px] mt-1" style={{ color: "#f8817b" }}>{avatarError}</p>
+          )}
         </div>
       </div>
 

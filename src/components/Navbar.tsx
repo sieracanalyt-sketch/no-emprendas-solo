@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { supabase } from "../supabase"
 import { useUserTier } from "../hooks/useUserTier"
+import { BrandMark } from "./AuthLayout"
 
 // Iconos de línea propios (nada de emoji): trazo consistente, look de producto.
 const ic = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" } as const
@@ -59,9 +60,18 @@ function useLens(items: Item[], deps: unknown[]) {
     const raf = requestAnimationFrame(measure)
     if (document.fonts?.ready) void document.fonts.ready.then(measure)
     window.addEventListener("resize", measure)
+
+    // El rail puede encogerse/ensancharse sin que cambien activeIndex ni la
+    // ruta (p.ej. el badge "Admin" aparece tras cargar isAdmin de forma
+    // asíncrona y le quita espacio al rail): sin este observer la lente se
+    // queda con la posición vieja, colgada entre dos ítems.
+    const ro = new ResizeObserver(measure)
+    if (railRef.current) ro.observe(railRef.current)
+
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener("resize", measure)
+      ro.disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex, ...deps])
@@ -115,15 +125,7 @@ export default function Navbar() {
             onClick={() => navigate("/explorar")}
             className="flex items-center gap-2.5 shrink-0"
           >
-            <div
-              className="w-[26px] h-[26px] rounded-md flex items-center justify-center text-xs font-bold text-black"
-              style={{
-                background: "linear-gradient(180deg, #ffffff, #d8d9dc)",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.4)",
-              }}
-            >
-              N
-            </div>
+            <BrandMark size={24} />
             <span className="text-sm font-semibold tracking-tight" style={{ color: "#f7f8f8" }}>
               <span className="hidden sm:inline">NoEmprendasSolo</span>
               <span className="inline sm:hidden">NES</span>

@@ -52,6 +52,7 @@ export default function App() {
     <div className="w-full min-h-screen bg-[#0c0d0e] text-white">
       <CallProvider>
       <CohortGate>
+      {!hideNavbar && <div className="app-aurora" aria-hidden />}
       {!hideNavbar && <Navbar />}
       {!hideNavbar && <OnboardingTour />}
       <div className={hideNavbar ? "w-full" : "w-full app-content"}>

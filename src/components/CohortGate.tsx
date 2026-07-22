@@ -149,7 +149,7 @@ function InviteScreen({ onApproved }: { onApproved: () => void }) {
         </h1>
         <p style={{ color: "var(--text-dim)", fontSize: "0.88rem", marginTop: "0.6rem", lineHeight: 1.5 }}>
           No Emprendas Solo está en fase cerrada. Introduce el código que te
-          hemos enviado por correo para entrar.
+          hemos enviado si has sido seleccionado.
         </p>
 
         <form onSubmit={submit} style={{ marginTop: "1.5rem" }}>
