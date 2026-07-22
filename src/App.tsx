@@ -1,8 +1,9 @@
 import { useEffect, lazy, Suspense } from "react"
-import { Routes, Route, useLocation } from "react-router-dom"
+import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
 import OnboardingTour from "./components/OnboardingTour"
 import CohortGate from "./components/CohortGate"
+import RequireAuth from "./components/RequireAuth"
 import CallProvider from "./calls/CallProvider"
 import { supabase } from "./supabase"
 import { saveUser } from "./lib/saveUser"
@@ -61,29 +62,33 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          <Route path="/explorar" element={<Explorar />} />
-          <Route path="/conexion-avanzada" element={<ConexionAvanzada />} />
-          <Route path="/merge" element={<Suspense fallback={null}><Merge /></Suspense>} />
-          <Route path="/perfil" element={<Perfil />} />
-          <Route path="/perfil-publico/:id" element={<PerfilPublico />} />
-          <Route path="/completar-perfil" element={<CompletarPerfil />} />
+          {/* Todo lo de abajo exige sesión: sin ella, RequireAuth manda a /login */}
+          <Route path="/explorar" element={<RequireAuth><Explorar /></RequireAuth>} />
+          <Route path="/conexion-avanzada" element={<RequireAuth><ConexionAvanzada /></RequireAuth>} />
+          <Route path="/merge" element={<RequireAuth><Suspense fallback={null}><Merge /></Suspense></RequireAuth>} />
+          <Route path="/perfil" element={<RequireAuth><Perfil /></RequireAuth>} />
+          <Route path="/perfil-publico/:id" element={<RequireAuth><PerfilPublico /></RequireAuth>} />
+          <Route path="/completar-perfil" element={<RequireAuth><CompletarPerfil /></RequireAuth>} />
 
           {/* Hub de mensajería unificado (Chats + Grupos) */}
-          <Route path="/chats" element={<Mensajes />} />
-          <Route path="/chat/:id" element={<Mensajes />} />
-          <Route path="/grupos" element={<Mensajes />} />
-          <Route path="/group/:id" element={<Mensajes />} />
+          <Route path="/chats" element={<RequireAuth><Mensajes /></RequireAuth>} />
+          <Route path="/chat/:id" element={<RequireAuth><Mensajes /></RequireAuth>} />
+          <Route path="/grupos" element={<RequireAuth><Mensajes /></RequireAuth>} />
+          <Route path="/group/:id" element={<RequireAuth><Mensajes /></RequireAuth>} />
 
           {/* Páginas de gestión de grupos */}
-          <Route path="/create-group" element={<CreateGroup />} />
-          <Route path="/group/:id/info" element={<GroupInfo />} />
-          <Route path="/group/:id/add-members" element={<AddMembers />} />
+          <Route path="/create-group" element={<RequireAuth><CreateGroup /></RequireAuth>} />
+          <Route path="/group/:id/info" element={<RequireAuth><GroupInfo /></RequireAuth>} />
+          <Route path="/group/:id/add-members" element={<RequireAuth><AddMembers /></RequireAuth>} />
 
-          <Route path="/workflow" element={<Workflow />} />
-          <Route path="/calendario" element={<Calendario />} />
+          <Route path="/workflow" element={<RequireAuth><Workflow /></RequireAuth>} />
+          <Route path="/calendario" element={<RequireAuth><Calendario /></RequireAuth>} />
 
-          {/* Panel de administración (solo users.is_admin) */}
-          <Route path="/admin" element={<Admin />} />
+          {/* Panel de administración (sesión + users.is_admin, ver Admin.tsx) */}
+          <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
+
+          {/* Cualquier otra ruta: al login (o a /explorar si ya hay sesión) */}
+          <Route path="*" element={<RequireAuth><Navigate to="/explorar" replace /></RequireAuth>} />
         </Routes>
       </div>
       </CohortGate>

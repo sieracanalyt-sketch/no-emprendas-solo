@@ -228,12 +228,13 @@ export async function pushEventToGoogle(ev: CalEvent): Promise<{ google_id: stri
 // ── Actualizar evento en Google Calendar ────────────────────────────────────
 export async function updateGoogleEvent(
   googleId: string,
-  patch: { start_at?: string; end_at?: string; title?: string }
+  patch: { start_at?: string; end_at?: string; title?: string; description?: string }
 ): Promise<void> {
   if (!_token || !googleId) return
   try {
     const body: Record<string, unknown> = {}
     if (patch.title) body.summary = patch.title
+    if (patch.description !== undefined) body.description = patch.description
     if (patch.start_at) body.start = { dateTime: patch.start_at, timeZone: "UTC" }
     if (patch.end_at) body.end = { dateTime: patch.end_at, timeZone: "UTC" }
     await fetch(`${CAL}/calendars/primary/events/${googleId}`, {

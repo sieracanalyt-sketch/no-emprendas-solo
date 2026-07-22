@@ -61,8 +61,20 @@ export default function PrestigeCard({ userId }: { userId: string }) {
       }}
     >
       <div className="flex items-center justify-between gap-3 mb-1">
-        <div className="flex items-center gap-2">
-          <span className="text-[15px]">⭐</span>
+        <div className="flex items-center gap-2.5">
+          <span
+            className="inline-flex items-center justify-center rounded-lg"
+            style={{
+              width: 30, height: 30,
+              background: gold ? "rgba(245,196,66,0.16)" : "rgba(94,106,210,0.16)",
+              border: `1px solid ${gold ? "rgba(245,196,66,0.4)" : "rgba(94,106,210,0.4)"}`,
+              color,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z" />
+            </svg>
+          </span>
           <h3 className="text-[14px] font-semibold text-white">Prestigio por aportar</h3>
         </div>
         <span className="text-[22px] font-bold leading-none" style={{ color }}>
@@ -95,7 +107,7 @@ export default function PrestigeCard({ userId }: { userId: string }) {
                 />
               </div>
               {!full && (
-                <p className="text-[10.5px]" style={{ color: "var(--text-dimmer)" }}>💡 {f.tip}</p>
+                <p className="text-[10.5px]" style={{ color: "var(--text-dimmer)" }}>{f.tip}</p>
               )}
             </div>
           )

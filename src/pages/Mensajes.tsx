@@ -124,7 +124,7 @@ export default function Mensajes() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tab === "chats" ? "Buscar chats…" : "Buscar grupos…"}
-            className="field-input w-full px-3.5 py-2 rounded-md text-[13px]"
+            className="field-input w-full px-4 py-2 rounded-full text-[13px]"
           />
         </div>
 
@@ -132,7 +132,7 @@ export default function Mensajes() {
         {tab === "grupos" && (
           <div className="px-3 pb-2 shrink-0">
             <Link to="/create-group">
-              <button className="btn-linear w-full py-2 text-[13px] font-medium rounded-md">
+              <button className="btn-linear w-full py-2 text-[13px] font-medium rounded-full">
                 + Crear grupo
               </button>
             </Link>
@@ -360,7 +360,7 @@ function Row({
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-3 px-2.5 py-2.5 rounded-md text-left transition w-full"
+      className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left transition w-full"
       style={{ background: active ? "rgba(255,255,255,0.06)" : "transparent" }}
       onMouseEnter={(e) => {
         if (!active)
@@ -417,10 +417,17 @@ function EmptyState({ tab }: { tab: Tab }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
       <div
-        className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl mb-4"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+        style={{
+          background: "linear-gradient(180deg, rgba(94,106,210,0.16), rgba(94,106,210,0.05))",
+          border: "1px solid rgba(94,106,210,0.28)",
+          color: "#aab2f0",
+          boxShadow: "0 8px 24px rgba(94,106,210,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
+        }}
       >
-        💬
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 20l1.4-4.5A8.5 8.5 0 1 1 21 11.5z" />
+        </svg>
       </div>
       <p className="text-[14px] font-medium" style={{ color: "var(--text)" }}>
         {tab === "chats" ? "Tus mensajes" : "Tus grupos"}

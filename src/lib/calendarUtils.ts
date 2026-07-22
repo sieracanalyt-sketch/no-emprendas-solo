@@ -66,6 +66,17 @@ export function yToMinutes(y: number): number {
   return Math.max(START_HOUR * 60, Math.min(END_HOUR * 60, snapped))
 }
 
+/** px → minutos SIN snap (para arrastres fluidos; se redondea al soltar). */
+export function yToMinutesRaw(y: number): number {
+  return (y / HOUR_H) * 60 + START_HOUR * 60
+}
+
+/** Redondea al múltiplo de SNAP_MIN y acota a la franja visible. */
+export function snapMinutes(min: number): number {
+  const snapped = Math.round(min / SNAP_MIN) * SNAP_MIN
+  return Math.max(START_HOUR * 60, Math.min(END_HOUR * 60, snapped))
+}
+
 export function minutesOfDay(iso: string): number {
   const d = new Date(iso)
   return d.getHours() * 60 + d.getMinutes()

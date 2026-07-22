@@ -152,6 +152,16 @@ export function useJarvisRoom() {
     void room.localParticipant.publishData(payload, { reliable: true, topic: "merge.cmd" })
   }, [])
 
+  // Envía al agente el contexto del usuario (agenda + workflow, NUNCA mensajes)
+  // por el topic "merge.context". Silencioso: no aparece en el transcript. El
+  // agente lo usa como contexto para responder sobre calendario y tareas.
+  const sendContext = useCallback((context: unknown) => {
+    const room = roomRef.current
+    if (!room) return
+    const payload = new TextEncoder().encode(JSON.stringify(context))
+    void room.localParticipant.publishData(payload, { reliable: true, topic: "merge.context" })
+  }, [])
+
   // Dual input: typed messages go over LiveKit's "lk.chat" text stream, which the
   // agent treats as a user turn (text input is on by default in Agents 1.x). The
   // typed turn is echoed into the transcript immediately — STT never sees it, so
@@ -188,5 +198,5 @@ export function useJarvisRoom() {
     audioEls.current.forEach((el) => el.remove())
   }, [])
 
-  return { state, error, latest, transcript, agentState, micOn, connect, disconnect, toggleMic, sendCommand, sendText }
+  return { state, error, latest, transcript, agentState, micOn, connect, disconnect, toggleMic, sendCommand, sendContext, sendText }
 }

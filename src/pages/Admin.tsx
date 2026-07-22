@@ -42,10 +42,122 @@ export default function Admin() {
         Feature flags y tiers. Los cambios se propagan en vivo a todos los usuarios.
       </p>
 
+      <WaitlistSection />
       <InvitesSection />
       <FlagsSection />
       <UsersSection />
     </div>
+  )
+}
+
+// ── Apertura de cohorte desde la lista de espera ──────────────────────────────
+type InvitePreview = { queue: number | null; email: string }
+
+/**
+ * Manda a los N primeros de la lista de espera (por orden de confirmación) su
+ * código personal de un solo uso. Todo el trabajo lo hace la Edge Function
+ * waitlist-mailer: aquí no se toca ni la tabla `waitlist` ni `invite_codes`,
+ * porque los emails de la lista no son legibles desde el cliente.
+ */
+function WaitlistSection() {
+  const [limit, setLimit] = useState("15")
+  const [preview, setPreview] = useState<InvitePreview[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState("")
+
+  const call = async (dryRun: boolean) => {
+    setBusy(true)
+    setMsg("")
+    try {
+      const { data, error } = await supabase.functions.invoke("waitlist-mailer", {
+        body: { action: "invite", limit: Number(limit) || 15, dryRun },
+      })
+      if (error || !data?.ok) {
+        setMsg("No se pudo completar. Revisa que RESEND_API_KEY esté configurada.")
+        return
+      }
+      if (dryRun) {
+        setPreview(data.preview as InvitePreview[])
+        setMsg(`${data.wouldInvite} personas recibirían su código.`)
+      } else {
+        setPreview(null)
+        const failed = (data.failed as string[]) ?? []
+        setMsg(
+          `Enviados ${data.invited} códigos.` +
+            (failed.length ? ` Fallaron ${failed.length}: ${failed.join(", ")}` : "")
+        )
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="mt-8">
+      <h2 className="text-sm font-medium" style={{ color: "var(--text)" }}>
+        Abrir cohorte
+      </h2>
+      <p className="mt-0.5 text-xs" style={{ color: "var(--text-dimmer)" }}>
+        Genera un código de un solo uso para cada persona de la lista de espera y
+        se lo manda por email con el enlace de acceso. Va por orden de llegada y
+        salta a quien ya fue invitado o se dio de baja. Comprueba antes con
+        «Ver a quién», que no envía nada.
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          max={500}
+          value={limit}
+          onChange={(e) => setLimit(e.target.value)}
+          className="field-input rounded-full px-4 py-2 text-sm"
+          style={{ width: 96 }}
+          aria-label="Cuántas personas invitar"
+        />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => call(true)}
+          className="rounded-full px-4 py-2 text-sm"
+          style={{ background: "rgba(255,255,255,0.08)", color: "var(--text)" }}
+        >
+          Ver a quién
+        </button>
+        <button
+          type="button"
+          disabled={busy || !preview}
+          onClick={() => {
+            if (confirm(`Se van a enviar ${preview?.length ?? 0} códigos. Esto no se puede deshacer.`))
+              void call(false)
+          }}
+          className="rounded-full px-4 py-2 text-sm font-medium"
+          style={{
+            background: !preview || busy ? "rgba(255,255,255,0.08)" : "#00ff7f",
+            color: !preview || busy ? "var(--text-dimmer)" : "#04120a",
+          }}
+          title={preview ? "" : "Primero pulsa «Ver a quién»"}
+        >
+          Enviar códigos
+        </button>
+      </div>
+
+      {msg && (
+        <p className="mt-2 text-xs" style={{ color: "var(--text-dim)" }}>
+          {msg}
+        </p>
+      )}
+
+      {preview && preview.length > 0 && (
+        <ul className="mt-2 max-h-48 overflow-y-auto text-xs" style={{ color: "var(--text-dimmer)" }}>
+          {preview.map((p) => (
+            <li key={p.email}>
+              #{p.queue ?? "—"} · {p.email}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -132,6 +244,8 @@ type InviteCode = {
   created_at: string
   used_by: string | null
   used_at: string | null
+  max_uses: number
+  uses_count: number
   users: { nombre: string; email: string | null } | null
 }
 
@@ -139,6 +253,9 @@ function InvitesSection() {
   const [codes, setCodes] = useState<InviteCode[]>([])
   const [loading, setLoading] = useState(true)
   const [note, setNote] = useState("")
+  // Texto (no number) para poder borrar el campo sin que salte a 0 mientras
+  // escribes; se valida al enviar.
+  const [maxUses, setMaxUses] = useState("1")
   const [creating, setCreating] = useState(false)
   const [justCreated, setJustCreated] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -153,17 +270,23 @@ function InvitesSection() {
 
   const generate = async (e: React.FormEvent) => {
     e.preventDefault()
+    const uses = Math.trunc(Number(maxUses))
+    if (!Number.isFinite(uses) || uses < 1 || uses > 1000) {
+      setError("El número de usos debe estar entre 1 y 1000.")
+      return
+    }
     setCreating(true)
     setError(null)
     setJustCreated(null)
     const { data, error } = await supabase.functions.invoke("admin-generate-invite", {
-      body: { note: note.trim() || undefined },
+      body: { note: note.trim() || undefined, max_uses: uses },
     })
     if (error || !data?.ok) {
       setError("No se pudo generar el código.")
     } else {
       setJustCreated(data.code as string)
       setNote("")
+      setMaxUses("1")
       await refresh()
     }
     setCreating(false)
@@ -179,22 +302,40 @@ function InvitesSection() {
         Invitaciones de cohorte
       </h2>
       <p className="mt-0.5 text-xs" style={{ color: "var(--text-dimmer)" }}>
-        Genera un código por persona y envíaselo tú por correo. Se canjea una única vez.
+        Elige cuántas personas pueden canjear el código: 1 para una invitación
+        individual, o 15 para mandar el mismo código a todo un grupo. Cada persona
+        solo puede gastar un uso.
       </p>
 
-      <form onSubmit={generate} className="mt-3 flex gap-2">
+      <form onSubmit={generate} className="mt-3 flex flex-wrap gap-2">
         <input
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Nota (nombre o email de la persona, opcional)"
-          className="field-input flex-1 rounded-md px-3 py-2 text-sm"
+          className="field-input min-w-[12rem] flex-1 rounded-full px-4 py-2 text-sm"
+        />
+        <input
+          type="number"
+          min={1}
+          max={1000}
+          value={maxUses}
+          onChange={(e) => setMaxUses(e.target.value)}
+          className="field-input rounded-full px-4 py-2 text-sm"
+          style={{ width: 96 }}
+          title="Número de personas que pueden usar este código"
+          aria-label="Número de usos"
         />
         <button
           type="submit"
           disabled={creating}
-          className="submit-btn rounded-md px-4 py-2 text-sm font-medium disabled:opacity-40"
-          style={{ background: "#5e6ad2", color: "#fff" }}
+          className="rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-40"
+          style={{
+            background: "linear-gradient(180deg,#6b77e0,#5460cb)",
+            color: "#fff",
+            border: "1px solid rgba(255,255,255,0.16)",
+            boxShadow: "0 6px 18px rgba(94,106,210,0.32), inset 0 1px 0 rgba(255,255,255,0.22)",
+          }}
         >
           {creating ? "Generando…" : "Generar código"}
         </button>
@@ -227,30 +368,40 @@ function InvitesSection() {
         {!loading && codes.length === 0 && (
           <p className="text-xs" style={{ color: "var(--text-dim)" }}>Todavía no has generado ningún código.</p>
         )}
-        {codes.map((c) => (
-          <div key={c.code} className="row-card flex items-center gap-3 rounded-xl p-3.5">
-            <span className="font-mono text-sm" style={{ color: "var(--text)" }}>{c.code}</span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs" style={{ color: "var(--text-dim)" }}>
-                {c.note || "sin nota"}
-              </p>
-              {c.used_by && (
-                <p className="truncate text-[11px]" style={{ color: "var(--text-dimmer)" }}>
-                  usado por {c.users?.nombre ?? c.used_by}
+        {codes.map((c) => {
+          const agotado = c.uses_count >= c.max_uses
+          return (
+            <div key={c.code} className="row-card flex items-center gap-3 rounded-xl p-3.5">
+              <span className="font-mono text-sm" style={{ color: "var(--text)" }}>{c.code}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs" style={{ color: "var(--text-dim)" }}>
+                  {c.note || "sin nota"}
                 </p>
-              )}
+                {c.used_by && (
+                  <p className="truncate text-[11px]" style={{ color: "var(--text-dimmer)" }}>
+                    primer canje: {c.users?.nombre ?? c.used_by}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => copy(c.code)}
+                className="shrink-0 text-xs font-medium"
+                style={{ color: "#9aa4f0" }}
+              >
+                Copiar
+              </button>
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                style={{
+                  background: agotado ? "rgba(255,255,255,0.06)" : "rgba(74,222,128,0.14)",
+                  color: agotado ? "var(--text-dim)" : "#4ade80",
+                }}
+              >
+                {agotado ? `agotado · ${c.uses_count}/${c.max_uses}` : `${c.uses_count}/${c.max_uses} usos`}
+              </span>
             </div>
-            <span
-              className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
-              style={{
-                background: c.used_by ? "rgba(255,255,255,0.06)" : "rgba(74,222,128,0.14)",
-                color: c.used_by ? "var(--text-dim)" : "#4ade80",
-              }}
-            >
-              {c.used_by ? "usado" : "pendiente"}
-            </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </section>
   )
@@ -360,7 +511,7 @@ function UsersSection() {
               value={u.tier}
               disabled={busy === u.id}
               onChange={(e) => setTier(u, e.target.value as Tier)}
-              className="field-input rounded-md px-2 py-1 text-xs disabled:opacity-40"
+              className="field-input rounded-lg px-2 py-1 text-xs disabled:opacity-40"
               style={{ width: 96 }}
             >
               <option value="free">free</option>

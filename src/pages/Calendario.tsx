@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../supabase"
 import { useUser } from "../hooks/useUser"
@@ -15,6 +15,8 @@ import {
   sameDay,
   minutesToY,
   yToMinutes,
+  yToMinutesRaw,
+  snapMinutes,
   minutesOfDay,
   fmtHour,
   fmtClock,
@@ -61,8 +63,7 @@ const KIND_COLOR: Record<CalEvent["kind"], string> = {
 const FOCUS_MIN = 180 // T2-5: huecos > 3h
 const PROPOSAL_TTL_H = 12 // T2-4: caducidad por defecto
 
-// Drag payload helpers
-const DT_EVENT = "text/x-cal-event"
+// Drag payload helpers (arrastre nativo desde el rail: tareas Kanban y miembros)
 const DT_TASK = "text/x-cal-task"
 const DT_MEMBER = "text/x-cal-member"
 
@@ -99,6 +100,7 @@ export default function Calendario() {
   // Modales
   const [detail, setDetail] = useState<CalEvent | null>(null)
   const [draft, setDraft] = useState<NewEvent | null>(null)
+  const [editing, setEditing] = useState<CalEvent | null>(null)
   const [prep, setPrep] = useState<NewEvent | null>(null)
   const [emergency, setEmergency] = useState(false)
 
@@ -221,14 +223,22 @@ export default function Calendario() {
   }, [allVisible, weekStart])
 
   // ── Crear / editar ──────────────────────────────────────────────────────────
-  const openCreate = (day: Date, startMin: number) => {
-    const s = new Date(day)
-    s.setHours(Math.floor(startMin / 60), startMin % 60, 0, 0)
-    const e = new Date(s.getTime() + 60 * 60000)
+  const atTime = (day: Date, min: number) => {
+    const d = new Date(day)
+    d.setHours(Math.floor(min / 60), min % 60, 0, 0)
+    return d
+  }
+
+  // Clic simple sobre un hueco → bloque de 1 h por defecto
+  const openCreate = (day: Date, startMin: number) =>
+    openCreateRange(day, startMin, Math.min(END_HOUR * 60, startMin + 60))
+
+  // Arrastrar sobre un hueco → bloque con la duración dibujada
+  const openCreateRange = (day: Date, startMin: number, endMin: number) => {
     setDraft({
       title: "",
-      start_at: s.toISOString(),
-      end_at: e.toISOString(),
+      start_at: atTime(day, startMin).toISOString(),
+      end_at: atTime(day, Math.max(endMin, startMin + 15)).toISOString(),
       kind: "event",
       color: KIND_COLOR.event,
       attendees: [],
@@ -251,30 +261,51 @@ export default function Calendario() {
     toast("Evento creado", "success")
   }
 
-  // ── Reprogramar (drag move) — sincroniza con Google si aplica ───────────────
-  const moveEvent = async (id: string, day: Date, newStartMin: number) => {
+  // ── Guardar cambios de un evento existente (modal de edición) ───────────────
+  const commitEdit = async (id: string, patch: Partial<CalEvent>) => {
+    const ev = events.find((e) => e.id === id) ?? googleEvents.find((e) => e.id === id)
+    setEditing(null)
+    setDetail(null)
+    // Evento que vive en Google Calendar (no está en Supabase)
+    if (ev?.source === "google" && ev.google_id) {
+      await updateGoogleEvent(ev.google_id, {
+        title: patch.title,
+        description: patch.description ?? undefined,
+        start_at: patch.start_at,
+        end_at: patch.end_at,
+      })
+      if (user) setGoogleEvents(await pullGoogleEvents(weekRef, user.id))
+      toast("Evento actualizado en Google Calendar", "success")
+      return
+    }
+    await update(id, patch)
+    if (ev?.google_id) {
+      await updateGoogleEvent(ev.google_id, {
+        title: patch.title,
+        description: patch.description ?? undefined,
+        start_at: patch.start_at,
+        end_at: patch.end_at,
+      })
+    }
+    toast("Evento actualizado", "success")
+  }
+
+  // ── Reprogramar: mover o redimensionar (drag) — sync con Google si aplica ───
+  const rescheduleEvent = async (id: string, day: Date, startMin: number, endMin: number) => {
+    const s = atTime(day, startMin)
+    const e = atTime(day, Math.max(endMin, startMin + 15))
     // ¿Es un evento importado de Google (no está en Supabase)?
-    const gEv = googleEvents.find((e) => e.id === id)
+    const gEv = googleEvents.find((ev) => ev.id === id)
     if (gEv?.google_id) {
-      const dur = durationMin(gEv)
-      const s = new Date(day)
-      s.setHours(Math.floor(newStartMin / 60), newStartMin % 60, 0, 0)
-      const e = new Date(s.getTime() + dur * 60000)
       await updateGoogleEvent(gEv.google_id, { start_at: s.toISOString(), end_at: e.toISOString() })
-      // Refrescar vista local
       if (user) setGoogleEvents(await pullGoogleEvents(weekRef, user.id))
       toast("Evento actualizado en Google Calendar", "success")
       return
     }
     // Evento NES normal
-    const ev = events.find((e) => e.id === id)
+    const ev = events.find((ev) => ev.id === id)
     if (!ev) return
-    const dur = durationMin(ev)
-    const s = new Date(day)
-    s.setHours(Math.floor(newStartMin / 60), newStartMin % 60, 0, 0)
-    const e = new Date(s.getTime() + dur * 60000)
     await update(id, { start_at: s.toISOString(), end_at: e.toISOString() })
-    // Si también tiene google_id, actualizar allí
     if (ev.google_id) {
       await updateGoogleEvent(ev.google_id, { start_at: s.toISOString(), end_at: e.toISOString() })
     }
@@ -417,22 +448,28 @@ export default function Calendario() {
         {/* Modo Urgencia (T1-18) — abre modal de confirmación */}
         <button
           onClick={() => urgentMode ? setUrgentMode(false) : setUrgentConfirm(true)}
-          className="text-[12px] px-2.5 py-1.5 rounded-md font-medium transition"
+          className="text-[12px] px-2.5 py-1.5 rounded-md font-medium transition inline-flex items-center gap-1.5"
           style={{
             background: urgentMode ? "rgba(235,87,87,0.16)" : "transparent",
             border: `1px solid ${urgentMode ? "rgba(235,87,87,0.5)" : "var(--border-strong)"}`,
             color: urgentMode ? "#ff8585" : "var(--text-dim)",
           }}
         >
-          🚨 {urgentMode ? "Urgencia ON" : "Modo Urgencia"}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" />
+          </svg>
+          {urgentMode ? "Urgencia ON" : "Modo Urgencia"}
         </button>
 
         {/* Congelación de Emergencia (T2-6) */}
         <button
           onClick={() => setEmergency(true)}
-          className="text-[12px] px-2.5 py-1.5 rounded-md font-medium btn-linear"
+          className="text-[12px] px-2.5 py-1.5 rounded-md font-medium btn-linear inline-flex items-center gap-1.5"
         >
-          ❄️ Congelar agenda
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2v20M2 12h20M4.5 4.5l15 15M19.5 4.5l-15 15" />
+          </svg>
+          Congelar agenda
         </button>
 
         {/* Google Calendar */}
@@ -738,7 +775,8 @@ export default function Calendario() {
           members={members}
           showFocus={showFocus}
           onCreate={openCreate}
-          onMove={moveEvent}
+          onCreateRange={openCreateRange}
+          onReschedule={rescheduleEvent}
           onDropTask={dropTask}
           onAddFusion={(id) => setFusion((s) => new Set(s).add(id))}
           onOpen={setDetail}
@@ -754,6 +792,10 @@ export default function Calendario() {
           previewTz={previewTz}
           showTzPreview={showTzPreview}
           onClose={() => setDetail(null)}
+          onEdit={() => {
+            setEditing(detail)
+            setDetail(null)
+          }}
           onDelete={async () => {
             if (detail.source === "google" && detail.google_id) {
               // Evento que vive en Google Calendar — eliminar allí
@@ -779,12 +821,45 @@ export default function Calendario() {
       )}
 
       {draft && (
-        <CreateModal
+        <EventModal
+          mode="create"
           draft={draft}
           members={members}
           urgentMode={urgentMode}
           onCancel={() => setDraft(null)}
           onSave={commitCreate}
+        />
+      )}
+
+      {editing && (
+        <EventModal
+          mode="edit"
+          draft={{
+            title: editing.title,
+            description: editing.description ?? "",
+            start_at: editing.start_at,
+            end_at: editing.end_at,
+            kind: editing.kind,
+            color: editing.color ?? KIND_COLOR[editing.kind],
+            attendees: editing.attendees ?? [],
+            urgent: editing.urgent,
+          }}
+          members={members}
+          urgentMode={urgentMode}
+          locked={editing.source === "google"}
+          onCancel={() => setEditing(null)}
+          onSave={(ev) =>
+            commitEdit(editing.id, {
+              title: ev.title,
+              description: ev.description ?? "",
+              start_at: ev.start_at,
+              end_at: ev.end_at,
+              kind: ev.kind,
+              color: ev.color,
+              attendees: ev.attendees ?? [],
+              urgent: ev.urgent ?? false,
+            })
+          }
         />
       )}
 
@@ -848,8 +923,28 @@ export default function Calendario() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// REJILLA SEMANAL
+// REJILLA SEMANAL — interacción por punteros (crear/mover/redimensionar en vivo)
 // ──────────────────────────────────────────────────────────────────────────────
+const GUTTER_W = 56 // px de la columna de horas
+const MIN_EVENT_MIN = 15 // duración mínima de un bloque
+const DRAG_THRESHOLD = 4 // px antes de considerar que es arrastre y no clic
+
+type Gesture = {
+  kind: "create" | "move" | "resize"
+  ev?: CalEvent
+  edge?: "top" | "bottom"
+  dayIndex: number
+  anchorMin: number // punto fijo (inicio en create; extremo opuesto en resize)
+  startMin: number
+  endMin: number
+  durMin: number
+  grabOffset: number // solo move: rawMin − startMin al agarrar
+  startX: number
+  startY: number
+  moved: boolean
+  touch: boolean
+}
+
 function WeekGrid({
   days,
   events,
@@ -858,7 +953,8 @@ function WeekGrid({
   members,
   showFocus,
   onCreate,
-  onMove,
+  onCreateRange,
+  onReschedule,
   onDropTask,
   onAddFusion,
   onOpen,
@@ -871,28 +967,148 @@ function WeekGrid({
   members: Member[]
   showFocus: boolean
   onCreate: (day: Date, startMin: number) => void
-  onMove: (id: string, day: Date, startMin: number) => void
+  onCreateRange: (day: Date, startMin: number, endMin: number) => void
+  onReschedule: (id: string, day: Date, startMin: number, endMin: number) => void
   onDropTask: (task: KTask, day: Date, startMin: number) => void
   onAddFusion: (id: string) => void
   onOpen: (e: CalEvent) => void
   currentUserId: string
 }) {
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
-  const now = new Date()
+  // Estable entre renders → no rompe la memoización de las columnas durante el arrastre
+  const now = useMemo(() => new Date(), [])
 
-  const handleDrop = (e: React.DragEvent, day: Date) => {
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const gesture = useRef<Gesture | null>(null) // estado mutable del arrastre (handlers)
+  const rafRef = useRef<number | null>(null)    // coalesce de updates a 1 por frame
+  const [ghost, setGhost] = useState<Gesture | null>(null) // instantánea para pintar el fantasma
+  // Solo cambia al empezar/soltar (no en cada frame) → las columnas no se repintan al arrastrar
+  const [dragId, setDragId] = useState<string | null>(null)
+
+  // clientX/Y → (índice de día, minutos crudos desde medianoche)
+  const locate = useCallback((clientX: number, clientY: number) => {
+    const rect = bodyRef.current!.getBoundingClientRect()
+    const colW = (rect.width - GUTTER_W) / 7
+    const dayIndex = Math.max(0, Math.min(6, Math.floor((clientX - rect.left - GUTTER_W) / colW)))
+    const rawMin = yToMinutesRaw(clientY - rect.top)
+    return { dayIndex, rawMin }
+  }, [])
+
+  const updateGesture = useCallback((e: PointerEvent) => {
+    const g = gesture.current
+    if (!g) return
+    if (Math.abs(e.clientX - g.startX) + Math.abs(e.clientY - g.startY) > DRAG_THRESHOLD) g.moved = true
+    const { dayIndex, rawMin } = locate(e.clientX, e.clientY)
+
+    if (g.kind === "create") {
+      if (g.touch) return // en táctil no se dibuja: es pulsación para crear o scroll
+      const b = snapMinutes(rawMin)
+      g.startMin = Math.min(g.anchorMin, b)
+      g.endMin = Math.max(g.anchorMin, b)
+    } else if (g.kind === "move") {
+      g.dayIndex = dayIndex
+      let ns = snapMinutes(rawMin - g.grabOffset)
+      ns = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - g.durMin, ns))
+      g.startMin = ns
+      g.endMin = ns + g.durMin
+    } else if (g.edge === "bottom") {
+      g.startMin = g.anchorMin
+      g.endMin = Math.max(g.anchorMin + MIN_EVENT_MIN, snapMinutes(rawMin))
+    } else {
+      g.endMin = g.anchorMin
+      g.startMin = Math.min(g.anchorMin - MIN_EVENT_MIN, snapMinutes(rawMin))
+    }
+  }, [locate])
+
+  const beginGesture = useCallback((init: Gesture) => {
+    gesture.current = init
+    setGhost({ ...init })
+    setDragId(init.kind !== "create" ? init.ev!.id : null)
+    const flush = () => {
+      rafRef.current = null
+      setGhost(gesture.current ? { ...gesture.current } : null)
+    }
+    const move = (e: PointerEvent) => {
+      updateGesture(e)
+      // A lo sumo un repintado por frame (evita tirones)
+      if (rafRef.current == null) rafRef.current = requestAnimationFrame(flush)
+    }
+    const up = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", up)
+      if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+      const g = gesture.current
+      gesture.current = null
+      setGhost(null)
+      setDragId(null)
+      if (!g) return
+      const day = days[g.dayIndex]
+      if (g.kind === "create") {
+        if (g.moved && !g.touch && g.endMin - g.startMin >= MIN_EVENT_MIN) {
+          onCreateRange(day, g.startMin, g.endMin)
+        } else if (!g.moved) {
+          onCreate(day, snapMinutes(g.anchorMin)) // pulsación simple → bloque de 1 h
+        }
+      } else if (g.kind === "move") {
+        if (g.moved) onReschedule(g.ev!.id, day, g.startMin, g.endMin)
+        else onOpen(g.ev!) // clic sin arrastrar → abre el detalle
+      } else if (g.moved) {
+        onReschedule(g.ev!.id, day, g.startMin, g.endMin)
+      }
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", up)
+  }, [days, updateGesture, onCreate, onCreateRange, onReschedule, onOpen])
+
+  // Agarrar un evento (mover)
+  const grabEvent = useCallback((e: React.PointerEvent, ev: CalEvent, dayIndex: number) => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    const { rawMin } = locate(e.clientX, e.clientY)
+    const s = minutesOfDay(ev.start_at)
+    const dur = durationMin(ev)
+    beginGesture({
+      kind: "move", ev, dayIndex, anchorMin: s, startMin: s, endMin: s + dur,
+      durMin: dur, grabOffset: rawMin - s, startX: e.clientX, startY: e.clientY,
+      moved: false, touch: e.pointerType === "touch",
+    })
+  }, [beginGesture, locate])
+
+  // Agarrar un tirador de redimensión
+  const grabResize = useCallback((e: React.PointerEvent, ev: CalEvent, dayIndex: number, edge: "top" | "bottom") => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    const s = minutesOfDay(ev.start_at)
+    const en = s + durationMin(ev)
+    beginGesture({
+      kind: "resize", ev, edge, dayIndex,
+      anchorMin: edge === "bottom" ? s : en, startMin: s, endMin: en,
+      durMin: en - s, grabOffset: 0, startX: e.clientX, startY: e.clientY,
+      moved: false, touch: e.pointerType === "touch",
+    })
+  }, [beginGesture])
+
+  // Empezar a crear arrastrando sobre un hueco
+  const grabCreate = useCallback((e: React.PointerEvent, dayIndex: number) => {
+    if (e.button !== 0) return
+    const { rawMin } = locate(e.clientX, e.clientY)
+    const m = snapMinutes(rawMin)
+    beginGesture({
+      kind: "create", dayIndex, anchorMin: m, startMin: m, endMin: m + 60,
+      durMin: 60, grabOffset: 0, startX: e.clientX, startY: e.clientY,
+      moved: false, touch: e.pointerType === "touch",
+    })
+  }, [beginGesture, locate])
+
+  const handleDrop = useCallback((e: React.DragEvent, day: Date) => {
     e.preventDefault()
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const y = e.clientY - rect.top
-    const startMin = yToMinutes(y)
-
-    const evId = e.dataTransfer.getData(DT_EVENT)
+    const startMin = yToMinutes(e.clientY - rect.top)
     const taskRaw = e.dataTransfer.getData(DT_TASK)
     const memberId = e.dataTransfer.getData(DT_MEMBER)
-    if (evId) onMove(evId, day, startMin)
-    else if (taskRaw) onDropTask(JSON.parse(taskRaw) as KTask, day, startMin)
+    if (taskRaw) onDropTask(JSON.parse(taskRaw) as KTask, day, startMin)
     else if (memberId) onAddFusion(memberId)
-  }
+  }, [onDropTask, onAddFusion])
 
   return (
     <div className="flex-1 overflow-auto">
@@ -900,7 +1116,7 @@ function WeekGrid({
       <div
         className="grid sticky top-0 z-20"
         style={{
-          gridTemplateColumns: `56px repeat(7, minmax(110px, 1fr))`,
+          gridTemplateColumns: `${GUTTER_W}px repeat(7, minmax(110px, 1fr))`,
           background: "var(--bg)",
           borderBottom: "1px solid var(--border)",
         }}
@@ -927,8 +1143,9 @@ function WeekGrid({
 
       {/* Cuerpo */}
       <div
+        ref={bodyRef}
         className="grid relative"
-        style={{ gridTemplateColumns: `56px repeat(7, minmax(110px, 1fr))`, height: GRID_HEIGHT }}
+        style={{ gridTemplateColumns: `${GUTTER_W}px repeat(7, minmax(110px, 1fr))`, height: GRID_HEIGHT }}
       >
         {/* Gutter de horas */}
         <div className="relative">
@@ -943,126 +1160,210 @@ function WeekGrid({
           ))}
         </div>
 
-        {/* Columnas de día */}
-        {days.map((day, di) => {
-          const dayEvents = events.filter((e) => sameDay(new Date(e.start_at), day))
-          const positioned = layoutDay(dayEvents)
+        {/* Columnas de día — memoizadas: no se repintan mientras arrastras */}
+        {days.map((day, di) => (
+          <DayColumn
+            key={di}
+            day={day}
+            dayIndex={di}
+            events={events}
+            showFocus={showFocus}
+            fusionMembers={fusionMembers}
+            memberEventsById={memberEventsById}
+            members={members}
+            currentUserId={currentUserId}
+            now={now}
+            dimmedId={dragId}
+            onCreateDown={grabCreate}
+            onDropNative={handleDrop}
+            onGrab={grabEvent}
+            onResizeGrab={grabResize}
+          />
+        ))}
 
-          // Zonas de Enfoque (T2-5)
-          const myDay = dayEvents.filter((e) => e.owner_id === currentUserId || e.attendees?.includes(currentUserId))
-          const focusGaps = showFocus
-            ? freeGaps(myDay).filter((g) => g.endMin - g.startMin >= FOCUS_MIN)
-            : []
-
-          // Fusión: huecos comunes (T2-3)
-          const fusionSets = [...fusionMembers].map((id) =>
-            memberEventsById(id).filter((e) => sameDay(new Date(e.start_at), day))
-          )
-          const commonGaps =
-            fusionMembers.size > 0 ? commonFreeGaps([myDay, ...fusionSets]) : []
-          // Capas translúcidas de cada miembro fusionado
-          const fusionLayers = [...fusionMembers].flatMap((id) =>
-            memberEventsById(id)
-              .filter((e) => sameDay(new Date(e.start_at), day))
-              .map((e) => ({ id, e }))
-          )
-
-          return (
-            <div
-              key={di}
-              className="relative"
-              style={{ borderLeft: "1px solid var(--border)" }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => handleDrop(e, day)}
-              onClick={(e) => {
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                onCreate(day, yToMinutes(e.clientY - rect.top))
-              }}
-            >
-              {/* Líneas de hora */}
-              {hours.map((h) => (
-                <div
-                  key={h}
-                  className="absolute left-0 right-0"
-                  style={{ top: minutesToY(h * 60), borderTop: "1px solid var(--border)" }}
-                />
-              ))}
-
-              {/* Zonas de Enfoque */}
-              {focusGaps.map((g, i) => (
-                <div
-                  key={`f${i}`}
-                  className="absolute left-1 right-1 rounded-md pointer-events-none flex items-start p-1.5"
-                  style={{
-                    top: minutesToY(g.startMin),
-                    height: ((g.endMin - g.startMin) / 60) * HOUR_H,
-                    background: "linear-gradient(180deg, rgba(56,189,248,0.12), rgba(56,189,248,0.05))",
-                    border: "1px dashed rgba(56,189,248,0.35)",
-                  }}
-                >
-                  <span className="text-[10px] font-medium" style={{ color: "#7dd3fc" }}>
-                    Zona de Enfoque Óptima
-                  </span>
-                </div>
-              ))}
-
-              {/* Huecos comunes (fusión) */}
-              {commonGaps.map((g, i) => (
-                <div
-                  key={`c${i}`}
-                  className="absolute rounded-md pointer-events-none"
-                  style={{
-                    top: minutesToY(g.startMin),
-                    height: ((g.endMin - g.startMin) / 60) * HOUR_H,
-                    right: 2,
-                    width: 6,
-                    background: "rgba(34,197,94,0.5)",
-                  }}
-                  title={`Hueco común ${fmtRangeMin(g.startMin)}–${fmtRangeMin(g.endMin)}`}
-                />
-              ))}
-
-              {/* Capas translúcidas de miembros fusionados */}
-              {fusionLayers.map(({ id, e }, i) => (
-                <div
-                  key={`l${i}`}
-                  className="absolute rounded-md pointer-events-none"
-                  style={{
-                    top: minutesToY(minutesOfDay(e.start_at)),
-                    height: Math.max(14, (durationMin(e) / 60) * HOUR_H),
-                    left: 2,
-                    right: 10,
-                    background: `${memberColor(members, id)}22`,
-                    border: `1px solid ${memberColor(members, id)}55`,
-                  }}
-                />
-              ))}
-
-              {/* Indicador "ahora" */}
-              {sameDay(day, now) && (
-                <div
-                  className="absolute left-0 right-0 z-10 pointer-events-none"
-                  style={{ top: minutesToY(now.getHours() * 60 + now.getMinutes()) }}
-                >
-                  <div className="h-[2px]" style={{ background: "#eb5757" }} />
-                  <div className="w-2 h-2 rounded-full -mt-[5px] -ml-[3px]" style={{ background: "#eb5757" }} />
-                </div>
-              )}
-
-              {/* Eventos */}
-              {positioned.map(({ ev, lane, lanes }) => (
-                <EventBlock
-                  key={ev.id}
-                  ev={ev}
-                  lane={lane}
-                  lanes={lanes}
-                  onOpen={onOpen}
-                />
-              ))}
-            </div>
-          )
-        })}
+        {/* Fantasma en vivo — una sola capa sobre toda la rejilla (repintado barato) */}
+        {ghost && <GhostOverlay g={ghost} />}
       </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// COLUMNA DE DÍA — memoizada para que el arrastre no la re-renderice
+// ──────────────────────────────────────────────────────────────────────────────
+const DayColumn = memo(function DayColumn({
+  day,
+  dayIndex,
+  events,
+  showFocus,
+  fusionMembers,
+  memberEventsById,
+  members,
+  currentUserId,
+  now,
+  dimmedId,
+  onCreateDown,
+  onDropNative,
+  onGrab,
+  onResizeGrab,
+}: {
+  day: Date
+  dayIndex: number
+  events: CalEvent[]
+  showFocus: boolean
+  fusionMembers: Set<string>
+  memberEventsById: (id: string) => CalEvent[]
+  members: Member[]
+  currentUserId: string
+  now: Date
+  dimmedId: string | null
+  onCreateDown: (e: React.PointerEvent, dayIndex: number) => void
+  onDropNative: (e: React.DragEvent, day: Date) => void
+  onGrab: (e: React.PointerEvent, ev: CalEvent, dayIndex: number) => void
+  onResizeGrab: (e: React.PointerEvent, ev: CalEvent, dayIndex: number, edge: "top" | "bottom") => void
+}) {
+  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
+
+  const dayEvents = events.filter((e) => sameDay(new Date(e.start_at), day))
+  const positioned = layoutDay(dayEvents)
+
+  // Zonas de Enfoque (T2-5)
+  const myDay = dayEvents.filter((e) => e.owner_id === currentUserId || e.attendees?.includes(currentUserId))
+  const focusGaps = showFocus
+    ? freeGaps(myDay).filter((g) => g.endMin - g.startMin >= FOCUS_MIN)
+    : []
+
+  // Fusión: huecos comunes (T2-3)
+  const fusionSets = [...fusionMembers].map((id) =>
+    memberEventsById(id).filter((e) => sameDay(new Date(e.start_at), day))
+  )
+  const commonGaps = fusionMembers.size > 0 ? commonFreeGaps([myDay, ...fusionSets]) : []
+  const fusionLayers = [...fusionMembers].flatMap((id) =>
+    memberEventsById(id)
+      .filter((e) => sameDay(new Date(e.start_at), day))
+      .map((e) => ({ id, e }))
+  )
+
+  return (
+    <div
+      className="relative select-none"
+      style={{ borderLeft: "1px solid var(--border)", touchAction: "pan-y" }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => onDropNative(e, day)}
+      onPointerDown={(e) => onCreateDown(e, dayIndex)}
+    >
+      {/* Líneas de hora */}
+      {hours.map((h) => (
+        <div
+          key={h}
+          className="absolute left-0 right-0 pointer-events-none"
+          style={{ top: minutesToY(h * 60), borderTop: "1px solid var(--border)" }}
+        />
+      ))}
+
+      {/* Zonas de Enfoque */}
+      {focusGaps.map((gap, i) => (
+        <div
+          key={`f${i}`}
+          className="absolute left-1 right-1 rounded-md pointer-events-none flex items-start p-1.5"
+          style={{
+            top: minutesToY(gap.startMin),
+            height: ((gap.endMin - gap.startMin) / 60) * HOUR_H,
+            background: "linear-gradient(180deg, rgba(56,189,248,0.12), rgba(56,189,248,0.05))",
+            border: "1px dashed rgba(56,189,248,0.35)",
+          }}
+        >
+          <span className="text-[10px] font-medium" style={{ color: "#7dd3fc" }}>
+            Zona de Enfoque Óptima
+          </span>
+        </div>
+      ))}
+
+      {/* Huecos comunes (fusión) */}
+      {commonGaps.map((gap, i) => (
+        <div
+          key={`c${i}`}
+          className="absolute rounded-md pointer-events-none"
+          style={{
+            top: minutesToY(gap.startMin),
+            height: ((gap.endMin - gap.startMin) / 60) * HOUR_H,
+            right: 2,
+            width: 6,
+            background: "rgba(34,197,94,0.5)",
+          }}
+          title={`Hueco común ${fmtRangeMin(gap.startMin)}–${fmtRangeMin(gap.endMin)}`}
+        />
+      ))}
+
+      {/* Capas translúcidas de miembros fusionados */}
+      {fusionLayers.map(({ id, e }, i) => (
+        <div
+          key={`l${i}`}
+          className="absolute rounded-md pointer-events-none"
+          style={{
+            top: minutesToY(minutesOfDay(e.start_at)),
+            height: Math.max(14, (durationMin(e) / 60) * HOUR_H),
+            left: 2,
+            right: 10,
+            background: `${memberColor(members, id)}22`,
+            border: `1px solid ${memberColor(members, id)}55`,
+          }}
+        />
+      ))}
+
+      {/* Indicador "ahora" */}
+      {sameDay(day, now) && (
+        <div
+          className="absolute left-0 right-0 z-10 pointer-events-none"
+          style={{ top: minutesToY(now.getHours() * 60 + now.getMinutes()) }}
+        >
+          <div className="h-[2px]" style={{ background: "#eb5757" }} />
+          <div className="w-2 h-2 rounded-full -mt-[5px] -ml-[3px]" style={{ background: "#eb5757" }} />
+        </div>
+      )}
+
+      {/* Eventos */}
+      {positioned.map(({ ev, lane, lanes }) => (
+        <EventBlock
+          key={ev.id}
+          ev={ev}
+          lane={lane}
+          lanes={lanes}
+          dayIndex={dayIndex}
+          dimmed={dimmedId === ev.id}
+          onGrab={onGrab}
+          onResizeGrab={onResizeGrab}
+        />
+      ))}
+    </div>
+  )
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FANTASMA — capa única sobre la rejilla que sigue el arrastre en vivo
+// ──────────────────────────────────────────────────────────────────────────────
+function GhostOverlay({ g }: { g: Gesture }) {
+  const top = minutesToY(g.startMin)
+  const height = Math.max(14, ((g.endMin - g.startMin) / 60) * HOUR_H)
+  const label = g.kind === "move" && g.ev ? g.ev.title || "Evento" : "Nuevo bloque"
+  const accent = g.kind === "move" && g.ev ? g.ev.color || KIND_COLOR[g.ev.kind] : "var(--accent)"
+  return (
+    <div
+      className="absolute pointer-events-none z-30 rounded-md px-1.5 py-1 overflow-hidden"
+      style={{
+        top,
+        height,
+        left: `calc(${GUTTER_W}px + (100% - ${GUTTER_W}px) * ${g.dayIndex} / 7 + 4px)`,
+        width: `calc((100% - ${GUTTER_W}px) / 7 - 8px)`,
+        background: "rgba(94,106,210,0.30)",
+        border: `1px solid ${accent}`,
+        boxShadow: "0 8px 22px rgba(0,0,0,0.4)",
+      }}
+    >
+      <p className="text-[11px] font-semibold leading-tight truncate" style={{ color: "var(--text)" }}>{label}</p>
+      <p className="text-[10px] leading-tight" style={{ color: "var(--text)" }}>
+        {fmtRangeMin(g.startMin)}–{fmtRangeMin(g.endMin)}
+      </p>
     </div>
   )
 }
@@ -1074,12 +1375,18 @@ function EventBlock({
   ev,
   lane,
   lanes,
-  onOpen,
+  dayIndex,
+  dimmed,
+  onGrab,
+  onResizeGrab,
 }: {
   ev: CalEvent
   lane: number
   lanes: number
-  onOpen: (e: CalEvent) => void
+  dayIndex: number
+  dimmed: boolean
+  onGrab: (e: React.PointerEvent, ev: CalEvent, dayIndex: number) => void
+  onResizeGrab: (e: React.PointerEvent, ev: CalEvent, dayIndex: number, edge: "top" | "bottom") => void
 }) {
   const startMin = minutesOfDay(ev.start_at)
   const top = minutesToY(startMin)
@@ -1088,22 +1395,15 @@ function EventBlock({
   const proposed = ev.status === "proposed"
   const isGoogle = ev.source === "google"
   const widthPct = 100 / lanes
+  const resizable = height >= 34 // solo mostramos tiradores si hay espacio
   const expiresIn = ev.expires_at
     ? Math.max(0, Math.round((new Date(ev.expires_at).getTime() - Date.now()) / 3600_000))
     : null
 
   return (
-    <button
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData(DT_EVENT, ev.id)
-        e.stopPropagation()
-      }}
-      onClick={(e) => {
-        e.stopPropagation()
-        onOpen(ev)
-      }}
-      className="absolute rounded-md px-1.5 py-1 text-left overflow-hidden cursor-grab active:cursor-grabbing"
+    <div
+      onPointerDown={(e) => onGrab(e, ev, dayIndex)}
+      className="cal-event absolute rounded-md px-1.5 py-1 text-left overflow-hidden cursor-grab active:cursor-grabbing"
       style={{
         top,
         height,
@@ -1113,8 +1413,21 @@ function EventBlock({
         border: `1px solid ${ev.urgent ? "#eb5757" : color}${proposed ? "" : "88"}`,
         borderStyle: proposed ? "dashed" : "solid",
         borderLeft: `3px solid ${ev.urgent ? "#eb5757" : color}`,
+        opacity: dimmed ? 0.35 : 1,
+        touchAction: "none",
       }}
     >
+      {/* Tirador superior */}
+      {resizable && (
+        <div
+          onPointerDown={(e) => onResizeGrab(e, ev, dayIndex, "top")}
+          className="cal-grip absolute top-0 left-0 right-0 h-2 flex items-start justify-center"
+          style={{ cursor: "ns-resize" }}
+        >
+          <div className="mt-[1px] w-5 h-[3px] rounded-full" style={{ background: `${color}cc` }} />
+        </div>
+      )}
+
       <p className="text-[11px] font-semibold leading-tight truncate" style={{ color: "var(--text)" }}>
         {ev.urgent && "🔴 "}
         {isGoogle && "🟢 "}
@@ -1128,7 +1441,18 @@ function EventBlock({
       {proposed && expiresIn !== null && height > 42 && (
         <span className="text-[9px]" style={{ color: "#c4b5fd" }}>⏳ caduca en {expiresIn}h</span>
       )}
-    </button>
+
+      {/* Tirador inferior */}
+      {resizable && (
+        <div
+          onPointerDown={(e) => onResizeGrab(e, ev, dayIndex, "bottom")}
+          className="cal-grip absolute bottom-0 left-0 right-0 h-2 flex items-end justify-center"
+          style={{ cursor: "ns-resize" }}
+        >
+          <div className="mb-[1px] w-5 h-[3px] rounded-full" style={{ background: `${color}cc` }} />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1141,6 +1465,7 @@ function EventDetail({
   previewTz,
   showTzPreview,
   onClose,
+  onEdit,
   onDelete,
   onAccept,
   onPropose,
@@ -1150,6 +1475,7 @@ function EventDetail({
   previewTz: string
   showTzPreview: boolean
   onClose: () => void
+  onEdit: () => void
   onDelete: () => void
   onAccept: () => void
   onPropose: () => void
@@ -1173,10 +1499,30 @@ function EventDetail({
             {ev.source === "google" && " · Google"}
           </p>
         </div>
+        <button
+          onClick={onEdit}
+          title="Editar evento"
+          className="btn-linear shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-dim)" }}>
+            <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Fecha y hora */}
+      <div className="flex items-center gap-2 mb-3 text-[13px]" style={{ color: "var(--text)" }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--text-dim)" }}>
+          <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
+        </svg>
+        <span className="capitalize">
+          {new Date(ev.start_at).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
+        </span>
+        <span style={{ color: "var(--text-dim)" }}>· {local}</span>
       </div>
 
       {ev.description && (
-        <p className="text-[13px] mb-3" style={{ color: "var(--text-dim)" }}>{ev.description}</p>
+        <p className="text-[13px] mb-3 whitespace-pre-wrap" style={{ color: "var(--text-dim)" }}>{ev.description}</p>
       )}
 
       {/* Previsualización de zona horaria (T1-14) — solo si está activa */}
@@ -1221,10 +1567,13 @@ function EventDetail({
             Aceptar
           </button>
         )}
+        <button onClick={onEdit} className="flex-1 py-2 rounded-md text-[13px] font-medium text-white" style={{ background: "var(--accent)" }}>
+          Editar
+        </button>
         <button onClick={onPropose} className="flex-1 btn-linear py-2 rounded-md text-[13px] font-medium">
           ↪ 3 alternativas
         </button>
-        <button onClick={onDelete} className="py-2 px-3 rounded-md text-[13px]" style={{ color: "#eb5757", border: "1px solid rgba(235,87,87,0.3)" }}>
+        <button onClick={onDelete} title="Eliminar" className="py-2 px-3 rounded-md text-[13px]" style={{ color: "#eb5757", border: "1px solid rgba(235,87,87,0.3)" }}>
           Eliminar
         </button>
       </div>
@@ -1233,46 +1582,75 @@ function EventDetail({
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// CREAR EVENTO
+// CREAR / EDITAR EVENTO — mismo modal para ambos flujos
 // ──────────────────────────────────────────────────────────────────────────────
-function CreateModal({
+const EVENT_COLORS = ["#5e6ad2", "#3b82f6", "#38bdf8", "#22c55e", "#f59e0b", "#eb5757", "#a78bfa", "#ec4899"]
+
+function EventModal({
+  mode,
   draft,
   members,
   urgentMode,
+  locked = false,
   onCancel,
   onSave,
 }: {
+  mode: "create" | "edit"
   draft: NewEvent
   members: Member[]
   urgentMode: boolean
+  locked?: boolean
   onCancel: () => void
   onSave: (ev: NewEvent) => void
 }) {
   const [title, setTitle] = useState(draft.title)
+  const [description, setDescription] = useState(draft.description ?? "")
   const [kind, setKind] = useState<CalEvent["kind"]>(draft.kind ?? "event")
+  const [color, setColor] = useState(draft.color ?? KIND_COLOR[draft.kind ?? "event"])
   const [attendees, setAttendees] = useState<string[]>(draft.attendees ?? [])
   const [startTime, setStartTime] = useState(toLocalInput(draft.start_at))
   const [endTime, setEndTime] = useState(toLocalInput(draft.end_at))
+  const [error, setError] = useState<string | null>(null)
 
   const toggle = (id: string) =>
     setAttendees((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]))
 
+  // Al cambiar el tipo, se adopta su color por defecto (se puede sobrescribir).
+  const pickKind = (k: CalEvent["kind"]) => {
+    setKind(k)
+    setColor(KIND_COLOR[k])
+  }
+
   const save = () => {
+    const s = new Date(startTime)
+    const e = new Date(endTime)
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) { setError("Revisa las fechas."); return }
+    if (e.getTime() <= s.getTime()) { setError("El fin debe ser posterior al inicio."); return }
     onSave({
       ...draft,
       title: title.trim() || "Evento",
+      description,
       kind,
       attendees,
-      color: KIND_COLOR[kind],
-      start_at: new Date(startTime).toISOString(),
-      end_at: new Date(endTime).toISOString(),
-      urgent: urgentMode || draft.urgent,
+      color,
+      start_at: s.toISOString(),
+      end_at: e.toISOString(),
+      urgent: mode === "create" ? urgentMode || draft.urgent : draft.urgent,
     })
   }
 
   return (
     <Backdrop onClose={onCancel}>
-      <h3 className="text-[15px] font-semibold mb-3" style={{ color: "var(--text)" }}>Nuevo bloque</h3>
+      <h3 className="text-[15px] font-semibold mb-3" style={{ color: "var(--text)" }}>
+        {mode === "create" ? "Nuevo bloque" : "Editar evento"}
+      </h3>
+
+      {locked && (
+        <div className="rounded-md p-2.5 mb-3 text-[11px]" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }}>
+          🟢 Evento de Google Calendar — se editan título, descripción y horario, y se sincroniza allí.
+        </div>
+      )}
+
       <input
         autoFocus
         value={title}
@@ -1284,36 +1662,65 @@ function CreateModal({
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div>
           <label className="text-[11px] block mb-1" style={{ color: "var(--text-dim)" }}>Inicio</label>
-          <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="field-input w-full px-2 py-1.5 rounded-md text-[12px]" />
+          <input type="datetime-local" value={startTime} onChange={(e) => { setStartTime(e.target.value); setError(null) }} className="field-input w-full px-2 py-1.5 rounded-md text-[12px]" />
         </div>
         <div>
           <label className="text-[11px] block mb-1" style={{ color: "var(--text-dim)" }}>Fin</label>
-          <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="field-input w-full px-2 py-1.5 rounded-md text-[12px]" />
+          <input type="datetime-local" value={endTime} onChange={(e) => { setEndTime(e.target.value); setError(null) }} className="field-input w-full px-2 py-1.5 rounded-md text-[12px]" />
         </div>
       </div>
 
-      <label className="text-[11px] block mb-1" style={{ color: "var(--text-dim)" }}>Tipo</label>
-      <div className="flex gap-1.5 mb-3">
-        {(["event", "meeting", "focus", "task"] as const).map((k) => (
-          <button
-            key={k}
-            onClick={() => setKind(k)}
-            className="flex-1 py-1.5 rounded-md text-[12px] capitalize"
-            style={{
-              background: kind === k ? `${KIND_COLOR[k]}28` : "var(--surface)",
-              border: `1px solid ${kind === k ? KIND_COLOR[k] : "var(--border)"}`,
-              color: "var(--text)",
-            }}
-          >
-            {k === "event" ? "Evento" : k === "meeting" ? "Reunión" : k === "focus" ? "Enfoque" : "Tarea"}
-          </button>
-        ))}
-      </div>
+      {!locked && (
+        <>
+          <label className="text-[11px] block mb-1" style={{ color: "var(--text-dim)" }}>Tipo</label>
+          <div className="flex gap-1.5 mb-3">
+            {(["event", "meeting", "focus", "task"] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => pickKind(k)}
+                className="flex-1 py-1.5 rounded-md text-[12px] capitalize"
+                style={{
+                  background: kind === k ? `${KIND_COLOR[k]}28` : "var(--surface)",
+                  border: `1px solid ${kind === k ? KIND_COLOR[k] : "var(--border)"}`,
+                  color: "var(--text)",
+                }}
+              >
+                {k === "event" ? "Evento" : k === "meeting" ? "Reunión" : k === "focus" ? "Enfoque" : "Tarea"}
+              </button>
+            ))}
+          </div>
 
-      {kind === "meeting" && (
+          <label className="text-[11px] block mb-1" style={{ color: "var(--text-dim)" }}>Color</label>
+          <div className="flex gap-2 mb-3">
+            {EVENT_COLORS.map((c) => (
+              <button
+                key={c}
+                onClick={() => setColor(c)}
+                className="w-6 h-6 rounded-full transition"
+                style={{
+                  background: c,
+                  boxShadow: color === c ? "0 0 0 2px var(--bg), 0 0 0 4px " + c : "none",
+                }}
+                title={c}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      <label className="text-[11px] block mb-1" style={{ color: "var(--text-dim)" }}>Descripción</label>
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        rows={2}
+        placeholder="Notas, orden del día, enlaces…"
+        className="field-input w-full px-3 py-2 rounded-md text-[13px] mb-3 resize-none"
+      />
+
+      {!locked && kind === "meeting" && (
         <>
           <label className="text-[11px] block mb-1" style={{ color: "var(--text-dim)" }}>
-            Asistentes {!urgentMode && "(requiere Peaje de Preparación)"}
+            Asistentes {mode === "create" && !urgentMode && "(requiere Peaje de Preparación)"}
           </label>
           <div className="flex flex-wrap gap-1.5 mb-3 max-h-24 overflow-y-auto">
             {members.map((m) => (
@@ -1331,8 +1738,15 @@ function CreateModal({
                 {m.nombre}
               </button>
             ))}
+            {members.length === 0 && (
+              <p className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>Sin miembros en el equipo.</p>
+            )}
           </div>
         </>
+      )}
+
+      {error && (
+        <p className="text-[12px] mb-2" style={{ color: "#ff8585" }}>{error}</p>
       )}
 
       <div className="flex gap-2 mt-2">
@@ -1340,7 +1754,7 @@ function CreateModal({
           Cancelar
         </button>
         <button onClick={save} className="flex-1 py-2 rounded-md text-[13px] font-medium text-white" style={{ background: "var(--accent)" }}>
-          Crear
+          {mode === "create" ? "Crear" : "Guardar cambios"}
         </button>
       </div>
     </Backdrop>

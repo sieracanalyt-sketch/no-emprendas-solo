@@ -280,13 +280,13 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
               {name}
             </button>
             {profile.role && (
-              <span className="text-[10.5px] px-1.5 py-0.5 rounded-md"
+              <span className="text-[10.5px] px-2 py-0.5 rounded-full"
                 style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)", border: "1px solid var(--border)" }}>
                 {profile.role}
               </span>
             )}
             {(profile.prestige ?? 0) > 0 && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md inline-flex items-center gap-1"
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
                 title="Prestigio por aportar: perfil completo, respuestas rápidas y constancia"
                 style={{
                   background: (profile.prestige ?? 0) >= 70 ? "rgba(245,196,66,0.12)" : "rgba(255,255,255,0.05)",
@@ -297,7 +297,7 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
               </span>
             )}
             {match.inactive && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md inline-flex items-center gap-1"
+              <span className="text-[10px] px-2 py-0.5 rounded-full inline-flex items-center gap-1"
                 style={{ background: "rgba(98,102,109,0.12)", color: "var(--text-dimmer)" }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#62666d" }} />
                 Inactivo {match.daysInactive >= 999 ? `${INACTIVITY_DAYS}+` : match.daysInactive}d
@@ -351,7 +351,7 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
         {locked ? (
           <button onClick={onLocked}
             title="Completa tu perfil (biografía de 150+ caracteres y todos los apartados) para poder conectar"
-            className="flex-1 sm:flex-none px-4 py-2 rounded-md text-[13px] font-semibold transition inline-flex items-center justify-center gap-1.5"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-full text-[13px] font-semibold transition inline-flex items-center justify-center gap-1.5"
             style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
             onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
             onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border)" }}>
@@ -362,15 +362,22 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
           </button>
         ) : (
           <button onClick={onConnect}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-md text-[13px] font-semibold transition"
-            style={{ background: strong ? "linear-gradient(180deg,#3b82f6,#2f6fe0)" : "linear-gradient(180deg,#5e6ad2,#4d59c4)", color: "#fff" }}
-            onMouseEnter={e => (e.currentTarget.style.filter = "brightness(1.08)")}
-            onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}>
+            className="flex-1 sm:flex-none px-4 py-2 rounded-full text-[13px] font-semibold transition"
+            style={{
+              background: strong ? "linear-gradient(180deg,#3b82f6,#2f6fe0)" : "linear-gradient(180deg,#6b77e0,#5460cb)",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.16)",
+              boxShadow: strong
+                ? "0 6px 20px rgba(59,130,246,0.38), inset 0 1px 0 rgba(255,255,255,0.22)"
+                : "0 6px 20px rgba(94,106,210,0.34), inset 0 1px 0 rgba(255,255,255,0.22)",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.08)"; e.currentTarget.style.transform = "translateY(-1px)" }}
+            onMouseLeave={e => { e.currentTarget.style.filter = "brightness(1)"; e.currentTarget.style.transform = "translateY(0)" }}>
             Conectar
           </button>
         )}
         <button onClick={onIgnore}
-          className="px-3.5 py-2 rounded-md text-[13px] font-medium transition"
+          className="px-3.5 py-2 rounded-full text-[13px] font-medium transition"
           style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--text-dim)" }}
           onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
           onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border)" }}>

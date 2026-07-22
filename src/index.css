@@ -150,6 +150,82 @@ body::before {
 }
 
 /* ============================================================
+   LIQUID GLASS — lente deslizante para navegación/tabs
+   Una "lente" de cristal que VIAJA hasta el ítem activo en vez
+   de encender/apagar un fondo. Ver design.md §3.
+============================================================ */
+.lg-rail { position: relative; }
+/* los ítems van por delante de la lente */
+.lg-rail > a,
+.lg-rail > button { position: relative; z-index: 1; }
+
+.lg-lens {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: calc(100% - 8px);
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 0;
+  /* cuerpo de cristal que refracta lo de debajo */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+  -webkit-backdrop-filter: blur(6px) saturate(1.6);
+  backdrop-filter: blur(6px) saturate(1.6);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  transition:
+    left 0.46s cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 0.46s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.3s ease;
+}
+/* canto iridiscente del cristal líquido (índigo → teal → blanco) */
+.lg-lens::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg,
+    rgba(94, 106, 210, 0.9), rgba(47, 141, 160, 0.7) 45%, rgba(255, 255, 255, 0.85));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0.8;
+}
+/* reflejo especular que resbala por arriba al desplazarse */
+.lg-lens::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 2px;
+  height: 42%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent);
+  filter: blur(1px);
+  opacity: 0.55;
+}
+.lg-lens.lg-hidden { opacity: 0; }
+/* variante de acento (MERGE): la lente se tiñe de índigo */
+.lg-lens.lg-accent {
+  background: linear-gradient(180deg, rgba(94, 106, 210, 0.44), rgba(94, 106, 210, 0.16));
+  box-shadow:
+    0 4px 18px rgba(94, 106, 210, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.lg-lens.lg-accent::before { opacity: 1; }
+
+/* lente para la tab bar inferior (más "cuadrada", encaja el ítem vertical) */
+.lg-lens-tab { height: calc(100% - 10px); border-radius: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-lens { transition: opacity 0.2s ease; }
+}
+
+/* ============================================================
    TAB BAR MÓVIL — navegación inferior fija (solo < md)
 ============================================================ */
 .bottomnav {
@@ -171,6 +247,8 @@ body::before {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .bottomnav-item {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -270,6 +348,28 @@ body::before {
 }
 
 /* ============================================================
+   CALENDARIO — eventos arrastrables (feedback al pasar el ratón)
+============================================================ */
+.cal-event {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  transition: box-shadow 0.12s ease, filter 0.12s ease, opacity 0.12s ease;
+  will-change: top, height;
+}
+.cal-event:hover {
+  filter: brightness(1.14);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.38);
+  z-index: 6;
+}
+/* Los tiradores de redimensión aparecen al pasar el ratón por encima */
+.cal-grip {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.cal-event:hover .cal-grip {
+  opacity: 1;
+}
+
+/* ============================================================
    TRANSICIONES SUAVES (solo elementos no interactivos)
 ============================================================ */
 :not(input):not(textarea):not(select) {
@@ -304,25 +404,232 @@ select {
 }
 
 /* ============================================================
-   AUTH (Login / Register) — diseño 2 columnas responsivo
+   AUTH (Login / Register) — split screen. Ver design.md §8
+   Izquierda: panel visual (aurora generada + marca).
+   Derecha: formulario de cristal oscuro.
 ============================================================ */
-@media (max-width: 1024px) {
-  .login-left {
-    padding: 2.5rem 2.5rem !important;
-  }
-  .login-right {
-    padding: 2rem !important;
-  }
+.auth-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  background: #0a0b0d; /* base sobre la que se derrama la aurora */
 }
 
-@media (max-width: 768px) {
-  .login-left {
-    flex: 1 1 100% !important;
-    padding: 2rem 1.5rem !important;
-  }
-  .login-right {
-    display: none !important;
-  }
+/* Aurora a PANTALLA COMPLETA: baña izquierda y derecha por igual, así el
+   formulario nunca cae a negro — la luz continúa bajo el cristal esmerilado. */
+.auth-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 68% at 15% 26%, rgba(94, 106, 210, 0.62), transparent 60%),
+    radial-gradient(54% 64% at 78% 72%, rgba(47, 141, 160, 0.50), transparent 62%),
+    radial-gradient(50% 62% at 94% 20%, rgba(138, 110, 220, 0.52), transparent 60%),
+    radial-gradient(52% 64% at 66% 48%, rgba(110, 96, 214, 0.32), transparent 66%),
+    radial-gradient(64% 74% at 45% 60%, rgba(94, 106, 210, 0.20), transparent 72%);
+  animation: authDrift 26s ease-in-out infinite alternate;
+}
+@keyframes authDrift {
+  from { transform: translate(0, 0) scale(1.02); }
+  to   { transform: translate(2.5%, 2%) scale(1.1); }
+}
+/* grano fino a pantalla completa para que la aurora no se vea "plástica" */
+.auth-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Panel visual izquierdo (solo contenido, sobre la aurora) ── */
+.auth-visual {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 54%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.75rem 3rem 3rem;
+  overflow: hidden;
+}
+/* velo suave abajo para legibilidad de la tagline (sin ensuciar la aurora) */
+.auth-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 42%, rgba(7, 8, 10, 0.55) 100%);
+}
+.auth-visual > * { position: relative; z-index: 1; }
+
+/* ── Panel formulario derecho: cristal ESMERILADO ─────────────
+   Deja pasar la aurora (frost tintado), nunca negro. El blur profundo
+   funde el color de debajo → sensación líquida y continua. */
+.auth-form {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 46%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem 4rem;
+  overflow-y: auto;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.035));
+  -webkit-backdrop-filter: blur(46px) saturate(1.55);
+  backdrop-filter: blur(46px) saturate(1.55);
+  /* seam suave (solo highlight de cristal, sin oscurecer) */
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.12);
+}
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  animation: fadeIn 0.5s ease both;
+}
+
+/* botón Google blanco */
+.auth-google {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 0.85rem 1.5rem;
+  background: #fff;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.auth-google:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+
+/* divisor "o con correo" */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.auth-divider span {
+  color: var(--text-dimmer);
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* input pill de auth (con anillo azul en focus) */
+.auth-field { position: relative; }
+.auth-input {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.auth-input::placeholder { color: var(--text-dimmer); }
+.auth-input:focus {
+  border-color: rgba(59, 130, 246, 0.65);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+/* toggle de ojo para la contraseña */
+.auth-eye {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-dimmer);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.auth-eye:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+
+/* CTA primario: acento índigo con glow (ver design.md §7) */
+.auth-submit {
+  width: 100%;
+  padding: 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(180deg, #6b77e0, #5460cb);
+  box-shadow: 0 10px 30px rgba(94, 106, 210, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.auth-submit:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.07); }
+.auth-submit:active:not(:disabled) { transform: translateY(0); }
+.auth-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* rotador de tagline del panel visual */
+.auth-tagline { position: relative; min-height: 2.2em; }
+.auth-tagline > span {
+  position: absolute;
+  inset: 0;
+  animation: authPhrase 12s linear infinite;
+  opacity: 0;
+}
+.auth-tagline > span:nth-child(1) { animation-delay: 0s; }
+.auth-tagline > span:nth-child(2) { animation-delay: 4s; }
+.auth-tagline > span:nth-child(3) { animation-delay: 8s; }
+@keyframes authPhrase {
+  0%, 3% { opacity: 0; transform: translateY(8px); }
+  8%, 30% { opacity: 1; transform: translateY(0); }
+  36%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+
+/* dots del rotador */
+.auth-dots { display: flex; gap: 7px; }
+.auth-dot {
+  width: 22px; height: 3px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+/* ── responsive ─────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .auth-form { padding: 2.5rem; }
+  .auth-visual { padding: 2rem; }
+}
+@media (max-width: 767px) {
+  .auth-visual { display: none; }
+  .auth-form { flex: 1 1 100%; padding: 2rem 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-aurora, .auth-tagline > span { animation: none; }
+  .auth-tagline > span:nth-child(1) { opacity: 1; }
+  .auth-tagline > span:nth-child(2), .auth-tagline > span:nth-child(3) { display: none; }
 }
 
 /* ============================================================

@@ -40,6 +40,7 @@ export default function Perfil() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [streakDays, setStreakDays] = useState(0)
+  const [avatar, setAvatar] = useState<string | null>(null)
   const [connectionCount, setConnectionCount] = useState(0)
   const [showMissing, setShowMissing] = useState(false)
   const [displayPct, setDisplayPct] = useState(0)
@@ -73,7 +74,7 @@ export default function Perfil() {
         const [{ data: profileData }, { data: sentMsgs }] = await Promise.all([
           supabase
             .from("users")
-            .select("nombre, biografia, proyecto, buscando, project_status, streak_days")
+            .select("nombre, biografia, proyecto, buscando, project_status, streak_days, avatar")
             .eq("id", user.id)
             .single(),
           supabase
@@ -93,6 +94,7 @@ export default function Perfil() {
           setBuscando((pd.buscando as string[]) || [])
           setProjectStatus((pd.project_status as ProjectStatus) || null)
           setStreakDays((pd.streak_days as number) || 0)
+          setAvatar((pd.avatar as string) || null)
         }
 
         const uniqueChats = new Set(sentMsgs?.map((m: Record<string, unknown>) => m.chat_id) ?? [])
@@ -201,12 +203,35 @@ export default function Perfil() {
 
   return (
     <div className="max-w-2xl mx-auto px-5 py-10 animate-in">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight text-white">Tu perfil</h1>
-        <p className="text-[13px] mt-1" style={{ color: "var(--text-dim)" }}>
-          Actualiza tu información pública
-        </p>
+      {/* ── Header de identidad ─────────────────────────────────────────── */}
+      <div className="mb-6 flex items-center gap-4">
+        {avatar ? (
+          <img
+            src={avatar}
+            alt={perfil.nombre || "Avatar"}
+            style={{ width: 66, height: 66, borderRadius: 20, objectFit: "cover", border: "1px solid var(--border-strong)" }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 66, height: 66, borderRadius: 20,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 27, fontWeight: 700, color: "#fff",
+              background: "linear-gradient(150deg, #6b77e0, #4b56b8)",
+              boxShadow: "0 10px 26px rgba(94,106,210,0.4), inset 0 1px 0 rgba(255,255,255,0.25)",
+            }}
+          >
+            {(perfil.nombre || "?").trim()[0]?.toUpperCase() || "?"}
+          </div>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-[23px] font-semibold tracking-tight text-white truncate">
+            {perfil.nombre || "Tu perfil"}
+          </h1>
+          <p className="text-[13px] mt-0.5" style={{ color: "var(--text-dim)" }}>
+            {getConnectionRank(connectionCount)}
+          </p>
+        </div>
       </div>
 
       {/* ── Gamificación (≤ 80px excluyendo colapsable) ─────────────────── */}
@@ -235,28 +260,19 @@ export default function Perfil() {
           </span>
         </div>
 
-        {/* Fila 2: racha + rango */}
-        <div className="flex items-center justify-between mt-2">
-          <div>
-            {streakDays >= 2 && (
-              <span
-                className="flex items-center gap-1.5 text-[12px]"
-                style={{ color: "#8a8f98" }}
-                title="Días consecutivos con actividad en NES."
-              >
-                <FlameIcon />
-                {streakDays} días activo
-              </span>
-            )}
+        {/* Fila 2: racha (el rango vive ahora en la cabecera) */}
+        {streakDays >= 2 && (
+          <div className="mt-2.5">
+            <span
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium"
+              style={{ color: "#d99a3e" }}
+              title="Días consecutivos con actividad en NES."
+            >
+              <FlameIcon />
+              {streakDays} días activo
+            </span>
           </div>
-          <span
-            className="text-[12px] px-2 py-0.5"
-            style={{ color: "#8a8f98", border: "1px solid var(--border-strong)", borderRadius: 999, padding: "2px 10px" }}
-            title="Tu rango refleja el número de conexiones activas en NES."
-          >
-            {getConnectionRank(connectionCount)}
-          </span>
-        </div>
+        )}
 
         {/* Colapsable "Qué falta" */}
         {missingItems.length > 0 && (
@@ -314,7 +330,7 @@ export default function Perfil() {
             <input
               value={perfil.nombre}
               onChange={(e) => { const v = e.target.value; setPerfil(prev => ({ ...prev, nombre: v })) }}
-              className="field-input w-full px-3.5 py-2 rounded-md text-[14px]"
+              className="field-input w-full px-3.5 py-2 rounded-xl text-[14px]"
             />
           </Field>
         </div>
@@ -326,7 +342,7 @@ export default function Perfil() {
               value={perfil.biografia}
               onChange={(e) => { const v = e.target.value; setPerfil(prev => ({ ...prev, biografia: v })) }}
               rows={4}
-              className="field-input w-full px-3.5 py-2.5 rounded-md text-[14px] resize-none leading-relaxed"
+              className="field-input w-full px-3.5 py-2.5 rounded-xl text-[14px] resize-none leading-relaxed"
             />
             <div className="flex justify-between items-center mt-1.5">
               <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>
@@ -380,7 +396,7 @@ export default function Perfil() {
                   placeholder="Describe brevemente tu proyecto…"
                   tabIndex={projectStatus === "has_project" ? 0 : -1}
                   aria-hidden={projectStatus === "has_project" ? undefined : true}
-                  className="field-input w-full px-3.5 py-2.5 rounded-md text-[14px] resize-none leading-relaxed"
+                  className="field-input w-full px-3.5 py-2.5 rounded-xl text-[14px] resize-none leading-relaxed"
                 />
               </div>
             </div>
@@ -395,7 +411,7 @@ export default function Perfil() {
                 {buscando.map((tag, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium text-white"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium text-white"
                     style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
                   >
                     <span>{tag}</span>
@@ -417,7 +433,7 @@ export default function Perfil() {
               onChange={(e) => setInputTag(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Escribe y pulsa Enter…"
-              className="field-input w-full px-3.5 py-2 rounded-md text-[14px]"
+              className="field-input w-full px-3.5 py-2 rounded-xl text-[14px]"
             />
           </Field>
         </div>
@@ -447,8 +463,9 @@ export default function Perfil() {
           </span>
         </div>
         <p className="text-[13px] mt-1 mb-6" style={{ color: "var(--text-dim)" }}>
-          9 preguntas rápidas de conducta real. Alimentan el Matchmaking Avanzado: cuanto más
-          honesto respondas, mejores conexiones te propondrá MERGE.
+          14 preguntas de conducta real (más 3 opcionales). Alimentan el Matchmaking Avanzado:
+          cuanto más honesto respondas, mejores conexiones te propondrá MERGE — y mejor podrá
+          explicarte de dónde sale cada nota.
         </p>
 
         {userId && <AdvancedMatchProfile userId={userId} />}

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useJarvisRoom, type AgentState, type TranscriptMsg } from "./useJarvisRoom"
 import { RenderType } from "./contract"
 import type {
   ActionsData, BriefData, FocusData, IntelData, MatchData, MetricsData, PipelineData, Tone,
 } from "./contract"
+import { fetchMergeContext, digestForAgent } from "./mergeContext"
+import { useUser } from "../hooks/useUser"
 import "./jarvis.css"
 
 // MERGE — asistente de voz del fundador, embebido en NES con estética minimalista.
@@ -68,18 +70,104 @@ function IcStop() {
   )
 }
 
+// Iconos de las tarjetas (SVG de línea, sin emojis)
+const capIc = { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" } as const
+const IcTileMatch = () => <svg {...capIc}><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="7" r="2.5" /><circle cx="12" cy="17.5" r="2.5" /><path d="M9.3 7.8h5.4M8.4 9.2l2.6 5.6M15.6 9.2 13 14.8" /></svg>
+const IcTileCal = () => <svg {...capIc}><rect x="3" y="4.5" width="18" height="16" rx="2" /><path d="M3 9h18M8 2.5v4M16 2.5v4" /></svg>
+const IcTileBoard = () => <svg {...capIc}><rect x="3" y="3" width="7" height="18" rx="1.5" /><rect x="14" y="3" width="7" height="11" rx="1.5" /></svg>
+const IcTileHelp = () => <svg {...capIc}><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .8-1 1.7M12 17h.01" /></svg>
+const IcTileFocus = () => <svg {...capIc}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.6" fill="currentColor" /></svg>
+
+// Lo que el usuario puede pedirle a MERGE (intro). Cada tile lanza una acción
+// real: comandos con `cmd`, peticiones en lenguaje natural con `text`. Los que
+// llevan `context: true` sincronizan antes tu agenda + workflow con el agente.
+type Cap = { ic: ReactNode; tt: string; sub: string; label: string; cmd?: string; text?: string; kind?: "agenda" | "workflow" }
+const CAPS: Cap[] = [
+  { ic: <IcTileMatch />, tt: "Matchmaking avanzado", label: "Cruzando los perfiles de la comunidad",
+    sub: "Cruza los perfiles reales de NES y te sugiere con quién conectar.", cmd: "matchmaking" },
+  { ic: <IcTileCal />, tt: "Mi agenda", label: "Revisando tu agenda",
+    sub: "Lee tu calendario y te ayuda a organizar los próximos días.",
+    text: "Repasa mi agenda de los próximos días y ayúdame a organizarla.", kind: "agenda" },
+  { ic: <IcTileBoard />, tt: "Mi workflow", label: "Revisando tu workflow",
+    sub: "Tus tareas, prioridades (Eisenhower) y el mapa del equipo.",
+    text: "Repasa mi workflow —tareas, prioridades y equipo— y dime en qué centrarme.", kind: "workflow" },
+  { ic: <IcTileHelp />, tt: "¿Qué puedes hacer?", label: "Repasando lo que sé hacer",
+    sub: "MERGE te cuenta, con voz, todo lo que sabe hacer.", cmd: "capabilities" },
+  { ic: <IcTileFocus />, tt: "Sesión de foco", label: "Montando tu sesión de foco",
+    sub: "Un temporizador guiado para concentrarte sin ruido.", text: "Empecemos una sesión de foco de 25 minutos." },
+]
+
+type Action = { cmd?: string; text?: string; label?: string; kind?: "agenda" | "workflow" }
+
 export default function MergeConsole() {
   const r = useJarvisRoom()
+  const [user] = useUser()
   const [draft, setDraft] = useState("")
+  // Qué está haciendo MERGE ahora mismo (rótulo del estado "trabajando").
+  const [workLabel, setWorkLabel] = useState<string | null>(null)
+  // Acción pendiente: si escribes/pulsas algo estando desconectado, se guarda
+  // aquí y se ejecuta sola en cuanto la sesión queda conectada (auto-arranque).
+  const pending = useRef<Action | null>(null)
+  // `r` cambia de identidad cada render; una ref estable evita re-crear efectos.
+  const rRef = useRef(r); rRef.current = r
+  const userRef = useRef(user); userRef.current = user
 
   const statusText = r.state === "connected" ? "en línea"
     : r.state === "connecting" ? "conectando…" : "desconectado"
 
+  // En cuanto MERGE empieza a responder (o llega un panel), deja de "trabajar".
+  useEffect(() => {
+    if (r.agentState === "speaking" || r.agentState === "listening" || r.agentState === "idle") setWorkLabel(null)
+  }, [r.agentState])
+  useEffect(() => { if (r.latest) setWorkLabel(null) }, [r.latest])
+
+  // Ejecuta una acción con la sesión ya conectada. Para agenda/workflow: recoge
+  // el contexto del usuario, se lo pasa al agente (merge.context) y además
+  // incrusta un resumen legible en el mensaje para que funcione ya mismo.
+  const execAction = async (a: Action) => {
+    const rr = rRef.current, u = userRef.current
+    if (a.label) setWorkLabel(a.label)
+    if (a.kind && u) {
+      try {
+        const ctx = await fetchMergeContext(u.id)
+        rr.sendContext(ctx)
+        const digest = digestForAgent(ctx, a.kind)
+        await rr.sendText(`${a.text ?? ""}\n\n${digest}`.trim())
+        return
+      } catch { /* si falla el contexto, cae al texto plano */ }
+    }
+    if (a.cmd) rr.sendCommand(a.cmd)
+    else if (a.text) await rr.sendText(a.text)
+  }
+
+  // Al conectar: sincroniza SIEMPRE el contexto (agenda + workflow) y ejecuta lo
+  // que quedó pendiente (mensaje escrito o capacidad).
+  useEffect(() => {
+    if (r.state !== "connected") return
+    const u = userRef.current
+    if (u) fetchMergeContext(u.id).then((ctx) => rRef.current.sendContext(ctx)).catch(() => {})
+    const p = pending.current
+    pending.current = null
+    if (p) void execAction(p)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [r.state])
+
+  // Lanza una capacidad: si hay sesión la ejecuta; si no, la deja pendiente y
+  // arranca MERGE (se ejecutará sola al conectar).
+  const runCap = (c: Cap) => {
+    const a: Action = { cmd: c.cmd, text: c.text, label: c.label, kind: c.kind }
+    if (r.state === "connected") void execAction(a)
+    else if (r.state !== "connecting") { pending.current = a; void r.connect() }
+  }
+
+  // Enviar texto: si ya hay sesión, manda; si no, arranca MERGE y lo envía solo
+  // al conectar. No hace falta pulsar "Iniciar" — escribir y enviar basta.
   function submitText() {
     const t = draft.trim()
-    if (!t || r.state !== "connected") return
-    void r.sendText(t)
-    setDraft("")
+    if (!t) return
+    const a: Action = { text: t, label: "Procesando tu petición" }
+    if (r.state === "connected") { void execAction(a); setDraft("") }
+    else if (r.state !== "connecting") { pending.current = a; setDraft(""); void r.connect() }
   }
 
   return (
@@ -99,13 +187,18 @@ export default function MergeConsole() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {r.state === "connected" && (
-            <button className="mg-btn" onClick={() => r.sendCommand("capabilities")} title="MERGE te cuenta, con voz, lo que puede hacer hoy">
-              ¿Qué puedes hacer?
+            <button className="mg-btn" onClick={() => runCap(CAPS[1])} title="MERGE lee tu agenda y te ayuda a organizarla">
+              Mi agenda
             </button>
           )}
           {r.state === "connected" && (
-            <button className="mg-btn mg-btn-accent" onClick={() => r.sendCommand("matchmaking")} title="Cruza los perfiles reales de la comunidad y sugiere conexiones">
-              ✦ Matchmaking avanzado
+            <button className="mg-btn" onClick={() => runCap(CAPS[2])} title="Tus tareas, prioridades y el mapa del equipo">
+              Mi workflow
+            </button>
+          )}
+          {r.state === "connected" && (
+            <button className="mg-btn mg-btn-accent" onClick={() => runCap(CAPS[0])} title="Cruza los perfiles reales de la comunidad y sugiere conexiones">
+              Matchmaking avanzado
             </button>
           )}
           {r.state === "connected" && (
@@ -125,53 +218,65 @@ export default function MergeConsole() {
 
       {/* Escenario — panel de cristal flotante */}
       <div className="mg-glass" style={{ position: "relative", minHeight: 480, marginTop: 18, overflow: "hidden" }}>
-        {r.state === "connected" && <StateBar s={r.agentState} />}
-        <Stage r={r} />
+        {r.state === "connected" && r.agentState !== "thinking" && <StateBar s={r.agentState} />}
+        <Stage r={r} onCap={runCap} />
         {/* Con un panel gráfico en pantalla, lo hablado va como subtítulo inferior */}
         {r.latest && <CaptionOverlay msgs={r.transcript} speaking={r.agentState === "speaking"} />}
+        {/* MERGE trabajando: enseña el esfuerzo con datos ocultos (privacidad) */}
+        {r.agentState === "thinking" && <WorkingOverlay label={workLabel ?? "Procesando tu petición"} />}
       </div>
 
-      {/* Entrada dual: escribe o habla — misma conversación */}
-      {r.state === "connected" && (
-        <div className="mg-glass mg-glass-pill mg-composer" style={{ marginTop: 16 }}>
-          <button
-            className={`mg-icon-btn ${r.micOn ? "mg-icon-on" : "mg-icon-off"}`}
-            onClick={r.toggleMic}
-            title={r.micOn ? "Micro activo — pulsa para silenciar" : "Micro apagado — pulsa para hablar"}
-            aria-label={r.micOn ? "Silenciar micro" : "Activar micro"}>
-            {r.micOn ? <IcMic /> : <IcMicOff />}
-          </button>
-          {/* Parar: corta la frase en curso sin tener que hablarle encima.
-              Siempre visible (no desplaza el layout), activo solo cuando hay algo
-              que cortar. */}
-          <button
-            className="mg-icon-btn"
-            onClick={() => r.sendCommand("stop")}
-            disabled={r.agentState !== "speaking" && r.agentState !== "thinking"}
-            title="Parar lo que MERGE está diciendo"
-            aria-label="Parar respuesta">
-            <IcStop />
-          </button>
+      {/* Entrada — SIEMPRE visible. Escribe y envía: si no hay sesión, MERGE
+          arranca solo. Menos glow para que el texto se lea (design.md §9). */}
+      <div
+        className={`mg-composer-wrap ${r.agentState === "thinking" || r.agentState === "speaking" ? "mg-working" : ""}`}
+        style={{ marginTop: 16 }}
+      >
+        <div className="mg-glass mg-glass-pill mg-composer">
+          {r.state === "connected" && (
+            <>
+              <button
+                className={`mg-icon-btn ${r.micOn ? "mg-icon-on" : "mg-icon-off"}`}
+                onClick={r.toggleMic}
+                title={r.micOn ? "Micro activo — pulsa para silenciar" : "Micro apagado — pulsa para hablar"}
+                aria-label={r.micOn ? "Silenciar micro" : "Activar micro"}>
+                {r.micOn ? <IcMic /> : <IcMicOff />}
+              </button>
+              {/* Parar: corta la frase en curso; activo solo cuando hay algo que cortar */}
+              <button
+                className="mg-icon-btn"
+                onClick={() => r.sendCommand("stop")}
+                disabled={r.agentState !== "speaking" && r.agentState !== "thinking"}
+                title="Parar lo que MERGE está diciendo"
+                aria-label="Parar respuesta">
+                <IcStop />
+              </button>
+            </>
+          )}
           <input
             className="mg-input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitText() } }}
-            placeholder={r.micOn ? "Escríbele a MERGE… o simplemente habla" : "Escríbele a MERGE…"}
+            placeholder={
+              r.state === "connecting" ? "Conectando con MERGE…"
+                : r.state === "connected" ? (r.micOn ? "Escríbele a MERGE… o simplemente habla" : "Escríbele a MERGE…")
+                : "Escribe y pulsa Enter para empezar…"
+            }
             aria-label="Mensaje para MERGE"
           />
-          <button className="mg-icon-btn mg-icon-send" onClick={submitText} disabled={!draft.trim()}
+          <button className="mg-icon-btn mg-icon-send" onClick={submitText} disabled={!draft.trim() || r.state === "connecting"}
             title="Enviar (Enter)" aria-label="Enviar mensaje">
             <IcSend />
           </button>
         </div>
-      )}
+      </div>
 
       {/* Hint — one dim line */}
       <p style={{ marginTop: 14, textAlign: "center", fontSize: 12.5, color: "var(--text-dimmer)" }}>
         {r.state === "connected"
-          ? "Habla o escribe con naturalidad · ✦ Matchmaking avanzado cruza los perfiles reales de la comunidad"
-          : "Pulsa “Iniciar MERGE”: es una conversación por voz o texto, como con un compañero."}
+          ? "Habla o escribe con naturalidad · MERGE conoce tu agenda, tu workflow y la comunidad"
+          : "Escribe abajo y pulsa Enter para empezar — o dale a “Iniciar MERGE” para hablar por voz."}
       </p>
     </div>
   )
@@ -206,15 +311,13 @@ function StateBar({ s }: { s: AgentState }) {
   )
 }
 
-function Stage({ r }: { r: ReturnType<typeof useJarvisRoom> }) {
+function Stage({ r, onCap }: { r: ReturnType<typeof useJarvisRoom>; onCap: (c: Cap) => void }) {
   if (!r.latest) {
     // Sin panel gráfico: la conversación ES la pantalla (texto en streaming).
     if (r.transcript.length > 0) {
       return <Conversation msgs={r.transcript} speaking={r.agentState === "speaking"} />
     }
-    return <Idle text={r.state === "connected"
-      ? "Habla con MERGE con naturalidad — dale vueltas a una idea, pídele opinión, o pulsa Matchmaking avanzado para cruzar los perfiles de la comunidad."
-      : "Pulsa “Iniciar MERGE” y háblale. Es una conversación: te responde con voz, como un compañero."} />
+    return <Intro connected={r.state === "connected"} onCap={onCap} />
   }
   const { type, data, ts } = r.latest
   switch (type) {
@@ -225,7 +328,11 @@ function Stage({ r }: { r: ReturnType<typeof useJarvisRoom> }) {
     case RenderType.ACTIONS: return <Actions key={ts} d={data as ActionsData} />
     case RenderType.FOCUS: return <Focus key={ts} d={data as FocusData} />
     case RenderType.MATCH: return <Match key={ts} d={data as MatchData} />
-    default: return <Idle text={`Tipo desconocido: ${String(type)}`} />
+    default: return (
+      <div className="flex items-center justify-center" style={{ minHeight: 480, padding: 40, textAlign: "center" }}>
+        <p style={{ maxWidth: 400, fontSize: 14, color: "var(--text-dim)" }}>Tipo de panel desconocido: {String(type)}</p>
+      </div>
+    )
   }
 }
 
@@ -292,11 +399,78 @@ function CaptionOverlay({ msgs, speaking }: { msgs: TranscriptMsg[]; speaking: b
   )
 }
 
-function Idle({ text }: { text: string }) {
+function IcLock() {
   return (
-    <div className="flex flex-col items-center justify-center" style={{ minHeight: 480, padding: 40, gap: 28, textAlign: "center" }}>
-      <span className="mg-orb" style={{ width: 44, height: 44 }} />
-      <p style={{ maxWidth: 400, fontSize: 15, lineHeight: 1.7, color: "var(--text-dim)" }}>{text}</p>
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
+
+// Intro: deja claro PARA QUÉ sirve MERGE y qué puede pedirle el usuario.
+// Nunca una pantalla en blanco (design.md §9). Las tarjetas arrancan la sesión
+// solas — no hace falta pulsar "Iniciar".
+function Intro({ connected, onCap }: { connected: boolean; onCap: (c: Cap) => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center" style={{ minHeight: 480, padding: "48px 28px", gap: 26, textAlign: "center" }}>
+      <span className="mg-orb" style={{ width: 48, height: 48 }} />
+      <div>
+        <h2 style={{ fontSize: 23, fontWeight: 600, color: "var(--text)", letterSpacing: "-0.01em", margin: 0 }}>
+          Tu copiloto de fundador
+        </h2>
+        <p style={{ maxWidth: 470, margin: "10px auto 0", fontSize: 14.5, lineHeight: 1.65, color: "var(--text-dim)" }}>
+          MERGE conoce a la comunidad de NES, tu agenda y tu workflow. Habla o escribe con
+          naturalidad: te cruza con las personas adecuadas, te resume el día y piensa contigo.
+        </p>
+      </div>
+
+      {/* Qué puedes pedirle — al pulsar, MERGE arranca solo */}
+      <div className="mg-cap-grid">
+        {CAPS.map((c) => (
+          <button key={c.tt} className="mg-cap-tile" onClick={() => onCap(c)}
+            title={connected ? c.sub : "Púlsalo y MERGE arranca solo"}>
+            <span className="mg-cap-ic" style={{ color: "var(--accent)" }}>{c.ic}</span>
+            <span style={{ display: "block" }}>
+              <span className="mg-cap-tt" style={{ display: "block" }}>{c.tt}</span>
+              <span className="mg-cap-sub" style={{ display: "block" }}>{c.sub}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <p style={{ fontSize: 11.5, color: "var(--text-dimmer)", display: "inline-flex", alignItems: "center", gap: 6, margin: 0 }}>
+        <IcLock /> Tus datos y los de la comunidad nunca se muestran en crudo.
+      </p>
+    </div>
+  )
+}
+
+// Estado "trabajando": preview difuminado + pixelado que NO revela datos.
+// Enseña que MERGE está haciendo algo real sin filtrar información.
+function WorkingOverlay({ label }: { label: string }) {
+  return (
+    <div className="mg-working-overlay">
+      <div className="mg-working-blur" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="mg-ghost-card">
+            <div className="mg-ghost-avatar" />
+            <div className="mg-ghost-lines">
+              <div className="mg-ghost-line" style={{ width: `${58 - i * 6}%` }} />
+              <div className="mg-ghost-line" style={{ width: `${88 - i * 4}%`, opacity: 0.55 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mg-pixel-grid" aria-hidden />
+      <div className="mg-working-scrim" aria-hidden />
+      <div className="mg-working-badge">
+        <span className="mg-spinner" aria-hidden />
+        {label}…
+      </div>
+      <div className="mg-privacy">
+        <IcLock /> Trabajando sobre datos reales · ocultos para proteger la privacidad
+      </div>
     </div>
   )
 }

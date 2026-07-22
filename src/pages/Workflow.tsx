@@ -538,9 +538,12 @@ export default function Workflow() {
               }}
             >
               {([
-                { tab: "tasks" as Tab,        icon: "📋", label: "Tareas",      desc: "Kanban del equipo" },
-                { tab: "prioridades" as Tab,  icon: "🎯", label: "Prioridades", desc: "Eisenhower + Mi Día" },
-                { tab: "gestion" as Tab,      icon: "🌐", label: "Gestión",     desc: "Mapa del equipo" },
+                { tab: "tasks" as Tab, label: "Tareas", desc: "Kanban del equipo",
+                  icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="18" rx="1.5" /><rect x="14" y="3" width="7" height="11" rx="1.5" /></svg> },
+                { tab: "prioridades" as Tab, label: "Prioridades", desc: "Eisenhower + Mi Día",
+                  icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /></svg> },
+                { tab: "gestion" as Tab, label: "Gestión", desc: "Mapa del equipo",
+                  icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="7" r="2.5" /><circle cx="12" cy="17.5" r="2.5" /><path d="M9.3 7.8h5.4M8.4 9.2l2.6 5.6M15.6 9.2 13 14.8" /></svg> },
               ]).map(({ tab, icon, label, desc }) => {
                 const active = activeTab === tab
                 return (
@@ -559,7 +562,7 @@ export default function Workflow() {
                   >
                     <span className="flex items-center gap-2 text-[14px] font-semibold"
                       style={{ color: active ? "#fff" : "var(--text-dim)" }}>
-                      <span className="text-[15px]">{icon}</span>{label}
+                      <span className="inline-flex">{icon}</span>{label}
                     </span>
                     <span className="text-[10px] hidden sm:block"
                       style={{ color: active ? "#b6bdf5" : "var(--text-dimmer)" }}>

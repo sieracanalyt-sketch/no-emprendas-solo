@@ -8,6 +8,43 @@ import { supabase } from "../supabase"
 // (ni en este dispositivo ni en otros, porque vive en la base de datos).
 type Status = "checking" | "no-user" | "approved" | "gated"
 
+const INVITE_KEY = "nes:pendingInvite"
+
+/**
+ * El email de apertura de cohorte enlaza a /login?invite=XXXX-XXXX. Entre esa
+ * URL y la pantalla que pide el código hay un login por medio (y en el caso de
+ * Google, un viaje a otro dominio), así que la query string se pierde. Se
+ * captura aquí, en el arranque del módulo —CohortGate envuelve la app entera,
+ * de modo que esto corre antes que cualquier navegación— y se guarda en
+ * sessionStorage hasta que la pantalla del código lo consuma.
+ */
+function captureInviteFromUrl(): void {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const code = (params.get("invite") ?? "").trim().toUpperCase()
+    if (!code) return
+    sessionStorage.setItem(INVITE_KEY, code)
+    params.delete("invite")
+    const qs = params.toString()
+    window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""))
+  } catch {
+    // sessionStorage bloqueado (modo privado estricto): se teclea a mano.
+  }
+}
+
+/** Devuelve el código capturado y lo borra: es de un solo uso. */
+function takeStoredInvite(): string {
+  try {
+    const code = sessionStorage.getItem(INVITE_KEY) ?? ""
+    if (code) sessionStorage.removeItem(INVITE_KEY)
+    return code
+  } catch {
+    return ""
+  }
+}
+
+captureInviteFromUrl()
+
 export default function CohortGate({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>("checking")
 
@@ -48,7 +85,7 @@ export default function CohortGate({ children }: { children: ReactNode }) {
 }
 
 function InviteScreen({ onApproved }: { onApproved: () => void }) {
-  const [code, setCode] = useState("")
+  const [code, setCode] = useState(takeStoredInvite)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -62,7 +99,11 @@ function InviteScreen({ onApproved }: { onApproved: () => void }) {
         body: { code: code.trim() },
       })
       if (err || !data?.ok) {
-        setError("Código incorrecto o ya usado. Revisa el correo que te enviamos.")
+        setError(
+          data?.error === "exhausted"
+            ? "Este código ya ha alcanzado su número máximo de usos."
+            : "Código incorrecto. Revisa el correo que te enviamos."
+        )
         return
       }
       onApproved()

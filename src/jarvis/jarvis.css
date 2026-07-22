@@ -221,3 +221,163 @@
 .mg-bars i:nth-child(3) { height: 7px; animation-delay: 0.3s; }
 .mg-bars i:nth-child(4) { height: 11px; animation-delay: 0.45s; }
 @keyframes mg-eq { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
+
+/* ============================================================
+   COMPOSER estilo "prompt-bar" (inspiración Gemini, imagen 4)
+   Borde con glow de gradiente que recorre el perímetro del input.
+   La firma visual de MERGE. Ver design.md §9.
+============================================================ */
+@property --mg-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.mg-composer-wrap { position: relative; border-radius: 999px; }
+/* halo difuso detrás del input — sutil, para no restar legibilidad */
+.mg-composer-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  z-index: 0;
+  background: conic-gradient(from var(--mg-angle),
+    #5e6ad2, #2f8da0 33%, #8a6edc 66%, #5e6ad2);
+  filter: blur(8px);
+  opacity: 0.28;
+  animation: mg-spin 7s linear infinite;
+}
+/* canto fino de gradiente (el "trazo" de luz que rodea la barra) */
+.mg-composer-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+  padding: 1px;
+  background: conic-gradient(from var(--mg-angle),
+    #7b86e6, #3fb6c9 33%, #a58cf0 66%, #7b86e6);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0.5;
+  animation: mg-spin 7s linear infinite;
+}
+/* el input tapa el glow: fondo opaco para que el texto se lea siempre */
+.mg-composer-wrap > .mg-composer {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(26, 28, 33, 0.92), rgba(18, 20, 24, 0.92));
+}
+/* cuando MERGE trabaja/habla, el glow se intensifica un poco (sin cegar) */
+.mg-composer-wrap.mg-working::before { opacity: 0.5; filter: blur(10px); animation-duration: 3s; }
+.mg-composer-wrap.mg-working::after { opacity: 0.7; animation-duration: 3s; }
+@keyframes mg-spin { to { --mg-angle: 360deg; } }
+/* fallback sin @property: barra estática con borde de acento (sigue elegante) */
+@supports not (background: conic-gradient(from var(--mg-angle), red, blue)) {
+  .mg-composer-wrap::before { background: radial-gradient(circle, rgba(94,106,210,0.5), transparent 70%); animation: none; }
+  .mg-composer-wrap::after { background: linear-gradient(120deg, #7b86e6, #3fb6c9, #a58cf0); animation: none; }
+}
+
+/* barra de prompt decorativa del intro (desconectado): invita a iniciar */
+.mg-prompt-hero {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px 14px 22px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.mg-prompt-hero:hover { transform: translateY(-1px); }
+.mg-prompt-hero .mg-prompt-text { flex: 1; color: var(--text-dimmer); font-size: 15px; text-align: left; }
+
+/* ============================================================
+   ESTADO "TRABAJANDO" — preview difuminado/pixelado que NO
+   revela datos. Enseña el esfuerzo, protege la información.
+   Ver design.md §9.
+============================================================ */
+.mg-working-overlay {
+  position: absolute; inset: 0; z-index: 4;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; border-radius: 24px; overflow: hidden;
+  animation: mg-fade 0.3s ease-out both;
+}
+/* capa de "datos" ocultos: tarjetas fantasma fuertemente difuminadas */
+.mg-working-blur {
+  position: absolute; inset: 0; z-index: 0;
+  padding: 34px; display: flex; flex-direction: column; gap: 14px;
+  filter: blur(9px) saturate(1.05);
+  opacity: 0.55;
+}
+.mg-ghost-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px; border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.mg-ghost-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(94,106,210,0.6), rgba(47,141,160,0.5)); }
+.mg-ghost-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.mg-ghost-line { height: 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+/* rejilla de píxeles: refuerza la sensación de "pixelado / censurado" */
+.mg-pixel-grid {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.22) 1px, transparent 1px);
+  background-size: 13px 13px;
+  mix-blend-mode: overlay;
+}
+.mg-working-scrim {
+  position: absolute; inset: 0; z-index: 2;
+  background: rgba(12, 13, 14, 0.42);
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+}
+.mg-working-badge {
+  position: relative; z-index: 3;
+  display: inline-flex; align-items: center; gap: 11px;
+  padding: 11px 20px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  font-size: 14px; font-weight: 500; color: var(--text);
+}
+.mg-privacy {
+  position: relative; z-index: 3;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--text-dimmer);
+}
+.mg-spinner {
+  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--accent);
+  animation: mg-spin2 0.8s linear infinite;
+}
+@keyframes mg-spin2 { to { transform: rotate(360deg); } }
+
+/* ── chips de capacidad del intro (qué puedes pedirle) ─────── */
+.mg-cap-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px; width: 100%; max-width: 560px;
+}
+.mg-cap-tile {
+  display: flex; align-items: flex-start; gap: 11px; text-align: left;
+  padding: 14px 16px; border-radius: 16px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.mg-cap-tile:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(94, 106, 210, 0.4);
+  transform: translateY(-1px);
+}
+.mg-cap-tile:disabled { cursor: default; opacity: 0.75; }
+.mg-cap-tile:disabled:hover { transform: none; background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.08); }
+.mg-cap-ic { font-size: 17px; line-height: 1.3; flex-shrink: 0; }
+.mg-cap-tt { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.mg-cap-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-composer-wrap::before, .mg-composer-wrap::after, .mg-spinner { animation: none; }
+}

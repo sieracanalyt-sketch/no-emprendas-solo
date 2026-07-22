@@ -1,7 +1,9 @@
 // Edge Function: admin-generate-invite
 // Solo users.is_admin=true puede generar códigos de invitación de la cohorte
-// (POST { note?: string }) o listarlos (GET). El código se genera aquí, nunca
-// lo elige el cliente, para que no se puedan adivinar por fuerza bruta.
+// (POST { note?: string, max_uses?: number }) o listarlos (GET). El código se
+// genera aquí, nunca lo elige el cliente, para que no se puedan adivinar por
+// fuerza bruta. max_uses permite un código para un grupo (p. ej. 15 personas)
+// o de un solo uso (por defecto) para invitaciones individuales.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 
@@ -53,7 +55,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "GET") {
     const { data, error } = await admin
       .from("invite_codes")
-      .select("code, note, created_at, used_by, used_at, users:used_by(nombre, email)")
+      .select("code, note, created_at, used_by, used_at, max_uses, uses_count, users:used_by(nombre, email)")
       .order("created_at", { ascending: false })
       .limit(200)
     if (error) return json({ error: "server_error" }, 500)
@@ -62,16 +64,28 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== "POST") return json({ error: "bad_request" }, 405)
 
-  let payload: { note?: string } = {}
+  let payload: { note?: string; max_uses?: number } = {}
   try { payload = await req.json() } catch { /* body opcional */ }
+
+  // Se valida aquí además del CHECK de la tabla: así un valor absurdo devuelve
+  // un 400 claro en vez de un error de constraint opaco.
+  const maxUses = Math.trunc(Number(payload.max_uses ?? 1))
+  if (!Number.isFinite(maxUses) || maxUses < 1 || maxUses > 1000) {
+    return json({ error: "invalid_max_uses" }, 400)
+  }
 
   let code = ""
   for (let attempt = 0; attempt < 5; attempt++) {
     code = genCode()
     const { error: insertError } = await admin
       .from("invite_codes")
-      .insert({ code, note: payload.note?.trim() || null, created_by: userData.user.id })
-    if (!insertError) return json({ ok: true, code })
+      .insert({
+        code,
+        note: payload.note?.trim() || null,
+        created_by: userData.user.id,
+        max_uses: maxUses,
+      })
+    if (!insertError) return json({ ok: true, code, max_uses: maxUses })
     // Colisión (muy improbable): reintenta con otro código
   }
   return json({ error: "server_error" }, 500)
