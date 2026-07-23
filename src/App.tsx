@@ -2,7 +2,6 @@ import { useEffect, lazy, Suspense } from "react"
 import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import Navbar from "./components/Navbar"
 import OnboardingTour from "./components/OnboardingTour"
-import CohortGate from "./components/CohortGate"
 import RequireAuth from "./components/RequireAuth"
 import CallProvider from "./calls/CallProvider"
 import { supabase } from "./supabase"
@@ -51,7 +50,6 @@ export default function App() {
   return (
     <div className="w-full min-h-screen bg-[#0c0d0e] text-white">
       <CallProvider>
-      <CohortGate>
       {!hideNavbar && <div className="app-aurora" aria-hidden />}
       {!hideNavbar && <Navbar />}
       {!hideNavbar && <OnboardingTour />}
@@ -92,7 +90,6 @@ export default function App() {
           <Route path="*" element={<RequireAuth><Navigate to="/explorar" replace /></RequireAuth>} />
         </Routes>
       </div>
-      </CohortGate>
       </CallProvider>
     </div>
   )

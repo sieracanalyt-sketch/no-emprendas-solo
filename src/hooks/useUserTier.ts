@@ -42,8 +42,8 @@ function notify() {
   listeners.forEach((fn) => fn())
 }
 
-async function refreshTier(userId: string): Promise<void> {
-  const [{ data: row }, { data: subs }] = await Promise.all([
+async function refreshTier(userId: string, attempt = 0): Promise<void> {
+  const [{ data: row, error: userErr }, { data: subs }] = await Promise.all([
     supabase.from("users").select("tier, trial_until, is_admin").eq("id", userId).single(),
     supabase
       .from("subscriptions")
@@ -53,6 +53,19 @@ async function refreshTier(userId: string): Promise<void> {
       .limit(1),
   ])
   if (currentUserId !== userId) return // respuesta obsoleta (logout/cambio de usuario)
+
+  // Fallo transitorio (p.ej. la sesión todavía se está restaurando al recargar
+  // directamente en una ruta como /admin): reintentar en vez de asumir free/no-admin,
+  // que dejaría a un admin real fuera de /admin sin motivo real.
+  if (userErr) {
+    if (attempt < 3) {
+      setTimeout(() => { if (currentUserId === userId) void refreshTier(userId, attempt + 1) }, 400)
+    } else {
+      snapshot = { ...snapshot, loading: false }
+      notify()
+    }
+    return
+  }
 
   const sub = ((subs as Subscription[]) ?? [])[0] ?? null
   const trialUntil = row?.trial_until ? new Date(row.trial_until) : null
