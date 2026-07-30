@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useJarvisRoom, type AgentState, type TranscriptMsg } from "./useJarvisRoom"
 import { RenderType } from "./contract"
 import type {
-  ActionsData, BriefData, FocusData, IntelData, MatchData, MetricsData, PipelineData, Tone,
+  ActionsData, BriefData, FocusData, IntelData, MatchData, MetricsData,
+  PipelineData, TaskListData, Tone,
 } from "./contract"
 import { fetchMergeContext, digestForAgent } from "./mergeContext"
+import { executeMergeActions, saveTaskListToBacklog } from "./workflowAgent"
 import { useUser } from "../hooks/useUser"
 import "./jarvis.css"
 
@@ -19,11 +21,12 @@ function useTypewriter(text: string, speed = 20, delay = 0) {
   const [out, setOut] = useState(""); const [done, setDone] = useState(false)
   useEffect(() => {
     setOut(""); setDone(false)
+    const words = text.split(" ")
     let i = 0; let iv: ReturnType<typeof setInterval>
     const t = setTimeout(() => {
       iv = setInterval(() => {
-        i++; setOut(text.slice(0, i))
-        if (i >= text.length) { clearInterval(iv); setDone(true) }
+        i++; setOut(words.slice(0, i).join(" "))
+        if (i >= words.length) { clearInterval(iv); setDone(true) }
       }, speed)
     }, delay)
     return () => { clearTimeout(t); clearInterval(iv) }
@@ -77,27 +80,39 @@ const IcTileCal = () => <svg {...capIc}><rect x="3" y="4.5" width="18" height="1
 const IcTileBoard = () => <svg {...capIc}><rect x="3" y="3" width="7" height="18" rx="1.5" /><rect x="14" y="3" width="7" height="11" rx="1.5" /></svg>
 const IcTileHelp = () => <svg {...capIc}><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .8-1 1.7M12 17h.01" /></svg>
 const IcTileFocus = () => <svg {...capIc}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.6" fill="currentColor" /></svg>
+const IcTileOrganize = () => <svg {...capIc}><path d="M4 6h10M4 12h13M4 18h7" /><path d="M17.5 17.5 19 19l3-3.5" /></svg>
 
 // Lo que el usuario puede pedirle a MERGE (intro). Cada tile lanza una acción
 // real: comandos con `cmd`, peticiones en lenguaje natural con `text`. Los que
 // llevan `context: true` sincronizan antes tu agenda + workflow con el agente.
-type Cap = { ic: ReactNode; tt: string; sub: string; label: string; cmd?: string; text?: string; kind?: "agenda" | "workflow" }
+type Cap = {
+  id: string; ic: ReactNode; tt: string; sub: string; label: string
+  cmd?: string; text?: string; kind?: "agenda" | "workflow"
+}
 const CAPS: Cap[] = [
-  { ic: <IcTileMatch />, tt: "Matchmaking avanzado", label: "Cruzando los perfiles de la comunidad",
+  { id: "match", ic: <IcTileMatch />, tt: "Matchmaking avanzado", label: "Cruzando los perfiles de la comunidad",
     sub: "Cruza los perfiles reales de NES y te sugiere con quién conectar.", cmd: "matchmaking" },
-  { ic: <IcTileCal />, tt: "Mi agenda", label: "Revisando tu agenda",
+  { id: "agenda", ic: <IcTileCal />, tt: "Mi agenda", label: "Revisando tu agenda",
     sub: "Lee tu calendario y te ayuda a organizar los próximos días.",
     text: "Repasa mi agenda de los próximos días y ayúdame a organizarla.", kind: "agenda" },
-  { ic: <IcTileBoard />, tt: "Mi workflow", label: "Revisando tu workflow",
+  { id: "workflow", ic: <IcTileBoard />, tt: "Mi workflow", label: "Revisando tu workflow",
     sub: "Tus tareas, prioridades (Eisenhower) y el mapa del equipo.",
     text: "Repasa mi workflow —tareas, prioridades y equipo— y dime en qué centrarme.", kind: "workflow" },
-  { ic: <IcTileHelp />, tt: "¿Qué puedes hacer?", label: "Repasando lo que sé hacer",
+  { id: "organize", ic: <IcTileOrganize />, tt: "Organiza mis tareas", label: "Reorganizando tu tablero",
+    sub: "MERGE reordena el tablero por ti: prioriza, mueve y reparte.",
+    text: "Organiza mis tareas: repasa el tablero, decide qué es urgente y qué es importante, "
+      + "y aplica tú los cambios —mueve las tareas de columna, ajústales la prioridad y "
+      + "repártelas entre el equipo—. Cuéntame qué has cambiado y por qué.", kind: "workflow" },
+  { id: "capabilities", ic: <IcTileHelp />, tt: "¿Qué puedes hacer?", label: "Repasando lo que sé hacer",
     sub: "MERGE te cuenta, con voz, todo lo que sabe hacer.", cmd: "capabilities" },
-  { ic: <IcTileFocus />, tt: "Sesión de foco", label: "Montando tu sesión de foco",
+  { id: "focus", ic: <IcTileFocus />, tt: "Sesión de foco", label: "Montando tu sesión de foco",
     sub: "Un temporizador guiado para concentrarte sin ruido.", text: "Empecemos una sesión de foco de 25 minutos." },
 ]
+const capById = (id: string) => CAPS.find(c => c.id === id)!
 
 type Action = { cmd?: string; text?: string; label?: string; kind?: "agenda" | "workflow" }
+// Cada cambio que MERGE aplica de verdad sobre el workflow, para que se vea.
+type AppliedChange = { id: string; ok: boolean; text: string }
 
 export default function MergeConsole() {
   const r = useJarvisRoom()
@@ -105,6 +120,7 @@ export default function MergeConsole() {
   const [draft, setDraft] = useState("")
   // Qué está haciendo MERGE ahora mismo (rótulo del estado "trabajando").
   const [workLabel, setWorkLabel] = useState<string | null>(null)
+  const [applied, setApplied] = useState<AppliedChange[]>([])
   // Acción pendiente: si escribes/pulsas algo estando desconectado, se guarda
   // aquí y se ejecuta sola en cuanto la sesión queda conectada (auto-arranque).
   const pending = useRef<Action | null>(null)
@@ -152,6 +168,24 @@ export default function MergeConsole() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r.state])
 
+  // MERGE pidiendo tocar el workflow. Lo ejecuta la app con la sesión del
+  // usuario (misma RLS que a mano), le devuelve el resultado para que pueda
+  // confirmarlo en voz, y deja el cambio a la vista.
+  const { setActionHandler } = r
+  useEffect(() => {
+    setActionHandler(async (env) => {
+      setWorkLabel("Aplicando cambios en tu workflow")
+      const res = await executeMergeActions(env)
+      rRef.current.sendActionResult(res)
+      setApplied((prev) => [
+        ...prev,
+        ...res.outcomes.map((o, i) => ({ id: `${Date.now()}-${i}`, ok: o.ok, text: o.message })),
+      ].slice(-5))
+      setWorkLabel(null)
+    })
+    return () => setActionHandler(null)
+  }, [setActionHandler])
+
   // Lanza una capacidad: si hay sesión la ejecuta; si no, la deja pendiente y
   // arranca MERGE (se ejecutará sola al conectar).
   const runCap = (c: Cap) => {
@@ -187,17 +221,22 @@ export default function MergeConsole() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {r.state === "connected" && (
-            <button className="mg-btn" onClick={() => runCap(CAPS[1])} title="MERGE lee tu agenda y te ayuda a organizarla">
+            <button className="mg-btn" onClick={() => runCap(capById("agenda"))} title="MERGE lee tu agenda y te ayuda a organizarla">
               Mi agenda
             </button>
           )}
           {r.state === "connected" && (
-            <button className="mg-btn" onClick={() => runCap(CAPS[2])} title="Tus tareas, prioridades y el mapa del equipo">
+            <button className="mg-btn" onClick={() => runCap(capById("workflow"))} title="Tus tareas, prioridades y el mapa del equipo">
               Mi workflow
             </button>
           )}
           {r.state === "connected" && (
-            <button className="mg-btn mg-btn-accent" onClick={() => runCap(CAPS[0])} title="Cruza los perfiles reales de la comunidad y sugiere conexiones">
+            <button className="mg-btn" onClick={() => runCap(capById("organize"))} title="MERGE reordena el tablero por ti: prioriza, mueve y reparte">
+              Organiza mis tareas
+            </button>
+          )}
+          {r.state === "connected" && (
+            <button className="mg-btn mg-btn-accent" onClick={() => runCap(capById("match"))} title="Cruza los perfiles reales de la comunidad y sugiere conexiones">
               Matchmaking avanzado
             </button>
           )}
@@ -225,6 +264,9 @@ export default function MergeConsole() {
         {/* MERGE trabajando: enseña el esfuerzo con datos ocultos (privacidad) */}
         {r.agentState === "thinking" && <WorkingOverlay label={workLabel ?? "Procesando tu petición"} />}
       </div>
+
+      {/* Lo que MERGE ha cambiado de verdad en tu workflow, a la vista */}
+      {applied.length > 0 && <AppliedFeed items={applied} onClear={() => setApplied([])} />}
 
       {/* Entrada — SIEMPRE visible. Escribe y envía: si no hay sesión, MERGE
           arranca solo. Menos glow para que el texto se lea (design.md §9). */}
@@ -328,6 +370,7 @@ function Stage({ r, onCap }: { r: ReturnType<typeof useJarvisRoom>; onCap: (c: C
     case RenderType.ACTIONS: return <Actions key={ts} d={data as ActionsData} />
     case RenderType.FOCUS: return <Focus key={ts} d={data as FocusData} />
     case RenderType.MATCH: return <Match key={ts} d={data as MatchData} />
+    case RenderType.TASKLIST: return <TaskList key={ts} d={data as TaskListData} />
     default: return (
       <div className="flex items-center justify-center" style={{ minHeight: 480, padding: 40, textAlign: "center" }}>
         <p style={{ maxWidth: 400, fontSize: 14, color: "var(--text-dim)" }}>Tipo de panel desconocido: {String(type)}</p>
@@ -475,9 +518,122 @@ function WorkingOverlay({ label }: { label: string }) {
   )
 }
 
+// Lo que MERGE acaba de cambiar en el workflow. No es un toast decorativo: cada
+// línea es una escritura real en la base de datos que ya está en el tablero.
+function AppliedFeed({ items, onClear }: { items: AppliedChange[]; onClear: () => void }) {
+  return (
+    <div className="mg-glass" style={{ marginTop: 14, padding: "12px 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+        <span className="mg-label">MERGE ha tocado tu workflow</span>
+        <button className="mg-btn" style={{ padding: "3px 10px", fontSize: 12 }} onClick={onClear}>Vale</button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {items.map((it) => (
+          <div key={it.id} className="mg-fade" style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13.5, lineHeight: 1.5 }}>
+            <span aria-hidden style={{ color: it.ok ? "#3fb950" : "#f85149", fontWeight: 700, lineHeight: 1.5 }}>
+              {it.ok ? "✓" : "✕"}
+            </span>
+            <span style={{ color: it.ok ? "var(--text)" : "var(--text-dim)" }}>{it.text}</span>
+          </div>
+        ))}
+      </div>
+      <p style={{ margin: "10px 0 0", fontSize: 11.5, color: "var(--text-dimmer)" }}>
+        Ya está aplicado en Flujo de trabajo — no tienes que hacer nada más.
+      </p>
+    </div>
+  )
+}
+
+// La lista de tareas que MERGE propone mientras habláis. Marcas lo que vale,
+// descartas lo demás y lo que quede entra en el Backlog del workflow.
+function TaskList({ d }: { d: TaskListData }) {
+  const items = useMemo(() => (Array.isArray(d.items) ? d.items : []), [d.items])
+  const [keep, setKeep] = useState<boolean[]>(() => items.map(() => true))
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState<number | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  // Cada panel llega con su `key={ts}`: una lista nueva es un componente nuevo,
+  // así que el estado arranca limpio sin necesidad de sincronizarlo a mano.
+  const chosen = items.filter((_, i) => keep[i])
+  const toggle = (i: number) => setKeep((prev) => prev.map((v, j) => (j === i ? !v : v)))
+
+  const save = async () => {
+    if (!chosen.length || saving) return
+    setSaving(true); setErr(null)
+    const res = await saveTaskListToBacklog(chosen)
+    setSaving(false)
+    if (res.error) setErr(res.error)
+    else setSaved(res.created)
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: 28, minHeight: 460 }}>
+      <div className="mg-label">{d.title || "Tu lista de tareas"}</div>
+      {d.intro && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: "var(--text-dim)" }}>{d.intro}</p>}
+
+      <div className="mg-scroll" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {items.length === 0 && (
+          <p style={{ fontSize: 13.5, color: "var(--text-dim)" }}>MERGE no ha propuesto ninguna tarea todavía.</p>
+        )}
+        {items.map((it, i) => {
+          const on = keep[i]
+          return (
+            <button key={`${it.title}-${i}`} onClick={() => toggle(i)} disabled={saved !== null}
+              className="mg-card mg-fade"
+              style={{
+                display: "flex", alignItems: "flex-start", gap: 12, padding: 14, textAlign: "left",
+                animationDelay: `${i * 60}ms`, opacity: on ? 1 : 0.45,
+                cursor: saved === null ? "pointer" : "default",
+              }}>
+              <span aria-hidden style={{
+                marginTop: 1, width: 19, height: 19, flexShrink: 0, borderRadius: 6,
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 700, color: on ? "#fff" : "transparent",
+                background: on ? "var(--accent)" : "transparent",
+                border: `1.5px solid ${on ? "var(--accent)" : "var(--border-strong)"}`,
+              }}>✓</span>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={{
+                  display: "block", fontSize: 14.5, fontWeight: 600, color: "var(--text)",
+                  textDecoration: on ? "none" : "line-through",
+                }}>{it.title}</span>
+                {it.note && (
+                  <span style={{ display: "block", marginTop: 3, fontSize: 13, lineHeight: 1.5, color: "var(--text-dim)" }}>
+                    {it.note}
+                  </span>
+                )}
+              </span>
+              {it.priority && <span className="mg-chip" style={{ flexShrink: 0 }}>{it.priority}</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      {err && <div className="mg-err">No pude guardarlas: {err}</div>}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto", flexWrap: "wrap" }}>
+        {saved !== null ? (
+          <span style={{ fontSize: 13.5, color: "#3fb950" }}>
+            ✓ {saved} {saved === 1 ? "tarea guardada" : "tareas guardadas"} en el Backlog de tu workflow.
+          </span>
+        ) : (
+          <>
+            <button className="mg-btn mg-btn-primary" onClick={save} disabled={!chosen.length || saving}>
+              {saving ? "Guardando…" : `Guardar ${chosen.length} en Backlog`}
+            </button>
+            <span style={{ fontSize: 12, color: "var(--text-dimmer)" }}>
+              Desmarca lo que no quieras. Lo que guardes entra en Tareas → Backlog.
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Brief({ d }: { d: BriefData }) {
-  const head = useTypewriter(d.headline, 22)
-  const note = useTypewriter(d.note, 10, d.headline.length * 22 + 350)
+  const head = useTypewriter(d.headline, 90)
+  const note = useTypewriter(d.note, 60, d.headline.split(" ").length * 90 + 350)
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: 28, minHeight: 460 }}>
       <div className="mg-label">Brief diario · {d.date}</div>

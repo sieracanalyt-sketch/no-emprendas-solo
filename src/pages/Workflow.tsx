@@ -12,12 +12,17 @@ import {
 import {
   dayKey, loadPlan, savePlan, runAutoclean, type MyDayPlan,
 } from "../lib/myDay"
+import {
+  ROLE_CATEGORIES, ALL_ROLES_FLAT, MAIN_QUICK_ROLES,
+  QUIZ_AREAS, QUIZ_LEVELS, ROLE_SUGGESTIONS, CRITICAL_ROLES,
+} from "../lib/roles"
 import GuideButton from "../components/GuideModal"
+import RolesGuideButton from "../components/RolesGuide"
 
 // ══════════════════════════════════════════════════════════════════
 // TYPES
 // ══════════════════════════════════════════════════════════════════
-type Tab = "tasks" | "prioridades" | "gestion"
+type Tab = "tasks" | "prioridades" | "midia" | "gestion"
 type Status = "backlog" | "progress" | "review" | "done"
 type Priority = "Urgente" | "Alta" | "Media" | "Baja"
 type Member = {
@@ -46,52 +51,6 @@ const COLUMNS: { status: Status; label: string; desc: string }[] = [
   { status: "review",   label: "En Revisión", desc: "Tareas terminadas esperando feedback o aprobación." },
   { status: "done",     label: "Completado",  desc: "Hitos alcanzados con éxito por el equipo." },
 ]
-// ── 50+ roles organizados por categoría ──
-const ROLE_CATEGORIES = [
-  { label: "Negocio",            emoji: "🏢", color: "#5e6ad2", roles: ["CEO / Fundador","Director General","COO / Operaciones","Responsable de Producto","Estratega de Negocio","Inversor / Business Angel","Asesor Empresarial","Director Comercial","Responsable de Ventas","Ejecutivo de Cuentas","Director de Expansión","Jefe de Proyecto","Responsable de Alianzas","CFO / Finanzas"] },
-  { label: "Tecnología",         emoji: "💻", color: "#3b82f6", roles: ["Desarrollador Full Stack","Desarrollador Frontend","Desarrollador Backend","Desarrollador Móvil","Arquitecto de Software","DevOps / Infraestructura","Ingeniero de Datos","Científico de Datos","Experto en IA / ML","Seguridad Informática","QA / Control de Calidad","CTO / Director Técnico","Administrador de Sistemas","Experto en Blockchain","Ingeniero de Software"] },
-  { label: "Diseño",             emoji: "🎨", color: "#ec4899", roles: ["Diseñador UX / UI","Diseñador Gráfico","Diseñador de Producto","Diseñador de Marca","Motion Designer","Ilustrador / Artista","Director Creativo","Diseñador Web","Fotógrafo / Videógrafo","Diseñador de Experiencias"] },
-  { label: "Marketing y Ventas", emoji: "📢", color: "#22c55e", roles: ["Director de Marketing","Especialista en Growth","Community Manager","Responsable de RRSS","SEO / SEM","Creador de Contenido","Director de Marca","Copywriter / Redactor","Email Marketing","Responsable de PR","Influencer / Creator","Publicidad Digital","Representante de Ventas"] },
-  { label: "Legal y Finanzas",   emoji: "⚖️", color: "#f59e0b", roles: ["Abogado / Asesor Legal","Gestor Financiero","Contable / Asesor Fiscal","Responsable de RRHH","Asesor de Cumplimiento","Analista Financiero","Director Financiero"] },
-  { label: "Otros",              emoji: "✨", color: "#8a8f98", roles: ["Mentor / Coach","Consultor Independiente","Investigador / Académico","Estudiante / En formación","Freelancer","Sin rol definido"] },
-]
-const ALL_ROLES_FLAT = ROLE_CATEGORIES.flatMap(c => c.roles.map(name => ({ name, color: c.color, category: c.label })))
-const MAIN_QUICK_ROLES = [
-  { name: "Negocio",     color: "#5e6ad2", emoji: "🏢", desc: "Estrategia, producto y operaciones" },
-  { name: "Tecnología",  color: "#3b82f6", emoji: "💻", desc: "Desarrollo, datos e infraestructura" },
-  { name: "Creatividad", color: "#ec4899", emoji: "🎨", desc: "Diseño, marketing y contenido"       },
-]
-// Cuestionario de descubrimiento de rol
-const QUIZ_AREAS = [
-  { value: "negocio",     label: "Dirijo, decido y gestiono el negocio", emoji: "🏢" },
-  { value: "tecnologia",  label: "Construyo, programo y resuelvo técnico", emoji: "💻" },
-  { value: "diseno",      label: "Diseño y creo visualmente", emoji: "🎨" },
-  { value: "marketing",   label: "Vendo, conecto y comunico", emoji: "📢" },
-  { value: "legal",       label: "Gestiono lo legal y financiero", emoji: "⚖️" },
-]
-const QUIZ_LEVELS = [
-  { value: "junior", label: "Estoy empezando / Aprendiendo", emoji: "🌱" },
-  { value: "mid",    label: "Tengo experiencia media",       emoji: "🚀" },
-  { value: "senior", label: "Soy senior / Experto",          emoji: "⭐" },
-]
-const ROLE_SUGGESTIONS: Record<string, string[]> = {
-  "negocio-junior":    ["Jefe de Proyecto","Responsable de Ventas","Ejecutivo de Cuentas"],
-  "negocio-mid":       ["Responsable de Producto","Director Comercial","Estratega de Negocio"],
-  "negocio-senior":    ["CEO / Fundador","Director General","COO / Operaciones"],
-  "tecnologia-junior": ["Desarrollador Frontend","Desarrollador Backend","QA / Control de Calidad"],
-  "tecnologia-mid":    ["Desarrollador Full Stack","Desarrollador Móvil","Ingeniero de Datos"],
-  "tecnologia-senior": ["CTO / Director Técnico","Arquitecto de Software","Experto en IA / ML"],
-  "diseno-junior":     ["Diseñador Gráfico","Diseñador Web","Ilustrador / Artista"],
-  "diseno-mid":        ["Diseñador UX / UI","Diseñador de Producto","Diseñador de Marca"],
-  "diseno-senior":     ["Director Creativo","Diseñador de Experiencias","Motion Designer"],
-  "marketing-junior":  ["Community Manager","Creador de Contenido","Copywriter / Redactor"],
-  "marketing-mid":     ["Especialista en Growth","SEO / SEM","Responsable de RRSS"],
-  "marketing-senior":  ["Director de Marketing","Director de Marca","Responsable de PR"],
-  "legal-junior":      ["Contable / Asesor Fiscal","Analista Financiero","Responsable de RRHH"],
-  "legal-mid":         ["Gestor Financiero","Abogado / Asesor Legal","Asesor de Cumplimiento"],
-  "legal-senior":      ["Director Financiero","CFO / Finanzas","Asesor Empresarial"],
-}
-
 const PRIORITIES: Priority[] = ["Urgente", "Alta", "Media", "Baja"]
 const PRIORITY_COLOR: Record<Priority, string> = {
   Urgente: "#eb5757", Alta: "#f2994a", Media: "#e2b93b", Baja: "#8a8f98",
@@ -100,7 +59,7 @@ const MEMBER_COLORS = ["#5e6ad2", "#3b82f6", "#22c55e", "#ec4899", "#f2994a", "#
 const FALLBACK_MEMBER: Member = { id: "", nombre: "Sin asignar", avatar: null, role: "Sin rol definido", joinedAt: new Date().toISOString(), posX: null, posY: null }
 const CUSTOM_ROLES_KEY  = "nes_custom_roles"
 const MILESTONES_KEY    = "nes_milestones"
-const CRITICAL_ROLES    = ["CTO / Director Técnico", "Diseñador UX / UI", "Responsable de Producto"]
+const SHOW_REVIEW_KEY   = "nes_show_review_column"
 
 // ══════════════════════════════════════════════════════════════════
 // HELPERS
@@ -114,13 +73,24 @@ function memberColorById(members: Member[], id: string | null) {
 function getRoleColor(allRoles: { name: string; color: string }[], role: string) {
   return allRoles.find(r => r.name === role)?.color ?? "#8a8f98"
 }
-function useOutsideClick<T extends HTMLElement>(onClose: () => void) {
+/**
+ * Cierra un desplegable al pulsar fuera.
+ *
+ * `enabled` NO es un lujo: sin él, cada instancia montada escucha todos los
+ * mousedown del documento aunque su propio menú esté cerrado. Con dos miembros
+ * en el equipo, el chip B cerraba el menú abierto del chip A en el mousedown —
+ * el botón se desmontaba antes del mouseup y el `click` no llegaba a dispararse
+ * nunca. De ahí que el menú de rol pareciera muerto: elegir rol, "ver todos los
+ * roles" y "quitar del equipo" no respondían con más de un miembro.
+ */
+function useOutsideClick<T extends HTMLElement>(onClose: () => void, enabled = true) {
   const ref = useRef<T>(null)
   useEffect(() => {
+    if (!enabled) return
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
     document.addEventListener("mousedown", h)
     return () => document.removeEventListener("mousedown", h)
-  }, [onClose])
+  }, [onClose, enabled])
   return ref
 }
 function isDueSoon(d: string | null) {
@@ -171,6 +141,8 @@ type WFCtx = {
   activityOpen: boolean; roleMenuFor: string | null
   addMenuOpen: boolean; addSelectedUser: string | null
   createRoleOpen: boolean; modalStatus: Status | null
+  editingTask: Task | null
+  showReview: boolean; columns: typeof COLUMNS
   mobileTab: Status; dragOver: Status | null
   dragId: React.MutableRefObject<string | null>
   toasts: Toast[]
@@ -184,6 +156,8 @@ type WFCtx = {
   setAddSelectedUser: (v: string | null) => void
   setCreateRoleOpen: (v: boolean) => void
   setModalStatus: (v: Status | null) => void
+  setEditingTask: (v: Task | null) => void
+  setShowReview: (v: boolean) => void
   setMobileTab: (v: Status) => void
   setDragOver: (v: Status | null) => void
   addMember: (userId: string, role: string) => Promise<void>
@@ -191,6 +165,7 @@ type WFCtx = {
   setRole: (id: string, role: string) => Promise<void>
   addCustomRole: (r: CustomRole) => void
   createTask: (d: Omit<Task, "id">) => Promise<void>
+  updateTask: (id: string, d: Omit<Task, "id">) => Promise<void>
   moveTask: (id: string, s: Status) => Promise<void>
   setTaskQuadrant: (id: string, q: Quadrant) => Promise<void>
   toggleBlocked: (id: string) => Promise<void>
@@ -281,6 +256,12 @@ export default function Workflow() {
   const [addSelectedUser, setAddSelectedUser] = useState<string | null>(null)
   const [createRoleOpen, setCreateRoleOpen] = useState(false)
   const [modalStatus, setModalStatus] = useState<Status | null>(null)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  // "En Revisión" molesta a la mayoría de equipos pequeños: oculta por defecto,
+  // con interruptor para recuperarla. Preferencia local, no toca la base.
+  const [showReview, setShowReviewState] = useState<boolean>(() => {
+    try { return localStorage.getItem(SHOW_REVIEW_KEY) === "1" } catch { return false }
+  })
   const [mobileTab, setMobileTab]   = useState<Status>("backlog")
   const [dragOver, setDragOver]     = useState<Status | null>(null)
   const [toasts, setToasts]         = useState<Toast[]>([])
@@ -297,6 +278,18 @@ export default function Workflow() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
   }, [])
   const dismissToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), [])
+
+  const setShowReview = useCallback((v: boolean) => {
+    setShowReviewState(v)
+    try { localStorage.setItem(SHOW_REVIEW_KEY, v ? "1" : "0") } catch { /* modo privado */ }
+  }, [])
+  // Con la columna oculta, lo que esté "en revisión" no desaparece: se muestra
+  // dentro de En Progreso (sigue sin estar terminado) y vuelve a su sitio al
+  // reactivar el interruptor. Nada se pierde de vista sin querer.
+  const columns = useMemo(
+    () => showReview ? COLUMNS : COLUMNS.filter(c => c.status !== "review"),
+    [showReview]
+  )
 
   const logActivity = useCallback((text: string) => {
     setActivity(prev => [{ id: crypto.randomUUID(), text, time: new Date() }, ...prev.slice(0, 19)])
@@ -367,9 +360,17 @@ export default function Workflow() {
   const removeMember = useCallback(async (id: string) => {
     const m = members.find(x => x.id === id)
     setMembers(prev => prev.filter(x => x.id !== id)); setRoleMenuFor(null)
+    // .select() para comprobar que el borrado ocurrió de verdad: si RLS lo
+    // descarta, Postgres devuelve éxito con cero filas y sin esto la UI mentía
+    // (el miembro desaparecía y reaparecía al recargar).
+    const { data, error } = await supabase.from("workflow_roles")
+      .delete().eq("user_id", id).select("user_id")
+    if (error || !data || data.length === 0) {
+      addToast("error", error ? "Error al eliminar miembro" : "No tienes permiso para quitar a este miembro")
+      loadMembers()
+      return
+    }
     if (m) logActivity(`Eliminaste a ${m.nombre} del equipo`)
-    const { error } = await supabase.from("workflow_roles").delete().eq("user_id", id)
-    if (error) { addToast("error", "Error al eliminar miembro"); loadMembers() }
   }, [members, logActivity, addToast, loadMembers])
 
   const setRole = useCallback(async (id: string, role: string) => {
@@ -396,6 +397,17 @@ export default function Workflow() {
     }
     await loadTasks()
     logActivity(`Creaste "${d.title}"`)
+  }, [logActivity, addToast, loadTasks])
+
+  const updateTask = useCallback(async (id: string, d: Omit<Task, "id">) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...d, id } : t))
+    const { error } = await supabase.from("workflow_tasks").update(d).eq("id", id)
+    if (error) {
+      addToast("error", `Error al guardar la tarea: ${error.message}`)
+      loadTasks()
+      return
+    }
+    logActivity(`Editaste "${d.title}"`)
   }, [logActivity, addToast, loadTasks])
 
   const moveTask = useCallback(async (id: string, status: Status) => {
@@ -493,13 +505,14 @@ export default function Workflow() {
     user, members, tasks, allUsers, allRoles, activity,
     focusMember, myWorkloadOnly, visibleTasks, progress, searchResults,
     activityOpen, roleMenuFor, addMenuOpen, addSelectedUser, createRoleOpen,
-    modalStatus, mobileTab, dragOver, dragId, toasts, memberById,
+    modalStatus, editingTask, showReview, columns,
+    mobileTab, dragOver, dragId, toasts, memberById,
     openSearch: () => { setSearchOpen(true); setSearchQuery("") },
     setFocusMember, setMyWorkloadOnly, setActivityOpen, setRoleMenuFor,
     setAddMenuOpen, setAddSelectedUser, setCreateRoleOpen, setModalStatus,
-    setMobileTab, setDragOver,
+    setEditingTask, setShowReview, setMobileTab, setDragOver,
     addMember, removeMember, setRole, addCustomRole,
-    createTask, moveTask, setTaskQuadrant, toggleBlocked, deleteTask, exportProject,
+    createTask, updateTask, moveTask, setTaskQuadrant, toggleBlocked, deleteTask, exportProject,
     addToast, dismissToast,
   }
 
@@ -528,7 +541,7 @@ export default function Workflow() {
           {/* ── Los 3 subapartados, centrados y protagonistas ── */}
           <div className="flex justify-center mb-4">
             <div
-              className="flex items-center gap-1 p-1 rounded-2xl w-full max-w-xl"
+              className="flex items-center gap-1 p-1 rounded-2xl w-full max-w-3xl"
               style={{
                 background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
                 border: "1px solid var(--glass-border)",
@@ -540,8 +553,10 @@ export default function Workflow() {
               {([
                 { tab: "tasks" as Tab, label: "Tareas", desc: "Kanban del equipo",
                   icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="18" rx="1.5" /><rect x="14" y="3" width="7" height="11" rx="1.5" /></svg> },
-                { tab: "prioridades" as Tab, label: "Prioridades", desc: "Eisenhower + Mi Día",
+                { tab: "prioridades" as Tab, label: "Prioridades", desc: "Matriz de Eisenhower",
                   icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /></svg> },
+                { tab: "midia" as Tab, label: "Mi Día", desc: "Tu plan de hoy",
+                  icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" /></svg> },
                 { tab: "gestion" as Tab, label: "Gestión", desc: "Mapa del equipo",
                   icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="7" r="2.5" /><circle cx="12" cy="17.5" r="2.5" /><path d="M9.3 7.8h5.4M8.4 9.2l2.6 5.6M15.6 9.2 13 14.8" /></svg> },
               ]).map(({ tab, icon, label, desc }) => {
@@ -589,6 +604,7 @@ export default function Workflow() {
 
         {activeTab === "tasks" ? <TasksView />
           : activeTab === "prioridades" ? <PrioridadesView />
+          : activeTab === "midia" ? <MiDiaView />
           : <GestionView />}
 
         {searchOpen && (
@@ -606,14 +622,29 @@ export default function Workflow() {
 // ══════════════════════════════════════════════════════════════════
 function TasksView() {
   const {
-    user, members, visibleTasks, activityOpen, activity,
+    user, members, tasks, visibleTasks, activityOpen, activity,
     focusMember, myWorkloadOnly, roleMenuFor, addMenuOpen, addSelectedUser,
-    createRoleOpen, modalStatus, mobileTab, dragOver, dragId,
+    createRoleOpen, modalStatus, editingTask, showReview, columns,
+    mobileTab, dragOver, dragId,
     memberById, openSearch, exportProject,
     setFocusMember, setMyWorkloadOnly, setActivityOpen, setRoleMenuFor,
-    setAddMenuOpen, setAddSelectedUser, setCreateRoleOpen, setModalStatus, setMobileTab, setDragOver,
-    addMember, removeMember, setRole, addCustomRole, createTask, moveTask, toggleBlocked, deleteTask,
+    setAddMenuOpen, setAddSelectedUser, setCreateRoleOpen, setModalStatus,
+    setEditingTask, setShowReview, setMobileTab, setDragOver,
+    addMember, removeMember, setRole, addCustomRole,
+    createTask, updateTask, moveTask, toggleBlocked, deleteTask,
   } = useWF()
+
+  // Con la columna oculta, "En Revisión" se pinta dentro de En Progreso.
+  const tasksOf = (status: Status) => visibleTasks.filter(t =>
+    t.status === status || (!showReview && status === "progress" && t.status === "review")
+  )
+  const reviewCount = tasks.filter(t => t.status === "review").length
+
+  // Si "En Revisión" era la pestaña activa en móvil y se oculta la columna,
+  // el tablero se quedaría en blanco.
+  useEffect(() => {
+    if (!showReview && mobileTab === "review") setMobileTab("progress")
+  }, [showReview, mobileTab, setMobileTab])
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -633,6 +664,7 @@ function TasksView() {
             onBack={() => setAddSelectedUser(null)} onAdd={addMember} />
           <CreateRoleButton open={createRoleOpen} onToggle={() => setCreateRoleOpen(!createRoleOpen)}
             onClose={() => setCreateRoleOpen(false)} onSave={addCustomRole} />
+          <RolesGuideButton />
         </div>
         {/* Filter bar */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -652,6 +684,15 @@ function TasksView() {
               label={m.nombre.split(" ")[0]} avatar={<MemberAvatar member={m} size={18} />} />
           ))}
           <div className="ml-auto flex items-center gap-1.5">
+            <MiniSwitch
+              on={showReview}
+              onToggle={() => setShowReview(!showReview)}
+              label="En Revisión"
+              title={showReview
+                ? "Ocultar la columna En Revisión (sus tareas pasan a verse en En Progreso)"
+                : `Mostrar la columna En Revisión${reviewCount ? ` · ${reviewCount} dentro` : ""}`}
+              badge={!showReview && reviewCount > 0 ? reviewCount : undefined}
+            />
             <ActionBtn onClick={() => setActivityOpen(!activityOpen)} active={activityOpen} label="Actividad" />
             <ActionBtn onClick={exportProject} label="Exportar" title="Copiar resumen al portapapeles" />
             <ActionBtn onClick={openSearch} label="Buscar" hint="⌘K" />
@@ -661,8 +702,8 @@ function TasksView() {
 
       {/* Mobile tabs */}
       <div className="md:hidden flex shrink-0 px-3 gap-1" style={{ borderBottom: "1px solid var(--border)" }}>
-        {COLUMNS.map(c => {
-          const n = visibleTasks.filter(t => t.status === c.status).length
+        {columns.map(c => {
+          const n = tasksOf(c.status).length
           const active = mobileTab === c.status
           return (
             <button key={c.status} onClick={() => setMobileTab(c.status)}
@@ -678,9 +719,10 @@ function TasksView() {
       {/* Board + activity */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
         <div className="flex-1 min-w-0 px-3 md:px-6 pb-5 pt-3 overflow-hidden">
-          <div className="h-full md:grid md:grid-cols-4 gap-4 flex flex-col">
-            {COLUMNS.map(col => {
-              const colTasks = visibleTasks.filter(t => t.status === col.status)
+          <div className="h-full md:grid gap-4 flex flex-col"
+            style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
+            {columns.map(col => {
+              const colTasks = tasksOf(col.status)
               const over = dragOver === col.status
               return (
                 <section key={col.status}
@@ -719,9 +761,11 @@ function TasksView() {
                     )}
                     {colTasks.map(task => (
                       <TaskCard key={task.id} task={task} member={memberById(task.assignee)}
+                        columns={columns}
                         onDragStart={() => (dragId.current = task.id)}
                         onMove={s => moveTask(task.id, s)}
                         onToggleBlocked={() => toggleBlocked(task.id)}
+                        onEdit={() => setEditingTask(task)}
                         onDelete={() => deleteTask(task.id)} />
                     ))}
                   </div>
@@ -734,10 +778,18 @@ function TasksView() {
       </div>
 
       {modalStatus && (
-        <CreateTaskModal status={modalStatus}
+        <TaskModal status={modalStatus}
           defaultAssignee={user?.id ?? members[0]?.id ?? ""}
           onClose={() => setModalStatus(null)}
-          onCreate={d => { createTask(d); setModalStatus(null) }} />
+          onSave={d => { createTask(d); setModalStatus(null) }} />
+      )}
+      {/* Editar: el MISMO panel que crear, con los datos ya puestos */}
+      {editingTask && (
+        <TaskModal task={editingTask} status={editingTask.status}
+          defaultAssignee={editingTask.assignee ?? ""}
+          onClose={() => setEditingTask(null)}
+          onSave={d => { updateTask(editingTask.id, d); setEditingTask(null) }}
+          onDelete={() => { deleteTask(editingTask.id); setEditingTask(null) }} />
       )}
     </div>
   )
@@ -1677,7 +1729,7 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
           {/* Role list */}
           <div className="flex-1 overflow-y-auto">
             {ROLE_CATEGORIES.filter(c => !catFilter || c.label === catFilter).map(cat => {
-              const roles = cat.roles.filter(r => r.toLowerCase().includes(search.toLowerCase()))
+              const roles = cat.roles.filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
               if (roles.length === 0) return null
               return (
                 <div key={cat.label}>
@@ -1687,18 +1739,21 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
                       <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: cat.color }}>{cat.label}</span>
                     </div>
                   )}
-                  {roles.map(name => {
+                  {roles.map(({ name, desc }) => {
                     const isCurrent = name === currentRole
                     return (
-                      <button key={name} onClick={() => handle(name)}
-                        className="w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 transition group"
+                      <button key={name} onClick={() => handle(name)} title={desc}
+                        className="w-full text-left px-3 py-1.5 flex items-start justify-between gap-2 transition group"
                         style={{ background: isCurrent ? `${cat.color}10` : "transparent" }}
                         onMouseEnter={e => (e.currentTarget.style.background = `${cat.color}10`)}
                         onMouseLeave={e => (e.currentTarget.style.background = isCurrent ? `${cat.color}10` : "transparent")}>
-                        <span className="text-[12px] text-white truncate">{name}</span>
+                        <span className="min-w-0">
+                          <span className="block text-[12px] text-white truncate">{name}</span>
+                          <span className="block text-[10px] leading-snug line-clamp-2" style={{ color: "var(--text-dimmer)" }}>{desc}</span>
+                        </span>
                         {isCurrent
-                          ? <span className="text-[10px] shrink-0" style={{ color: cat.color }}>✓</span>
-                          : <span className="text-[10px] shrink-0 opacity-0 group-hover:opacity-100 transition" style={{ color: "var(--text-dimmer)" }}>→</span>
+                          ? <span className="text-[10px] shrink-0 mt-0.5" style={{ color: cat.color }}>✓</span>
+                          : <span className="text-[10px] shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition" style={{ color: "var(--text-dimmer)" }}>→</span>
                         }
                       </button>
                     )
@@ -1783,7 +1838,7 @@ function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
   onToggle: () => void; onPick: (r: string) => void; onClose: () => void; onRemove: () => void
 }) {
   const { allRoles } = useWF()
-  const ref = useOutsideClick<HTMLDivElement>(onClose)
+  const ref = useOutsideClick<HTMLDivElement>(onClose, open)
   const [search, setSearch] = useState("")
   const [showAll, setShowAll] = useState(false)
   const color = getRoleColor(allRoles, member.role)
@@ -1882,7 +1937,7 @@ function AddMemberButton({ open, onToggle, onClose, selectedUser, onSelectUser, 
   onBack: () => void; onAdd: (userId: string, role: string) => Promise<void>
 }) {
   const { allUsers, members } = useWF()
-  const ref = useOutsideClick<HTMLDivElement>(onClose)
+  const ref = useOutsideClick<HTMLDivElement>(onClose, open)
   const available = allUsers.filter(u => !members.some(m => m.id === u.id))
   const picked = selectedUser ? allUsers.find(u => u.id === selectedUser) : null
   return (
@@ -1937,7 +1992,7 @@ function CreateRoleButton({ open, onToggle, onClose, onSave }: {
 }) {
   const [name, setName]   = useState("")
   const [color, setColor] = useState("#a78bfa")
-  const ref = useOutsideClick<HTMLDivElement>(onClose)
+  const ref = useOutsideClick<HTMLDivElement>(onClose, open)
   const save = () => {
     if (!name.trim()) return
     onSave({ id: crypto.randomUUID(), name: name.trim(), color })
@@ -1996,13 +2051,13 @@ function ActionBtn({ onClick, label, hint, title, active }: {
   )
 }
 
-function TaskCard({ task, member, onDragStart, onMove, onToggleBlocked, onDelete }: {
-  task: Task; member: Member
+function TaskCard({ task, member, columns, onDragStart, onMove, onToggleBlocked, onEdit, onDelete }: {
+  task: Task; member: Member; columns: typeof COLUMNS
   onDragStart: () => void; onMove: (s: Status) => void
-  onToggleBlocked: () => void; onDelete: () => void
+  onToggleBlocked: () => void; onEdit: () => void; onDelete: () => void
 }) {
   const [menu, setMenu] = useState(false)
-  const ref = useOutsideClick<HTMLDivElement>(() => setMenu(false))
+  const ref = useOutsideClick<HTMLDivElement>(() => setMenu(false), menu)
   const soon    = isDueSoon(task.due_date)
   const overdue = isDueOverdue(task.due_date)
   const borderColor = task.blocked ? "rgba(242,153,74,0.45)"
@@ -2024,8 +2079,16 @@ function TaskCard({ task, member, onDragStart, onMove, onToggleBlocked, onDelete
           {menu && (
             <div className="absolute right-0 top-full mt-1 z-30 w-48 rounded-lg p-1.5"
               style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
+              <button onClick={() => { onEdit(); setMenu(false) }}
+                className="w-full text-left px-2 py-1.5 rounded-md text-[12px] font-medium transition"
+                style={{ color: "#fff" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(94,106,210,0.16)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                Editar tarea…
+              </button>
+              <div className="my-1 h-px" style={{ background: "var(--border)" }} />
               <p className="px-2 py-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-dimmer)" }}>Mover a</p>
-              {COLUMNS.map(c => (
+              {columns.map(c => (
                 <button key={c.status} onClick={() => { onMove(c.status); setMenu(false) }}
                   disabled={c.status === task.status}
                   className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition disabled:opacity-35"
@@ -2073,34 +2136,63 @@ function TaskCard({ task, member, onDragStart, onMove, onToggleBlocked, onDelete
   )
 }
 
-function CreateTaskModal({ status, defaultAssignee, onClose, onCreate }: {
-  status: Status; defaultAssignee: string
-  onClose: () => void; onCreate: (d: Omit<Task, "id">) => void
+/**
+ * Panel de tarea. El MISMO formulario para crear y para editar: si llega `task`,
+ * los campos vienen rellenos, aparece el selector de columna, el bloqueo y el
+ * botón de eliminar, y el título pasa a "Editar tarea".
+ */
+function TaskModal({ task, status, defaultAssignee, onClose, onSave, onDelete }: {
+  task?: Task; status: Status; defaultAssignee: string
+  onClose: () => void; onSave: (d: Omit<Task, "id">) => void; onDelete?: () => void
 }) {
-  const { members } = useWF()
-  const [title, setTitle]           = useState("")
-  const [description, setDescription] = useState("")
-  const [priority, setPriority]     = useState<Priority>("Media")
-  const [assignee, setAssignee]     = useState(defaultAssignee || members[0]?.id || "")
-  const [dueDate, setDueDate]       = useState("")
+  const { members, columns } = useWF()
+  const editing = !!task
+  const [title, setTitle]           = useState(task?.title ?? "")
+  const [description, setDescription] = useState(task?.description ?? "")
+  const [priority, setPriority]     = useState<Priority>(task?.priority ?? "Media")
+  const [col, setCol]               = useState<Status>(task?.status ?? status)
+  const [assignee, setAssignee]     = useState(task?.assignee ?? defaultAssignee ?? "")
+  const [blocked, setBlocked]       = useState(task?.blocked ?? false)
+  const [dueDate, setDueDate]       = useState(task?.due_date ? task.due_date.slice(0, 10) : "")
+  const [confirmDel, setConfirmDel] = useState(false)
+
   const submit = () => {
     if (!title.trim()) return
-    onCreate({ title: title.trim(), description: description.trim(), priority, status, assignee: assignee || null, blocked: false, due_date: dueDate || null, eisenhower_quadrant: null })
+    onSave({
+      title: title.trim(), description: description.trim(), priority, status: col,
+      assignee: assignee || null, blocked, due_date: dueDate || null,
+      // Al reeditar prioridad o columna, el cuadrante fijado a mano deja de
+      // valer: se vuelve a derivar solo (la matriz es un espejo, no una copia).
+      eisenhower_quadrant: editing && (priority !== task!.priority || col !== task!.status)
+        ? null : task?.eisenhower_quadrant ?? null,
+    })
   }
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === "Escape" && onClose()
     document.addEventListener("keydown", h)
     return () => document.removeEventListener("keydown", h)
   }, [onClose])
-  const colLabel = COLUMNS.find(c => c.status === status)?.label ?? ""
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh]"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }} onMouseDown={onClose}>
-      <div className="glass-dark w-full max-w-md rounded-2xl p-5"
+    <div className="fixed inset-0 z-[95] flex items-center justify-center px-4 py-6"
+      style={{ background: "rgba(0,0,0,0.55)", WebkitBackdropFilter: "blur(10px)", backdropFilter: "blur(10px)" }}
+      onMouseDown={onClose}>
+      <div className="w-full max-w-md rounded-2xl p-5 overflow-y-auto"
+        style={{
+          background: "linear-gradient(180deg, #23262e, #16181c)",
+          border: "1px solid var(--glass-border)",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.07)",
+          maxHeight: "88vh",
+          animation: "modal-pop 0.24s cubic-bezier(0.34,1.2,0.64,1) both",
+        }}
         onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-semibold text-white">Nueva tarea</h3>
-          <span className="text-[11px] px-2 py-0.5 rounded-md" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}>{colLabel}</span>
+          <h3 className="text-[15px] font-semibold text-white">{editing ? "Editar tarea" : "Nueva tarea"}</h3>
+          {!editing && (
+            <span className="text-[11px] px-2 py-0.5 rounded-md" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}>
+              {COLUMNS.find(c => c.status === status)?.label ?? ""}
+            </span>
+          )}
         </div>
         <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
           onKeyDown={e => e.key === "Enter" && submit()} placeholder="Título de la tarea"
@@ -2108,6 +2200,27 @@ function CreateTaskModal({ status, defaultAssignee, onClose, onCreate }: {
         <textarea value={description} onChange={e => setDescription(e.target.value)}
           rows={2} placeholder="Descripción corta…"
           className="field-input w-full px-3.5 py-2 rounded-md text-[13px] resize-none leading-relaxed mb-3" />
+
+        {editing && (
+          <>
+            <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "var(--text-dimmer)" }}>Columna</p>
+            <div className="flex gap-2 mb-3 flex-wrap">
+              {/* Si la tarea está en una columna oculta (En Revisión), se enseña
+                  igualmente: si no, no habría forma de sacarla de ahí. */}
+              {(columns.some(c => c.status === col) ? columns : COLUMNS).map(c => {
+                const active = col === c.status
+                return (
+                  <button key={c.status} onClick={() => setCol(c.status)}
+                    className="px-2.5 py-1 rounded-md text-[12px] font-medium transition"
+                    style={{ background: active ? "rgba(94,106,210,0.16)" : "rgba(255,255,255,0.03)", color: active ? "#aab2f0" : "var(--text-dim)", border: `1px solid ${active ? "rgba(94,106,210,0.45)" : "var(--border)"}` }}>
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+
         <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "var(--text-dimmer)" }}>Prioridad</p>
         <div className="flex gap-2 mb-3 flex-wrap">
           {PRIORITIES.map(p => {
@@ -2121,6 +2234,7 @@ function CreateTaskModal({ status, defaultAssignee, onClose, onCreate }: {
             )
           })}
         </div>
+
         {members.length > 0 && (
           <>
             <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "var(--text-dimmer)" }}>Asignar a</p>
@@ -2128,7 +2242,7 @@ function CreateTaskModal({ status, defaultAssignee, onClose, onCreate }: {
               {members.map(m => {
                 const active = assignee === m.id
                 return (
-                  <button key={m.id} onClick={() => setAssignee(m.id)}
+                  <button key={m.id} onClick={() => setAssignee(active ? "" : m.id)}
                     className="flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
                     style={{ background: active ? "rgba(94,106,210,0.14)" : "rgba(255,255,255,0.03)", border: active ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)", color: active ? "#aab2f0" : "var(--text-dim)" }}>
                     <MemberAvatar member={m} size={18} />{m.nombre.split(" ")[0]}
@@ -2138,19 +2252,93 @@ function CreateTaskModal({ status, defaultAssignee, onClose, onCreate }: {
             </div>
           </>
         )}
+
         <p className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: "var(--text-dimmer)" }}>Fecha límite (opcional)</p>
-        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-          className="field-input w-full px-3.5 py-2 rounded-md text-[13px] mb-5" style={{ colorScheme: "dark" }} />
-        <div className="flex items-center justify-end gap-2">
-          <button onClick={onClose} className="px-3.5 py-2 rounded-md text-[13px] font-medium transition" style={{ color: "var(--text-dim)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>Cancelar</button>
-          <button onClick={submit} disabled={!title.trim()}
-            className="px-4 py-2 rounded-md text-[13px] font-semibold bg-white text-black transition hover:bg-white/90 disabled:opacity-40">
-            Crear tarea
+        <div className="flex items-center gap-2 mb-3">
+          <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+            className="field-input flex-1 px-3.5 py-2 rounded-md text-[13px]" style={{ colorScheme: "dark" }} />
+          {dueDate && (
+            <button onClick={() => setDueDate("")} className="px-2.5 py-2 rounded-md text-[12px] transition"
+              style={{ color: "var(--text-dim)", border: "1px solid var(--border)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>Quitar</button>
+          )}
+        </div>
+
+        {editing && (
+          <button onClick={() => setBlocked(!blocked)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-md text-[12.5px] font-medium transition mb-5"
+            style={{
+              background: blocked ? "rgba(242,153,74,0.12)" : "rgba(255,255,255,0.03)",
+              border: `1px solid ${blocked ? "rgba(242,153,74,0.4)" : "var(--border)"}`,
+              color: blocked ? "#f2994a" : "var(--text-dim)",
+            }}>
+            <span>{blocked ? "Bloqueada — algo la está frenando" : "Marcar como bloqueada"}</span>
+            <span className="relative w-8 h-[18px] rounded-full transition shrink-0"
+              style={{ background: blocked ? "rgba(242,153,74,0.55)" : "rgba(255,255,255,0.12)" }}>
+              <span className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-all"
+                style={{ left: blocked ? 16 : 2 }} />
+            </span>
           </button>
+        )}
+
+        <div className="flex items-center justify-between gap-2" style={{ marginTop: editing ? 0 : 8 }}>
+          {editing && onDelete ? (
+            confirmDel ? (
+              <div className="flex items-center gap-2">
+                <button onClick={onDelete} className="px-3 py-2 rounded-md text-[13px] font-semibold transition"
+                  style={{ background: "rgba(235,87,87,0.18)", border: "1px solid rgba(235,87,87,0.45)", color: "#eb5757" }}>
+                  Sí, eliminar
+                </button>
+                <button onClick={() => setConfirmDel(false)} className="text-[12px] transition" style={{ color: "var(--text-dim)" }}>
+                  No
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDel(true)} className="px-3 py-2 rounded-md text-[13px] font-medium transition"
+                style={{ color: "rgba(235,87,87,0.85)" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(235,87,87,0.1)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                Eliminar tarea
+              </button>
+            )
+          ) : <span />}
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="px-3.5 py-2 rounded-md text-[13px] font-medium transition" style={{ color: "var(--text-dim)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>Cancelar</button>
+            <button onClick={submit} disabled={!title.trim()}
+              className="px-4 py-2 rounded-md text-[13px] font-semibold bg-white text-black transition hover:bg-white/90 disabled:opacity-40">
+              {editing ? "Guardar cambios" : "Crear tarea"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+/** Interruptor pequeñito para enseñar u ocultar algo sin ocupar sitio. */
+function MiniSwitch({ on, onToggle, label, title, badge }: {
+  on: boolean; onToggle: () => void; label: string; title?: string; badge?: number
+}) {
+  return (
+    <button onClick={onToggle} title={title}
+      className="flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
+      style={{
+        background: on ? "rgba(94,106,210,0.14)" : "var(--surface)",
+        border: on ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)",
+        color: on ? "#aab2f0" : "var(--text-dim)",
+      }}>
+      <span className="relative w-[26px] h-[15px] rounded-full transition shrink-0"
+        style={{ background: on ? "#5e6ad2" : "rgba(255,255,255,0.14)" }}>
+        <span className="absolute top-[2px] w-[11px] h-[11px] rounded-full bg-white transition-all"
+          style={{ left: on ? 13 : 2 }} />
+      </span>
+      <span className="hidden sm:inline">{label}</span>
+      {badge !== undefined && (
+        <span className="text-[10px] px-1 rounded" style={{ background: "rgba(255,255,255,0.08)" }}>{badge}</span>
+      )}
+    </button>
   )
 }
 
@@ -2332,7 +2520,7 @@ function PrioridadesView() {
         {filtering && <><span>·</span><span style={{ color: "#aab2f0" }}>vista filtrada</span></>}
       </div>
 
-      {miDiaOpen && <MiDiaPanel onClose={() => setMiDiaOpen(false)} />}
+      {miDiaOpen && <MiDiaModal onClose={() => setMiDiaOpen(false)} />}
     </div>
   )
 }
@@ -2376,37 +2564,39 @@ function MatrixCard({ task, member, accent, onDragStart, onComplete }: {
   )
 }
 
-// ── Slide-over "Mi Día" con autolimpieza de residuos ──
-function MiDiaPanel({ onClose }: { onClose: () => void }) {
-  const { user, tasks, memberById, moveTask, addToast } = useWF()
+// ══════════════════════════════════════════════════════════════════
+// MI DÍA — tu plan de hoy, con autolimpieza de residuos
+//
+// Vive en su propia pestaña (fondo sólido, sitio de sobra) y además se puede
+// abrir como ventana emergente desde Prioridades sin perder el contexto: es el
+// mismo cuerpo, presentado de dos maneras. Cada cambio se guarda al instante,
+// así que cerrar clicando fuera nunca pierde nada.
+// ══════════════════════════════════════════════════════════════════
+
+/** Estado compartido por la pestaña y la ventana emergente de Mi Día. */
+function useMiDia() {
+  const { user, tasks, moveTask, addToast } = useWF()
   const uid = user?.id ?? "anon"
   const [plan, setPlan] = useState<MyDayPlan>(() => loadPlan(uid))
-  const [shown, setShown] = useState(false)
   const cleaned = useRef(false)
 
-  useEffect(() => {
-    const r = requestAnimationFrame(() => setShown(true))
-    const h = (e: KeyboardEvent) => e.key === "Escape" && close()
-    document.addEventListener("keydown", h)
-    return () => { cancelAnimationFrame(r); document.removeEventListener("keydown", h) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const persist = useCallback((p: MyDayPlan) => { setPlan(p); savePlan(uid, p) }, [uid])
 
-  const close = () => { setShown(false); setTimeout(onClose, 260) }
-
-  const persist = (p: MyDayPlan) => { setPlan(p); savePlan(uid, p) }
-
-  const applyRotation = (basePlan: MyDayPlan, label: string) => {
-    const res = runAutoclean(basePlan, tasks.map(t => ({ id: t.id, priority: t.priority, status: t.status, due_date: t.due_date, eisenhower_quadrant: t.eisenhower_quadrant })), dayKey())
+  const applyRotation = useCallback((basePlan: MyDayPlan, label: string) => {
+    const res = runAutoclean(
+      basePlan,
+      tasks.map(t => ({ id: t.id, priority: t.priority, status: t.status, due_date: t.due_date, eisenhower_quadrant: t.eisenhower_quadrant })),
+      dayKey(),
+    )
     persist(res.plan)
     res.toBacklog.forEach(id => { const t = tasks.find(x => x.id === id); if (t && t.status !== "backlog") moveTask(id, "backlog") })
     if (res.changed) {
       const c = res.plan.carried.length, d = res.toBacklog.length
       addToast("info", `${label} · ${c} arrastrada${c !== 1 ? "s" : ""}, ${d} al backlog`)
     }
-  }
+  }, [tasks, persist, moveTask, addToast])
 
-  // Autolimpieza al abrir (una vez): rota el plan si es de un día anterior.
+  // Autolimpieza al entrar (una vez): rota el plan si es de un día anterior.
   useEffect(() => {
     if (cleaned.current) return
     cleaned.current = true
@@ -2414,145 +2604,226 @@ function MiDiaPanel({ onClose }: { onClose: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Lo urgente E importante no se "añade a hoy": ya es de hoy. Se DERIVA en cada
+  // render en vez de escribirse en el plan — así entra solo sin provocar una
+  // cascada de renders, y sale en cuanto deja de ser urgente e importante.
+  // `dismissed` es tu veto: lo que sacas a mano no vuelve hasta mañana.
+  const dayIds = useMemo(() => {
+    const kept = plan.ids.filter(id => !plan.dismissed.includes(id))
+    if (!user) return kept
+    const auto = tasks
+      .filter(t =>
+        t.assignee === user.id && t.status !== "done" &&
+        deriveQuadrant(t) === 1 && !plan.dismissed.includes(t.id))
+      .map(t => t.id)
+    return [...new Set([...kept, ...auto])]
+  }, [plan, tasks, user])
+
+  const addToDay = (id: string) => {
+    if (plan.ids.includes(id)) return
+    persist({ ...plan, ids: [...plan.ids, id], dismissed: plan.dismissed.filter(x => x !== id) })
+  }
+  const removeFromDay = (id: string) => persist({
+    ...plan,
+    ids: plan.ids.filter(x => x !== id),
+    carried: plan.carried.filter(x => x !== id),
+    dismissed: plan.dismissed.includes(id) ? plan.dismissed : [...plan.dismissed, id],
+  })
+  const complete = (id: string) => { moveTask(id, "done"); removeFromDay(id) }
   const simulateNewDay = () => {
     const y = new Date(); y.setDate(y.getDate() - 1)
-    applyRotation({ ...plan, date: dayKey(y) }, "Simulación de nuevo día")
+    // Rota sobre el día EFECTIVO: lo que entró solo también cuenta como "de hoy".
+    applyRotation({ ...plan, ids: dayIds, date: dayKey(y) }, "Simulación de nuevo día")
   }
 
-  const addToDay = (id: string) => { if (!plan.ids.includes(id)) persist({ ...plan, ids: [...plan.ids, id] }) }
-  const removeFromDay = (id: string) => persist({ date: plan.date, ids: plan.ids.filter(x => x !== id), carried: plan.carried.filter(x => x !== id) })
-  const complete = (id: string) => { moveTask(id, "done"); removeFromDay(id) }
-
-  const planTasks = plan.ids
+  const planTasks = dayIds
     .map(id => tasks.find(t => t.id === id))
     .filter((t): t is Task => !!t && t.status !== "done")
-  const pool = user ? tasks.filter(t => t.assignee === user.id && t.status !== "done" && !plan.ids.includes(t.id)) : []
+  const pool = user
+    ? tasks.filter(t => t.assignee === user.id && t.status !== "done" && !dayIds.includes(t.id))
+    : []
   const groups = QUADRANTS
     .map(meta => ({ meta, items: planTasks.filter(t => deriveQuadrant(t) === meta.q) }))
     .filter(g => g.items.length > 0)
 
+  return { plan, planTasks, pool, groups, addToDay, removeFromDay, complete, simulateNewDay }
+}
+
+/** Pestaña "Mi Día": fondo sólido y espacio para trabajar de verdad. */
+function MiDiaView() {
+  const md = useMiDia()
+  return (
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 pb-6">
+        <div className="mx-auto w-full" style={{ maxWidth: 780 }}>
+          <MiDiaBody {...md} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Mi Día como ventana emergente: centrada, sin ocupar toda la pantalla y con el
+ * fondo borroso. Al clicar fuera se cierra — lo que hayas tocado ya está guardado.
+ */
+function MiDiaModal({ onClose }: { onClose: () => void }) {
+  const md = useMiDia()
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose()
+    document.addEventListener("keydown", h)
+    return () => document.removeEventListener("keydown", h)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-[95] flex items-center justify-center px-4 py-6"
+      style={{ background: "rgba(0,0,0,0.55)", WebkitBackdropFilter: "blur(12px)", backdropFilter: "blur(12px)" }}
+      onMouseDown={onClose}>
+      <div className="w-full rounded-2xl flex flex-col overflow-hidden"
+        style={{
+          maxWidth: 560, maxHeight: "86vh",
+          background: "linear-gradient(180deg, #23262e, #16181c)",
+          border: "1px solid var(--glass-border)",
+          boxShadow: "0 32px 90px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.07)",
+          animation: "modal-pop 0.26s cubic-bezier(0.34,1.2,0.64,1) both",
+        }}
+        onMouseDown={e => e.stopPropagation()}>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5">
+          <MiDiaBody {...md} onClose={onClose} solid />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MiDiaBody({ plan, planTasks, pool, groups, addToDay, removeFromDay, complete, simulateNewDay, onClose, solid }:
+  ReturnType<typeof useMiDia> & { onClose?: () => void; solid?: boolean }
+) {
+  const { memberById } = useWF()
   const today = new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })
+  const urgentPool = pool.filter(t => { const q = deriveQuadrant(t); return q === 1 || q === 2 })
+  const restPool   = pool.filter(t => { const q = deriveQuadrant(t); return q !== 1 && q !== 2 })
 
   return (
-    <div className="fixed inset-0 z-[60]" aria-modal>
-      <div onMouseDown={close} className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.5)", opacity: shown ? 1 : 0, transition: "opacity 0.26s ease" }} />
-      <aside
-        className="absolute top-0 right-0 h-full w-full max-w-[380px] flex flex-col"
-        style={{
-          background: "var(--surface-2)", borderLeft: "1px solid var(--border-strong)",
-          transform: shown ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 0.28s cubic-bezier(0.22,0.61,0.36,1)",
-          willChange: "transform", boxShadow: "-24px 0 60px rgba(0,0,0,0.5)",
-        }}>
-        <header className="shrink-0 px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-[16px] font-semibold text-white flex items-center gap-2">☀ Mi Día</h3>
-              <p className="text-[12px] mt-0.5 capitalize" style={{ color: "var(--text-dim)" }}>{today}</p>
-            </div>
-            <button onClick={close} className="w-7 h-7 rounded-md flex items-center justify-center text-[14px] transition"
-              style={{ color: "var(--text-dim)" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#fff" }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)" }}>✕</button>
+    <>
+      <header className="sticky top-0 z-10 pt-5 pb-4"
+        style={{ background: solid ? "linear-gradient(180deg, #23262e 78%, transparent)" : "linear-gradient(180deg, var(--bg) 78%, transparent)" }}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[20px] font-semibold text-white flex items-center gap-2">☀ Mi Día</h2>
+            <p className="text-[12.5px] mt-0.5 capitalize" style={{ color: "var(--text-dim)" }}>{today}</p>
           </div>
-          <div className="flex items-center gap-3 mt-3 text-[11px]" style={{ color: "var(--text-dimmer)" }}>
-            <span><span className="text-white font-semibold">{planTasks.length}</span> en tu día</span>
-            {plan.carried.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full" style={{ background: "rgba(242,153,74,0.12)", color: "#f2994a" }}>
-                {plan.carried.length} arrastrada{plan.carried.length !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-        </header>
-
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-          {planTasks.length === 0 && (
-            <div className="text-[12px] text-center py-8 px-4 rounded-lg border border-dashed"
-              style={{ color: "var(--text-dimmer)", borderColor: "var(--border)" }}>
-              Tu día está vacío. Añade tareas desde abajo para enfocarte hoy.
-            </div>
-          )}
-          {groups.map(({ meta, items }) => (
-            <div key={meta.q}>
-              <div className="flex items-center gap-2 mb-2 px-1">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
-                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: meta.color }}>{meta.title}</span>
-                <span className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{meta.subtitle}</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {items.map(t => {
-                  const carried = plan.carried.includes(t.id)
-                  return (
-                    <div key={t.id} className="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg"
-                      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                      <button onClick={() => complete(t.id)} title="Completar"
-                        className="shrink-0 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] transition"
-                        style={{ border: "1.5px solid var(--border-strong)", color: "transparent" }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.color = "#22c55e" }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.color = "transparent" }}>✓</button>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12.5px] text-white leading-snug truncate">{t.title}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {carried && (
-                            <span className="text-[9px] font-medium px-1.5 py-px rounded"
-                              style={{ background: "rgba(242,153,74,0.14)", color: "#f2994a", border: "1px solid rgba(242,153,74,0.3)" }}>
-                              ↪ Arrastrada
-                            </span>
-                          )}
-                          <span className="text-[10px]" style={{ color: PRIORITY_COLOR[t.priority] }}>{t.priority}</span>
-                        </div>
-                      </div>
-                      <MemberAvatar member={memberById(t.assignee)} size={18} />
-                      <button onClick={() => removeFromDay(t.id)} title="Quitar de hoy"
-                        className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition"
-                        style={{ color: "var(--text-dimmer)" }}
-                        onMouseEnter={e => (e.currentTarget.style.color = "#eb5757")}
-                        onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dimmer)")}>×</button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-
-          {pool.length > 0 && (
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider mb-2 px-1" style={{ color: "var(--text-dimmer)" }}>
-                Añadir a hoy
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {pool.slice(0, 12).map(t => {
-                  const meta = QUADRANT_BY_ID[deriveQuadrant(t)]
-                  return (
-                    <button key={t.id} onClick={() => addToDay(t.id)}
-                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition"
-                      style={{ background: "transparent", border: "1px dashed var(--border)" }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "var(--border)" }}>
-                      <span className="shrink-0 w-[18px] h-[18px] rounded-md flex items-center justify-center text-[13px]"
-                        style={{ background: `${meta.color}1a`, color: meta.color }}>+</span>
-                      <span className="flex-1 min-w-0 text-[12.5px] truncate" style={{ color: "var(--text-dim)" }}>{t.title}</span>
-                      <span className="text-[9.5px] shrink-0" style={{ color: meta.color }}>{meta.title}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+          {onClose && (
+            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition shrink-0"
+              style={{ color: "var(--text-dim)", background: "rgba(255,255,255,0.04)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}
+              aria-label="Cerrar Mi Día">✕</button>
           )}
         </div>
+        <div className="flex items-center gap-2 mt-3 flex-wrap text-[11.5px]" style={{ color: "var(--text-dimmer)" }}>
+          <span className="px-2 py-0.5 rounded-full" style={{ background: "rgba(94,106,210,0.14)", color: "#aab2f0" }}>
+            <b className="text-white">{planTasks.length}</b> {planTasks.length === 1 ? "tarea hoy" : "tareas hoy"}
+          </span>
+          {plan.carried.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full" style={{ background: "rgba(242,153,74,0.12)", color: "#f2994a" }}>
+              {plan.carried.length} arrastrada{plan.carried.length !== 1 ? "s" : ""} de ayer
+            </span>
+          )}
+          <span>· lo urgente e importante entra solo</span>
+        </div>
+      </header>
 
-        <footer className="shrink-0 px-4 py-3 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)" }}>
+      <div className="flex flex-col gap-5">
+        {planTasks.length === 0 && (
+          <div className="text-[12.5px] text-center py-10 px-5 rounded-xl border border-dashed leading-relaxed"
+            style={{ color: "var(--text-dimmer)", borderColor: "var(--border)" }}>
+            Tu día está vacío.<br />
+            Lo que sea urgente <b>e</b> importante aparecerá aquí solo. El resto, elígelo abajo.
+          </div>
+        )}
+
+        {groups.map(({ meta, items }) => (
+          <section key={meta.q}>
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
+              <span className="text-[11.5px] font-semibold uppercase tracking-wider" style={{ color: meta.color }}>{meta.title}</span>
+              <span className="text-[10.5px]" style={{ color: "var(--text-dimmer)" }}>{meta.subtitle}</span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {items.map(t => {
+                const carried = plan.carried.includes(t.id)
+                return (
+                  <div key={t.id} className="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition"
+                    style={{ background: "var(--surface)", border: `1px solid ${meta.q === 1 ? `${meta.color}33` : "var(--border)"}` }}>
+                    <button onClick={() => complete(t.id)} title="Completar"
+                      className="shrink-0 w-[20px] h-[20px] rounded-full flex items-center justify-center text-[11px] transition"
+                      style={{ border: "1.5px solid var(--border-strong)", color: "transparent" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.color = "#22c55e" }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.color = "transparent" }}>✓</button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-white leading-snug">{t.title}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {carried && (
+                          <span className="text-[9.5px] font-medium px-1.5 py-px rounded"
+                            style={{ background: "rgba(242,153,74,0.14)", color: "#f2994a", border: "1px solid rgba(242,153,74,0.3)" }}>
+                            ↪ Arrastrada
+                          </span>
+                        )}
+                        <span className="text-[10px]" style={{ color: PRIORITY_COLOR[t.priority] }}>{t.priority}</span>
+                        {t.blocked && <span className="text-[9.5px] px-1.5 py-px rounded" style={{ background: "rgba(242,153,74,0.12)", color: "#f2994a" }}>Bloqueada</span>}
+                      </div>
+                    </div>
+                    <MemberAvatar member={memberById(t.assignee)} size={20} />
+                    <button onClick={() => removeFromDay(t.id)} title="Quitar de hoy"
+                      className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-[13px] opacity-0 group-hover:opacity-100 transition"
+                      style={{ color: "var(--text-dimmer)" }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "#eb5757")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dimmer)")}>×</button>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        ))}
+
+        {pool.length > 0 && (
+          <section>
+            <p className="text-[11.5px] font-medium uppercase tracking-wider mb-2 px-1" style={{ color: "var(--text-dimmer)" }}>
+              Añadir a hoy
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {[...urgentPool, ...restPool].slice(0, 14).map(t => {
+                const meta = QUADRANT_BY_ID[deriveQuadrant(t)]
+                return (
+                  <button key={t.id} onClick={() => addToDay(t.id)}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-left transition"
+                    style={{ background: "transparent", border: "1px dashed var(--border)" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "var(--border)" }}>
+                    <span className="shrink-0 w-[20px] h-[20px] rounded-md flex items-center justify-center text-[14px]"
+                      style={{ background: `${meta.color}1a`, color: meta.color }}>+</span>
+                    <span className="flex-1 min-w-0 text-[12.5px] truncate" style={{ color: "var(--text-dim)" }}>{t.title}</span>
+                    <span className="text-[9.5px] shrink-0" style={{ color: meta.color }}>{meta.title}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        <footer className="flex items-center justify-between gap-2 pt-3 mt-1" style={{ borderTop: "1px solid var(--border)" }}>
           <button onClick={simulateNewDay}
-            className="text-[11px] font-medium px-2.5 py-1.5 rounded-md transition"
+            className="text-[11px] font-medium px-2.5 py-1.5 rounded-md transition shrink-0"
             style={{ color: "var(--text-dim)", border: "1px solid var(--border)" }}
             onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "rgba(255,255,255,0.04)" }}
             onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.background = "transparent" }}>
             ⟳ Simular nuevo día
           </button>
-          <span className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>Autolimpieza activa</span>
+          <span className="text-[10.5px] text-right" style={{ color: "var(--text-dimmer)" }}>
+            Cada mañana: lo importante se arrastra, el resto vuelve al backlog
+          </span>
         </footer>
-      </aside>
-    </div>
+      </div>
+    </>
   )
 }

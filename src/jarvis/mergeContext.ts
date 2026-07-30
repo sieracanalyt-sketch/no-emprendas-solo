@@ -37,7 +37,22 @@ export type MergeContext = {
     }[]
     equipo: { nombre: string; rol: string }[]
   }
+  // Qué puede PEDIR MERGE sobre este workflow. No las ejecuta él: publica la
+  // intención por `merge.action` y la app la aplica con la sesión del usuario.
+  // Ver src/jarvis/contract.ts y docs/merge-workflow-actions.md.
+  acciones_disponibles: typeof MERGE_ACTIONS
 }
+
+export const MERGE_ACTIONS = [
+  { op: "task.create",   args: "title, description?, priority?, status?, assignee?, due_date?" },
+  { op: "task.update",   args: "task, title?, description?, priority?, status?, assignee?, due_date?, blocked?" },
+  { op: "task.move",     args: "task, status (backlog|progress|review|done)" },
+  { op: "task.quadrant", args: "task, quadrant (1 hacer ahora | 2 planificar | 3 delegar | 4 eliminar)" },
+  { op: "task.delete",   args: "task" },
+  { op: "member.add",    args: "person, role?" },
+  { op: "member.remove", args: "person" },
+  { op: "member.role",   args: "person, role" },
+] as const
 
 type EventRow = {
   title: string; start_at: string; end_at: string
@@ -109,7 +124,11 @@ export async function fetchMergeContext(userId: string): Promise<MergeContext> {
     mia: t.assignee === userId,
   }))
 
-  return { generated_at: nowIso, user_id: userId, agenda, workflow: { tareas, equipo } }
+  return {
+    generated_at: nowIso, user_id: userId, agenda,
+    workflow: { tareas, equipo },
+    acciones_disponibles: MERGE_ACTIONS,
+  }
 }
 
 // Resumen legible para incrustar en el mensaje al agente, de modo que MERGE
@@ -147,5 +166,12 @@ export function digestForAgent(ctx: MergeContext, kind: "agenda" | "workflow"): 
   const parts: string[] = []
   parts.push(tasks.length ? `Mis tareas del workflow:\n${tasks.join("\n")}` : "No tengo tareas en el workflow.")
   if (team) parts.push(`Equipo: ${team}.`)
+  // MERGE no solo lee el tablero: puede cambiarlo. Se lo recordamos aquí para
+  // que ofrezca hacerlo en vez de limitarse a describir lo que ve.
+  parts.push(
+    "Recuerda que puedes modificar mi workflow tú mismo (crear, editar, mover, " +
+    "priorizar o borrar tareas, y añadir, quitar o recolocar gente del equipo): " +
+    "propónmelo y hazlo, no hace falta que lo haga yo a mano."
+  )
   return parts.join("\n\n")
 }

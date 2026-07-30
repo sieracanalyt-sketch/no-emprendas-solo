@@ -12,9 +12,12 @@
 import { deriveQuadrant, type EisenhowerTask } from "./eisenhower"
 
 export type MyDayPlan = {
-  date: string       // día al que pertenece el plan (clave local, ver dayKey)
-  ids: string[]      // tareas elegidas para hoy
-  carried: string[]  // subconjunto de ids que vienen arrastradas de días previos
+  date: string        // día al que pertenece el plan (clave local, ver dayKey)
+  ids: string[]       // tareas elegidas para hoy
+  carried: string[]   // subconjunto de ids que vienen arrastradas de días previos
+  // Lo urgente e importante entra en Mi Día solo. `dismissed` guarda lo que
+  // sacaste a mano para que no vuelva a colarse hoy; se limpia cada mañana.
+  dismissed: string[]
 }
 
 type CleanTask = EisenhowerTask & { id: string; status: EisenhowerTask["status"] }
@@ -31,10 +34,10 @@ export function loadPlan(userId: string): MyDayPlan {
     const raw = localStorage.getItem(KEY(userId))
     if (raw) {
       const p = JSON.parse(raw) as Partial<MyDayPlan>
-      return { date: p.date ?? dayKey(), ids: p.ids ?? [], carried: p.carried ?? [] }
+      return { date: p.date ?? dayKey(), ids: p.ids ?? [], carried: p.carried ?? [], dismissed: p.dismissed ?? [] }
     }
   } catch { /* corrupto → plan limpio */ }
-  return { date: dayKey(), ids: [], carried: [] }
+  return { date: dayKey(), ids: [], carried: [], dismissed: [] }
 }
 
 export function savePlan(userId: string, plan: MyDayPlan): void {
@@ -77,7 +80,8 @@ export function runAutoclean(
   }
 
   return {
-    plan: { date: today, ids: keptIds, carried },
+    // Día nuevo: lo que descartaste ayer vuelve a poder entrar solo.
+    plan: { date: today, ids: keptIds, carried, dismissed: [] },
     toBacklog,
     changed: true,
   }

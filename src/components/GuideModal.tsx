@@ -30,18 +30,21 @@ const GUIDES: Record<"workflow" | "calendario", Guide> = {
         title: "Tareas — el tablero Kanban",
         accent: "#5e6ad2",
         intro:
-          "Cuatro columnas (Backlog → En Progreso → En Revisión → Completado) que se sincronizan en tiempo real con todo el equipo. Nada de \"¿en qué estabas tú?\": se ve de un vistazo.",
+          "Un tablero que se sincroniza en tiempo real con todo el equipo. Nada de \"¿en qué estabas tú?\": se ve de un vistazo.",
         items: [
           { name: "Crear tarea", desc: "Pulsa el + de cualquier columna. Ponle prioridad, responsable y fecha límite. Las tareas que vencen pronto se encienden en naranja; las vencidas, en rojo." },
-          { name: "Arrastrar entre columnas", desc: "Mover una tarjeta ES actualizar el estado del proyecto. Cuando termines algo, arrástralo a Revisión para que otro lo valide antes de darlo por hecho." },
-          { name: "Bloqueos", desc: "¿Una tarea no avanza porque depende de algo? Márcala como bloqueada (menú ⋯). El equipo ve el cuello de botella sin que tengas que explicarlo." },
+          { name: "Editar tarea (menú ⋯ → Editar tarea)", desc: "Abre el mismo panel con el que la creaste: título, descripción, columna, prioridad, responsable, fecha y bloqueo. Y ahí mismo está el botón de eliminarla." },
+          { name: "Arrastrar entre columnas", desc: "Mover una tarjeta ES actualizar el estado del proyecto. Arrastra a Completado cuando algo esté cerrado de verdad." },
+          { name: "Interruptor \"En Revisión\"", desc: "La columna de revisión viene oculta: la mayoría de equipos pequeños no la usan. Actívala con el interruptor cuando necesites que alguien valide antes de dar algo por hecho. Mientras esté oculta, lo que hubiera dentro se ve en En Progreso — no se pierde nada." },
+          { name: "Bloqueos", desc: "¿Una tarea no avanza porque depende de algo? Márcala como bloqueada. El equipo ve el cuello de botella sin que tengas que explicarlo." },
+          { name: "Equipo y roles", desc: "Añade gente, asígnale rol o créalo tú. El botón \"? Qué son los roles\" explica uno a uno los +60 roles de NES: para qué sirve cada uno y cuál te falta." },
           { name: "Mi carga / filtros por persona", desc: "Filtra el tablero por cualquier miembro para ver su plato. Perfecto antes de repartir trabajo nuevo." },
           { name: "Buscar (⌘K) y Exportar", desc: "⌘K busca cualquier tarea al instante. Exportar copia un resumen del proyecto en texto listo para pegar en un chat o email." },
         ],
       },
       {
         icon: "🎯",
-        title: "Prioridades — matriz de Eisenhower + Mi Día",
+        title: "Prioridades — la matriz de Eisenhower",
         accent: "#f2994a",
         intro:
           "La matriz separa lo urgente de lo importante en 4 cuadrantes. Arrastra una tarea a un cuadrante y NES ajusta su prioridad y su columna en el Kanban automáticamente: son espejos.",
@@ -50,7 +53,19 @@ const GUIDES: Record<"workflow" | "calendario", Guide> = {
           { name: "Planificar (importante, no urgente)", desc: "El cuadrante donde se construyen las empresas: estrategia, producto, relaciones. Resérvale tiempo en el Calendario antes de que se vuelva urgente." },
           { name: "Delegar (urgente, no importante)", desc: "Interrupciones con prisa que no requieren TU talento. En un equipo NES, delegar es reasignar la tarea a quien tenga el rol adecuado." },
           { name: "Eliminar (ni una ni otra)", desc: "La papelera estratégica. Decir que no a estas tareas es la decisión de productividad más rentable que existe." },
-          { name: "☀ Mi Día", desc: "Tu plan personal de HOY. Añade 3–5 tareas máximo. Cada mañana se autolimpia: lo no terminado se marca como \"arrastrado\" y los restos vuelven al backlog. Cero culpa, cero residuos." },
+        ],
+      },
+      {
+        icon: "☀",
+        title: "Mi Día — tu plan de hoy",
+        accent: "#e2b93b",
+        intro:
+          "Tiene pestaña propia porque es lo que abres cada mañana. El tablero es del equipo; Mi Día eres tú y las próximas horas.",
+        items: [
+          { name: "Lo urgente e importante entra solo", desc: "Si algo está en \"Hacer ahora\" y es tuyo, aparece aquí sin que lo añadas: no tiene sentido decidir dos veces lo mismo. Si lo sacas a mano, respeta tu decisión hasta mañana." },
+          { name: "Añadir a hoy", desc: "El resto lo eliges tú de la lista de abajo, ordenada por lo que más pesa. Tres o cuatro tareas es un buen día; diez es una lista de deseos." },
+          { name: "Autolimpieza cada mañana", desc: "Lo importante sin terminar se arrastra a hoy con su etiqueta; los restos (delegar / eliminar) vuelven solos al Backlog. Cero culpa, cero residuos acumulados." },
+          { name: "También como ventana emergente", desc: "Desde Prioridades, el botón ☀ Mi Día lo abre encima sin sacarte de la matriz. Se cierra clicando fuera y no pierdes nada: se guarda al momento." },
         ],
       },
       {
@@ -60,13 +75,26 @@ const GUIDES: Record<"workflow" | "calendario", Guide> = {
         intro:
           "Tu equipo como un organismo: cada persona es un nodo conectado al proyecto. Arrastra a las personas para organizarlas (por áreas, por proyectos, como quieras) — la disposición se guarda y la ve todo el equipo.",
         items: [
-          { name: "Roles", desc: "Asigna a cada miembro uno de los +50 roles (o crea el tuyo). El color del nodo refleja su área: negocio, tecnología, diseño…" },
+          { name: "Roles", desc: "Asigna a cada miembro uno de los +60 roles (o crea el tuyo). El color del nodo refleja su área: negocio, tecnología, diseño… Si no sabes qué significa alguno, míralo en \"? Qué son los roles\", en la pestaña Tareas." },
           { name: "🌡 Heatmap", desc: "Cambia los colores para mostrar la CARGA de trabajo: verde = sano, rojo = sobrecargado. Detecta el burnout antes de que ocurra." },
           { name: "📊 Métricas", desc: "Velocidad de cierre, ratio de bloqueos y equilibrio de roles del equipo, en vivo." },
           { name: "🏁 Hitos", desc: "Marca los grandes objetivos (MVP, primera venta, ronda) alrededor del mapa. Clic en un hito para eliminarlo." },
           { name: "⚡ Simular baja (clic derecho)", desc: "¿Qué pasa si mañana se va tu CTO? La simulación muestra qué tareas quedarían huérfanas. Tu plan de contingencia en un clic." },
           { name: "Selección múltiple (lasso)", desc: "Dibuja un rectángulo sobre el lienzo vacío para seleccionar a varios y asignarles rol en bloque." },
           { name: "▶ Pitch", desc: "Modo presentación a pantalla completa: enseña tu equipo a un inversor o a un candidato con un mapa que impresiona más que un organigrama." },
+        ],
+      },
+      {
+        icon: "🤖",
+        title: "MERGE también trabaja aquí",
+        accent: "#3b82f6",
+        intro:
+          "MERGE no solo lee tu tablero: lo cambia. Háblale con naturalidad y aplica los cambios él mismo, con tus permisos — nada que no pudieras hacer tú a mano. Y cada cambio te lo enseña escrito, no te fías de su palabra.",
+        items: [
+          { name: "\"Añade a Marta al equipo como diseñadora UX\"", desc: "Altas, cambios de rol y bajas del equipo sin salir de la conversación." },
+          { name: "\"Mueve lo de la landing a Planificar: es importante pero no urgente\"", desc: "Entiende columnas y cuadrantes de Eisenhower, y ajusta la prioridad en consecuencia." },
+          { name: "\"Organiza mis tareas\"", desc: "Repasa el tablero entero, decide qué es urgente y qué importante, lo recoloca y reparte. Después te cuenta qué cambió y por qué." },
+          { name: "Listas de tareas habladas", desc: "Cuéntale lo que tienes que hacer mientras piensas en voz alta. Al terminar te monta la lista con casillas: marcas lo que vale, descartas el resto y lo que guardes entra en el Backlog." },
         ],
       },
       {

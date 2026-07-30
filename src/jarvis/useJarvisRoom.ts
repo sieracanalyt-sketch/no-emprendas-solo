@@ -4,7 +4,11 @@ import {
   type RemoteTrack, type TranscriptionSegment, type Participant,
 } from "livekit-client"
 import { supabase } from "../supabase"
-import { RENDER_TOPIC, parseRenderEvent, type RenderEnvelope } from "./contract"
+import {
+  RENDER_TOPIC, parseRenderEvent, parseMergeActions,
+  MERGE_ACTION_TOPIC, MERGE_ACTION_RESULT_TOPIC,
+  type RenderEnvelope, type MergeActionEnvelope, type MergeActionResult,
+} from "./contract"
 
 // Owns the LiveKit connection for the JARVIS cockpit:
 //   • token from the `livekit-token` Edge Function
@@ -53,6 +57,9 @@ export function useJarvisRoom() {
 
   const roomRef = useRef<Room | null>(null)
   const audioEls = useRef<HTMLAudioElement[]>([])
+  // Quién ejecuta lo que MERGE pide sobre el workflow. Se registra desde la HUD;
+  // una ref (y no estado) para que las acciones se traten una sola vez y en orden.
+  const actionHandler = useRef<((env: MergeActionEnvelope) => void) | null>(null)
 
   const connect = useCallback(async () => {
     if (roomRef.current) return
@@ -72,9 +79,16 @@ export function useJarvisRoom() {
 
       room
         .on(RoomEvent.DataReceived, (payload, _p, _k, topic) => {
-          if (topic !== RENDER_TOPIC) return
-          const evt = parseRenderEvent(payload)
-          if (evt) setLatest(evt)
+          if (topic === RENDER_TOPIC) {
+            const evt = parseRenderEvent(payload)
+            if (evt) setLatest(evt)
+            return
+          }
+          // MERGE pide tocar el workflow: lo ejecuta la app, no el agente.
+          if (topic === MERGE_ACTION_TOPIC) {
+            const env = parseMergeActions(payload)
+            if (env) actionHandler.current?.(env)
+          }
         })
         .on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
           if (track.kind === Track.Kind.Audio) {
@@ -179,6 +193,19 @@ export function useJarvisRoom() {
     }
   }, [])
 
+  // Registra quién ejecuta las acciones de workflow que pida MERGE.
+  const setActionHandler = useCallback((fn: ((env: MergeActionEnvelope) => void) | null) => {
+    actionHandler.current = fn
+  }, [])
+
+  // Devuelve a MERGE qué pasó con lo que pidió, para que pueda confirmarlo en voz.
+  const sendActionResult = useCallback((result: MergeActionResult) => {
+    const room = roomRef.current
+    if (!room) return
+    const payload = new TextEncoder().encode(JSON.stringify(result))
+    void room.localParticipant.publishData(payload, { reliable: true, topic: MERGE_ACTION_RESULT_TOPIC })
+  }, [])
+
   const toggleMic = useCallback(async () => {
     const room = roomRef.current
     if (!room) return
@@ -198,5 +225,9 @@ export function useJarvisRoom() {
     audioEls.current.forEach((el) => el.remove())
   }, [])
 
-  return { state, error, latest, transcript, agentState, micOn, connect, disconnect, toggleMic, sendCommand, sendContext, sendText }
+  return {
+    state, error, latest, transcript, agentState, micOn,
+    connect, disconnect, toggleMic, sendCommand, sendContext, sendText,
+    setActionHandler, sendActionResult,
+  }
 }
