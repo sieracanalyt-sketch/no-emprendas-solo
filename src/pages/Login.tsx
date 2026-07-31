@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate, useSearchParams, Navigate, Link } from "react-router-dom"
 import { supabase } from "../supabase"
 import { useUser } from "../hooks/useUser"
-import AuthLayout, { GoogleIcon, AppleIcon, EyeIcon } from "../components/AuthLayout"
+import AuthLayout, { GoogleIcon, EyeIcon } from "../components/AuthLayout"
 
 export default function Login() {
   const [email, setEmail] = useState("")
@@ -54,18 +54,6 @@ export default function Login() {
     }
   }
 
-  const loginApple = async () => {
-    try {
-      const { error: err } = await supabase.auth.signInWithOAuth({
-        provider: "apple",
-        options: { redirectTo: `${window.location.origin}/explorar` },
-      })
-      if (err) throw err
-    } catch {
-      setError("Error al iniciar sesión con Apple.")
-    }
-  }
-
   return (
     <AuthLayout>
       <h1 style={{ color: "#fff", fontSize: "clamp(1.6rem, 2.4vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15, margin: 0 }}>
@@ -96,11 +84,6 @@ export default function Login() {
       <button className="auth-google" onClick={loginGoogle} style={{ marginTop: "1.8rem" }}>
         <GoogleIcon />
         Continuar con Google
-      </button>
-
-      <button className="auth-apple" onClick={loginApple} style={{ marginTop: "0.75rem" }}>
-        <AppleIcon />
-        Continuar con Apple
       </button>
 
       <div className="auth-divider" style={{ margin: "1.5rem 0" }}>
