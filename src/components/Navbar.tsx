@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { supabase } from "../supabase"
 import { useUserTier } from "../hooks/useUserTier"
 import { BrandMark } from "./AuthLayout"
+import ThemeToggle from "./ThemeToggle"
 
 // Iconos de línea propios (nada de emoji): trazo consistente, look de producto.
 const ic = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" } as const
@@ -126,7 +127,7 @@ export default function Navbar() {
             className="flex items-center gap-2.5 shrink-0"
           >
             <BrandMark size={24} />
-            <span className="text-sm font-semibold tracking-tight" style={{ color: "#f7f8f8" }}>
+            <span className="text-sm font-semibold tracking-tight" style={{ color: "#f0ede4" }}>
               <span className="hidden sm:inline">NoEmprendasSolo</span>
               <span className="inline sm:hidden">NES</span>
             </span>
@@ -163,15 +164,16 @@ export default function Navbar() {
                 to="/admin"
                 className="rounded-full px-3 py-1.5 text-[13px] font-medium"
                 style={{
-                  color: location.pathname.startsWith("/admin") ? "#fff" : "#9aa4f0",
-                  background: "rgba(94,106,210,0.16)",
-                  border: "1px solid rgba(94,106,210,0.30)",
+                  color: location.pathname.startsWith("/admin") ? "var(--t1)" : "#d97c50",
+                  background: "rgba(194, 84, 47,0.16)",
+                  border: "1px solid rgba(194, 84, 47,0.30)",
                 }}
                 title="Panel de administración"
               >
                 Admin
               </Link>
             )}
+            <ThemeToggle />
             <button
               onClick={() => window.dispatchEvent(new CustomEvent("nes:tour"))}
               className="tour-help-btn"
@@ -238,7 +240,7 @@ function NavItem({
       data-tour={tour}
       className="nav-link relative flex items-center gap-1.5 px-3 py-1.5 text-[13px] rounded-full"
       style={{
-        color: active ? "#f7f8f8" : accent ? "#9aa4f0" : undefined,
+        color: active ? "#f0ede4" : accent ? "#d97c50" : undefined,
         fontWeight: active || accent ? 500 : 400,
         letterSpacing: accent ? "0.02em" : undefined,
       }}
@@ -247,7 +249,7 @@ function NavItem({
       {premium && (
         <span
           className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
-          style={{ background: "rgba(94,106,210,0.18)", color: "#9aa4f0" }}
+          style={{ background: "rgba(194, 84, 47,0.18)", color: "var(--accent)" }}
         >
           Premium
         </span>

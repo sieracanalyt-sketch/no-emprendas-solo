@@ -55,12 +55,12 @@ export default function Register() {
 
   return (
     <AuthLayout>
-      <h1 style={{ color: "#fff", fontSize: "clamp(1.6rem, 2.4vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15, margin: 0 }}>
+      <h1 style={{ color: "var(--t1)", fontSize: "clamp(1.6rem, 2.4vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15, margin: 0 }}>
         Crea tu cuenta
       </h1>
       <p style={{ marginTop: "0.6rem", color: "var(--text-dim)", fontSize: "0.9rem" }}>
         ¿Ya tienes una cuenta?{" "}
-        <Link to="/login" style={{ color: "#9aa4f0", fontWeight: 500 }}>Inicia sesión</Link>
+        <Link to="/login" style={{ color: "var(--link)", fontWeight: 500 }}>Inicia sesión</Link>
       </p>
 
       <button className="auth-google" onClick={registerGoogle} style={{ marginTop: "1.8rem" }}>

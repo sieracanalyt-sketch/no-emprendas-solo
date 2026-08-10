@@ -28,7 +28,7 @@ export default function Avatar({ name, src, size = 40, group = false }: Props) {
         width: size,
         height: size,
         fontSize: size * 0.4,
-        background: "rgba(255,255,255,0.1)",
+        background: "rgba(var(--overlay-rgb), 0.1)",
         borderRadius: group ? size * 0.3 : "9999px",
       }}
     >

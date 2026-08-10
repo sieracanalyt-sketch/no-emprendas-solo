@@ -59,7 +59,7 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
         WebkitBackdropFilter: "blur(20px) saturate(1.3)",
         backdropFilter: "blur(20px) saturate(1.3)",
         border: "1px solid rgba(249,115,22,0.28)",
-        boxShadow: "0 0 0 1px rgba(249,115,22,0.08), 0 8px 30px rgba(249,115,22,0.06), inset 0 1px 0 rgba(255,255,255,0.06)",
+        boxShadow: "0 0 0 1px rgba(249,115,22,0.08), 0 8px 30px rgba(249,115,22,0.06), inset 0 1px 0 rgba(var(--overlay-rgb), 0.06)",
       }}
     >
       <style>{`
@@ -88,7 +88,7 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-[15px] font-semibold text-white leading-tight">Conexión IA</h2>
+            <h2 className="text-[15px] font-semibold text-t1 leading-tight">Conexión IA</h2>
             <span className="text-[9.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
               style={{ background: "rgba(249,115,22,0.14)", color: ORANGE_SOFT, border: "1px solid rgba(249,115,22,0.35)" }}>
               Gemini Flash
@@ -110,7 +110,7 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
           onClick={() => setForm(f => ({ ...f, joinProject: !f.joinProject }))}
           className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-left"
           style={{
-            background: form.joinProject ? "rgba(249,115,22,0.08)" : "rgba(255,255,255,0.03)",
+            background: form.joinProject ? "rgba(249,115,22,0.08)" : "rgba(var(--overlay-rgb), 0.03)",
             border: `1px solid ${form.joinProject ? "rgba(249,115,22,0.35)" : "var(--border)"}`,
           }}
         >
@@ -118,7 +118,7 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
             Quiero unirme a un proyecto existente
           </span>
           <span className="relative w-9 h-5 rounded-full shrink-0 transition-colors"
-            style={{ background: form.joinProject ? ORANGE : "rgba(255,255,255,0.12)" }}>
+            style={{ background: form.joinProject ? ORANGE : "rgba(var(--overlay-rgb), 0.12)" }}>
             <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
               style={{ left: form.joinProject ? 18 : 2 }} />
           </span>
@@ -172,9 +172,9 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
           style={{
             background: valid && !searching && !disabled
               ? `linear-gradient(180deg, ${ORANGE}, #ea580c)`
-              : "rgba(255,255,255,0.05)",
-            color: valid && !searching && !disabled ? "#fff" : "var(--text-dimmer)",
-            border: "1px solid " + (valid && !searching && !disabled ? "rgba(255,255,255,0.12)" : "var(--border)"),
+              : "rgba(var(--overlay-rgb), 0.05)",
+            color: valid && !searching && !disabled ? "var(--t1)" : "var(--text-dimmer)",
+            border: "1px solid " + (valid && !searching && !disabled ? "rgba(var(--overlay-rgb), 0.12)" : "var(--border)"),
             cursor: valid && !searching && !disabled ? "pointer" : "not-allowed",
           }}
           onMouseEnter={e => { if (valid && !searching && !disabled) e.currentTarget.style.filter = "brightness(1.1)" }}
@@ -204,7 +204,7 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
           {[0, 1, 2].map(i => (
             <div key={i} className="h-[58px] rounded-lg"
               style={{
-                background: "rgba(255,255,255,0.03)",
+                background: "rgba(var(--overlay-rgb), 0.03)",
                 border: "1px solid var(--border)",
                 animation: `ai-pulse 1.4s ease-in-out ${i * 0.18}s infinite`,
               }} />
@@ -231,7 +231,7 @@ export default function AiConnectPanel({ me, candidates, disabled, locked, onLoc
                         ? "La IA tardó demasiado; usando búsqueda local"
                         : "La IA no está disponible ahora mismo; resultados del algoritmo local"
                 }
-                style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dimmer)", border: "1px solid var(--border)" }}>
+                style={{ background: "rgba(var(--overlay-rgb), 0.05)", color: "var(--text-dimmer)", border: "1px solid var(--border)" }}>
                 modo local
               </span>
             )}
@@ -274,7 +274,7 @@ function AiResultCard({ match, profile, index, onClick }: {
       onClick={onClick}
       className="ai-result-card w-full text-left rounded-lg p-3 cursor-pointer transition"
       style={{
-        background: "rgba(255,255,255,0.03)",
+        background: "rgba(var(--overlay-rgb), 0.03)",
         border: "1px solid var(--border)",
         animation: `ai-result-in 0.3s ease-out both`,
         animationDelay: `${index * 60}ms`,
@@ -284,7 +284,7 @@ function AiResultCard({ match, profile, index, onClick }: {
         e.currentTarget.style.borderColor = "rgba(249,115,22,0.35)"
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.background = "rgba(255,255,255,0.03)"
+        e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.03)"
         e.currentTarget.style.borderColor = "var(--border)"
       }}
     >
@@ -299,7 +299,7 @@ function AiResultCard({ match, profile, index, onClick }: {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-white truncate">{name}</span>
+            <span className="text-[13px] font-semibold text-t1 truncate">{name}</span>
             {match.fit && (
               <span className="text-[9.5px] px-1.5 py-0.5 rounded-md truncate shrink-0"
                 style={{ background: "rgba(249,115,22,0.12)", color: ORANGE_SOFT, border: "1px solid rgba(249,115,22,0.25)" }}>

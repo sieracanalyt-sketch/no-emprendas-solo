@@ -11,7 +11,7 @@ type Props = {
   onClose: () => void
 }
 
-const ACCENT = "#5e6ad2"
+const ACCENT = "#c2542f"
 
 export default function UpgradeModal({ feature, open, onClose }: Props) {
   if (!open) return null
@@ -38,8 +38,8 @@ export default function UpgradeModal({ feature, open, onClose }: Props) {
           <div
             className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl text-xl"
             style={{
-              background: `radial-gradient(circle at 30% 30%, rgba(94,106,210,0.35), rgba(94,106,210,0.08))`,
-              border: "1px solid rgba(94,106,210,0.28)",
+              background: `radial-gradient(circle at 30% 30%, rgba(194, 84, 47,0.35), rgba(194, 84, 47,0.08))`,
+              border: "1px solid rgba(194, 84, 47,0.28)",
             }}
           >
             ✦
@@ -64,10 +64,10 @@ export default function UpgradeModal({ feature, open, onClose }: Props) {
                 className="rounded-xl p-3"
                 style={{
                   background: isBlocked
-                    ? `linear-gradient(180deg, rgba(94,106,210,0.10), rgba(94,106,210,0.03)), var(--surface)`
+                    ? `linear-gradient(180deg, rgba(194, 84, 47,0.10), rgba(194, 84, 47,0.03)), var(--surface)`
                     : "var(--surface-3)",
-                  border: `1px solid ${isBlocked ? "rgba(94,106,210,0.30)" : "var(--border)"}`,
-                  boxShadow: isBlocked ? "0 0 0 1px rgba(94,106,210,0.12)" : "none",
+                  border: `1px solid ${isBlocked ? "rgba(194, 84, 47,0.30)" : "var(--border)"}`,
+                  boxShadow: isBlocked ? "0 0 0 1px rgba(194, 84, 47,0.12)" : "none",
                 }}
               >
                 <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export default function UpgradeModal({ feature, open, onClose }: Props) {
                   {isBlocked && (
                     <span
                       className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium"
-                      style={{ background: "rgba(94,106,210,0.16)", color: "#9aa4f0" }}
+                      style={{ background: "rgba(194, 84, 47,0.16)", color: "var(--accent)" }}
                     >
                       bloqueada
                     </span>
@@ -98,8 +98,8 @@ export default function UpgradeModal({ feature, open, onClose }: Props) {
             disabled
             className="w-full rounded-lg py-2.5 text-sm font-medium cursor-not-allowed disabled:opacity-40"
             style={{
-              background: `linear-gradient(180deg, ${ACCENT}, #4f5ac0)`,
-              color: "#fff",
+              background: `linear-gradient(180deg, ${ACCENT}, #a34420)`,
+              color: "var(--on-accent)",
             }}
             title="Los pagos llegan pronto"
           >
@@ -124,7 +124,7 @@ export default function UpgradeModal({ feature, open, onClose }: Props) {
               href={MONETIZATION_DOC_URL}
               target="_blank"
               rel="noreferrer"
-              className="underline hover:text-white transition"
+              className="underline hover:text-t1 transition"
             >
               Cómo funciona la monetización de NES →
             </a>

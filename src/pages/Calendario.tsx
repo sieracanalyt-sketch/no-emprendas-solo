@@ -54,7 +54,7 @@ type Toast = { id: number; text: string; type: "info" | "success" | "warn" }
 type Priority = { id: string; label: string; budgetH: number; kind: "meeting" | "focus" | "task" }
 
 const KIND_COLOR: Record<CalEvent["kind"], string> = {
-  event: "#5e6ad2",
+  event: "#c2542f",
   meeting: "#3b82f6",
   focus: "#38bdf8",
   task: "#f59e0b",
@@ -477,7 +477,7 @@ export default function Calendario() {
           <div className="flex items-center gap-1.5">
             <span
               className="text-[11px] hidden lg:inline font-medium"
-              style={{ color: google.tokenLoaded ? "#4ade80" : "#f59e0b" }}
+              style={{ color: google.tokenLoaded ? "#9a9d78" : "#f59e0b" }}
             >
               {google.tokenLoaded ? "🟢" : "🟡"} {google.email}
             </span>
@@ -512,7 +512,7 @@ export default function Calendario() {
           <button
             onClick={() => (hasClientId() ? handleConnect() : setGoogleConnectModal(true))}
             disabled={syncing}
-            className="text-[12px] px-3 py-1.5 rounded-md font-medium text-white"
+            className="text-[12px] px-3 py-1.5 rounded-md font-medium text-t1"
             style={{ background: "#16a34a" }}
           >
             {syncing ? "Conectando…" : "Conectar Google Calendar"}
@@ -543,7 +543,7 @@ export default function Calendario() {
           <button
             onClick={() => setUrgentMode(false)}
             className="shrink-0 text-[11px] px-2 py-0.5 rounded"
-            style={{ color: "var(--text-dimmer)", border: "1px solid rgba(255,255,255,0.1)" }}
+            style={{ color: "var(--text-dimmer)", border: "1px solid rgba(var(--overlay-rgb), 0.1)" }}
           >
             Desactivar
           </button>
@@ -665,8 +665,8 @@ export default function Calendario() {
                     }
                     className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-grab active:cursor-grabbing transition"
                     style={{
-                      background: active ? "rgba(94,106,210,0.14)" : "transparent",
-                      border: `1px solid ${active ? "rgba(94,106,210,0.4)" : "transparent"}`,
+                      background: active ? "rgba(194, 84, 47,0.14)" : "transparent",
+                      border: `1px solid ${active ? "rgba(194, 84, 47,0.4)" : "transparent"}`,
                     }}
                     title={`Puntualidad ${sc.punctual}% · Asistencia ${sc.attendance}%`}
                   >
@@ -676,7 +676,7 @@ export default function Calendario() {
                     </span>
                     <span
                       className="text-[10px] px-1 rounded"
-                      style={{ color: sc.attendance >= 90 ? "#22c55e" : "#f59e0b" }}
+                      style={{ color: sc.attendance >= 90 ? "#9a9d78" : "#f59e0b" }}
                     >
                       {sc.attendance}%
                     </span>
@@ -731,8 +731,8 @@ export default function Calendario() {
                 onClick={() => setShowTzPreview((v) => !v)}
                 className="text-[10px] px-2 py-0.5 rounded-md font-medium transition"
                 style={{
-                  background: showTzPreview ? "rgba(94,106,210,0.15)" : "var(--surface)",
-                  border: `1px solid ${showTzPreview ? "rgba(94,106,210,0.5)" : "var(--border)"}`,
+                  background: showTzPreview ? "rgba(194, 84, 47,0.15)" : "var(--surface)",
+                  border: `1px solid ${showTzPreview ? "rgba(194, 84, 47,0.5)" : "var(--border)"}`,
                   color: showTzPreview ? "var(--accent)" : "var(--text-dimmer)",
                 }}
               >
@@ -1130,7 +1130,7 @@ function WeekGrid({
               <p
                 className="text-[15px] font-semibold inline-flex items-center justify-center w-7 h-7 rounded-full mt-0.5"
                 style={{
-                  color: today ? "#fff" : "var(--text)",
+                  color: today ? "var(--on-accent)" : "var(--text)",
                   background: today ? "var(--accent)" : "transparent",
                 }}
               >
@@ -1355,7 +1355,7 @@ function GhostOverlay({ g }: { g: Gesture }) {
         height,
         left: `calc(${GUTTER_W}px + (100% - ${GUTTER_W}px) * ${g.dayIndex} / 7 + 4px)`,
         width: `calc((100% - ${GUTTER_W}px) / 7 - 8px)`,
-        background: "rgba(94,106,210,0.30)",
+        background: "rgba(194, 84, 47,0.30)",
         border: `1px solid ${accent}`,
         boxShadow: "0 8px 22px rgba(0,0,0,0.4)",
       }}
@@ -1551,7 +1551,7 @@ function EventDetail({
                 <div key={a.id} className="flex items-center gap-2">
                   <MiniAvatar name={a.nombre} src={a.avatar} />
                   <span className="text-[12px] flex-1" style={{ color: "var(--text)" }}>{a.nombre}</span>
-                  <span className="text-[10px]" style={{ color: sc.attendance >= 90 ? "#22c55e" : "#f59e0b" }}>
+                  <span className="text-[10px]" style={{ color: sc.attendance >= 90 ? "#9a9d78" : "#f59e0b" }}>
                     🎯 {sc.punctual}% punt · {sc.attendance}% asist
                   </span>
                 </div>
@@ -1563,11 +1563,11 @@ function EventDetail({
 
       <div className="flex items-center gap-2 mt-4">
         {ev.status === "proposed" && (
-          <button onClick={onAccept} className="flex-1 py-2 rounded-md text-[13px] font-medium text-white" style={{ background: "#22c55e" }}>
+          <button onClick={onAccept} className="flex-1 py-2 rounded-md text-[13px] font-medium text-t1" style={{ background: "#9a9d78" }}>
             Aceptar
           </button>
         )}
-        <button onClick={onEdit} className="flex-1 py-2 rounded-md text-[13px] font-medium text-white" style={{ background: "var(--accent)" }}>
+        <button onClick={onEdit} className="flex-1 py-2 rounded-md text-[13px] font-medium" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
           Editar
         </button>
         <button onClick={onPropose} className="flex-1 btn-linear py-2 rounded-md text-[13px] font-medium">
@@ -1584,7 +1584,7 @@ function EventDetail({
 // ──────────────────────────────────────────────────────────────────────────────
 // CREAR / EDITAR EVENTO — mismo modal para ambos flujos
 // ──────────────────────────────────────────────────────────────────────────────
-const EVENT_COLORS = ["#5e6ad2", "#3b82f6", "#38bdf8", "#22c55e", "#f59e0b", "#eb5757", "#a78bfa", "#ec4899"]
+const EVENT_COLORS = ["#c2542f", "#3b82f6", "#38bdf8", "#22c55e", "#f59e0b", "#eb5757", "#a78bfa", "#ec4899"]
 
 function EventModal({
   mode,
@@ -1646,7 +1646,7 @@ function EventModal({
       </h3>
 
       {locked && (
-        <div className="rounded-md p-2.5 mb-3 text-[11px]" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }}>
+        <div className="rounded-md p-2.5 mb-3 text-[11px]" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "#9a9d78" }}>
           🟢 Evento de Google Calendar — se editan título, descripción y horario, y se sincroniza allí.
         </div>
       )}
@@ -1729,7 +1729,7 @@ function EventModal({
                 onClick={() => toggle(m.id)}
                 className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[12px]"
                 style={{
-                  background: attendees.includes(m.id) ? "rgba(94,106,210,0.2)" : "var(--surface)",
+                  background: attendees.includes(m.id) ? "rgba(194, 84, 47,0.2)" : "var(--surface)",
                   border: `1px solid ${attendees.includes(m.id) ? "var(--accent)" : "var(--border)"}`,
                   color: "var(--text)",
                 }}
@@ -1753,7 +1753,7 @@ function EventModal({
         <button onClick={onCancel} className="flex-1 py-2 rounded-md text-[13px]" style={{ color: "var(--text-dim)", border: "1px solid var(--border-strong)" }}>
           Cancelar
         </button>
-        <button onClick={save} className="flex-1 py-2 rounded-md text-[13px] font-medium text-white" style={{ background: "var(--accent)" }}>
+        <button onClick={save} className="flex-1 py-2 rounded-md text-[13px] font-medium" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
           {mode === "create" ? "Crear" : "Guardar cambios"}
         </button>
       </div>
@@ -1810,7 +1810,7 @@ function PrepModal({
         <button
           onClick={() => onConfirm({ a1, a2, a3 })}
           disabled={!filled || tooSimple}
-          className="flex-1 py-2 rounded-md text-[13px] font-medium text-white disabled:opacity-40"
+          className="flex-1 py-2 rounded-md text-[13px] font-medium text-t1 disabled:opacity-40"
           style={{ background: "var(--accent)" }}
         >
           Reservar tiempo
@@ -1837,10 +1837,10 @@ function EmergencyModal({ onCancel, onFreeze }: { onCancel: () => void; onFreeze
         <li>↩️ Puedes volver a crear las citas manualmente después</li>
       </ul>
       <div className="flex gap-2">
-        <button onClick={() => onFreeze(24)} className="flex-1 py-2.5 rounded-md text-[13px] font-medium text-white" style={{ background: "#eb5757" }}>
+        <button onClick={() => onFreeze(24)} className="flex-1 py-2.5 rounded-md text-[13px] font-medium text-t1" style={{ background: "#eb5757" }}>
           Congelar próximas 24 h
         </button>
-        <button onClick={() => onFreeze(48)} className="flex-1 py-2.5 rounded-md text-[13px] font-medium text-white" style={{ background: "#c0392b" }}>
+        <button onClick={() => onFreeze(48)} className="flex-1 py-2.5 rounded-md text-[13px] font-medium text-t1" style={{ background: "#c0392b" }}>
           Congelar próximas 48 h
         </button>
       </div>
@@ -1890,7 +1890,7 @@ function UrgentConfirmModal({ onCancel, onConfirm }: { onCancel: () => void; onC
         </button>
         <button
           onClick={onConfirm}
-          className="flex-1 py-2 rounded-md text-[13px] font-medium text-white"
+          className="flex-1 py-2 rounded-md text-[13px] font-medium text-t1"
           style={{ background: "rgba(235,87,87,0.85)" }}
         >
           Activar Modo Urgencia
@@ -1926,7 +1926,7 @@ function GoogleConnectModal({
     <Backdrop onClose={onCancel}>
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "#4ade80" }}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "#9a9d78" }}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <h3 className="text-[15px] font-semibold" style={{ color: "var(--text)" }}>Conectar Google Calendar</h3>
       </div>
       <p className="text-[12px] mb-4" style={{ color: "var(--text-dim)" }}>
@@ -1937,7 +1937,7 @@ function GoogleConnectModal({
         /* Client ID ya guardado — mostrar directamente el botón */
         <div
           className="rounded-lg p-3 mb-4 flex items-center gap-2 text-[12px]"
-          style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", color: "#4ade80" }}
+          style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", color: "#9a9d78" }}
         >
           ✓ Client ID configurado — listo para conectar
         </div>
@@ -1969,14 +1969,14 @@ function GoogleConnectModal({
           {showSteps && (
             <div
               className="rounded-lg p-3 mb-3 text-[11px] flex flex-col gap-2"
-              style={{ background: "rgba(94,106,210,0.07)", border: "1px solid rgba(94,106,210,0.2)" }}
+              style={{ background: "rgba(194, 84, 47,0.07)", border: "1px solid rgba(194, 84, 47,0.2)" }}
             >
               {[
                 ["Abrir Google Cloud Console", "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com", "Habilitar Google Calendar API →"],
                 ["Crear credenciales OAuth", "https://console.cloud.google.com/apis/credentials/oauthclient", "Nueva credencial → Aplicación web →"],
               ].map(([label, url, cta]) => (
                 <div key={label} className="flex items-start gap-2">
-                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(94,106,210,0.3)", color: "var(--accent)" }}>1</span>
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(194, 84, 47,0.3)", color: "var(--accent)" }}>1</span>
                   <div>
                     <p style={{ color: "var(--text-dim)" }}>{label}</p>
                     <a href={url} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--accent)" }}>{cta}</a>
@@ -1984,14 +1984,14 @@ function GoogleConnectModal({
                 </div>
               ))}
               <div className="flex items-start gap-2">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(94,106,210,0.3)", color: "var(--accent)" }}>2</span>
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(194, 84, 47,0.3)", color: "var(--accent)" }}>2</span>
                 <div style={{ color: "var(--text-dim)" }}>
                   En <strong style={{ color: "var(--text)" }}>Orígenes JavaScript autorizados</strong> añade:<br />
                   <span className="font-mono" style={{ color: "#7dd3fc" }}>https://no-emprendas-solo.vercel.app</span>
                 </div>
               </div>
               <div className="flex items-start gap-2">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(94,106,210,0.3)", color: "var(--accent)" }}>3</span>
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" style={{ background: "rgba(194, 84, 47,0.3)", color: "var(--accent)" }}>3</span>
                 <div style={{ color: "var(--text-dim)" }}>
                   Copia el <strong style={{ color: "var(--text)" }}>Client ID</strong> y pégalo arriba. Listo.
                 </div>
@@ -2012,7 +2012,7 @@ function GoogleConnectModal({
         <button
           onClick={handleConnect}
           disabled={!canConnect}
-          className="flex-1 py-2 rounded-md text-[13px] font-medium text-white disabled:opacity-40 flex items-center justify-center gap-2"
+          className="flex-1 py-2 rounded-md text-[13px] font-medium text-t1 disabled:opacity-40 flex items-center justify-center gap-2"
           style={{ background: "#16a34a" }}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -2073,7 +2073,7 @@ function PriorityForm({
             onClick={() => setKind(k)}
             className="flex-1 py-1 rounded text-[11px]"
             style={{
-              background: kind === k ? "rgba(94,106,210,0.2)" : "transparent",
+              background: kind === k ? "rgba(194, 84, 47,0.2)" : "transparent",
               border: `1px solid ${kind === k ? "var(--accent)" : "var(--border)"}`,
               color: kind === k ? "var(--accent)" : "var(--text-dimmer)",
             }}
@@ -2093,7 +2093,7 @@ function PriorityForm({
         <button
           onClick={() => label.trim() && onSave(label.trim(), budgetH, kind)}
           disabled={!label.trim()}
-          className="flex-1 py-1.5 text-[12px] rounded-md text-white disabled:opacity-40"
+          className="flex-1 py-1.5 text-[12px] rounded-md text-t1 disabled:opacity-40"
           style={{ background: "var(--accent)" }}
         >
           Guardar
@@ -2154,7 +2154,7 @@ function MiniAvatar({ name, src }: { name: string; src: string | null }) {
   return (
     <div
       className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0"
-      style={{ background: "rgba(255,255,255,0.12)", color: "var(--text-dim)" }}
+      style={{ background: "rgba(var(--overlay-rgb), 0.12)", color: "var(--text-dim)" }}
     >
       {(name || "?").trim()[0]?.toUpperCase()}
     </div>

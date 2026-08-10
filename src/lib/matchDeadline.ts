@@ -45,7 +45,7 @@ export function fmtTimeLeft(msLeft: number): string {
 
 /** Color del contador según urgencia: >24h índigo, >6h naranja, resto rojo. */
 export function deadlineColor(msLeft: number): string {
-  if (msLeft > 24 * 3600_000) return "#8a8f98"
+  if (msLeft > 24 * 3600_000) return "#c7c2b3"
   if (msLeft > 6 * 3600_000) return "#f2994a"
   return "#eb5757"
 }

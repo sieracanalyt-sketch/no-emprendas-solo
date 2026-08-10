@@ -377,13 +377,13 @@ export default function ConversationPanel({ target, user, online, onActivity, on
           {target.type === "chat" && otherOnline && (
             <span
               className="absolute bottom-0 right-0 w-3 h-3 rounded-full"
-              style={{ background: "#22c55e", border: "2px solid var(--bg)" }}
+              style={{ background: "var(--green)", border: "2px solid var(--bg)" }}
             />
           )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-white font-semibold text-[14px] leading-tight truncate">
+          <p className="text-t1 font-semibold text-[14px] leading-tight truncate">
             {headerName || (isGroup ? "Grupo" : "Usuario")}
           </p>
           <p className="text-[12px] leading-tight mt-0.5" style={{ color: "var(--text-dim)" }}>
@@ -469,10 +469,10 @@ export default function ConversationPanel({ target, user, online, onActivity, on
                   <div
                     className="px-3.5 py-2.5 text-[14px]"
                     style={{
-                      background: isMe ? "#2f3346" : "var(--surface-3)",
-                      color: isMe ? "#f0f1f5" : "var(--text)",
+                      background: isMe ? "rgba(var(--accent-rgb), 0.22)" : "var(--surface-3)",
+                      color: isMe ? "var(--t1)" : "var(--text)",
                       border: isMe
-                        ? "1px solid rgba(94,106,210,0.25)"
+                        ? "1px solid rgba(194, 84, 47,0.25)"
                         : "1px solid var(--border)",
                       borderRadius: isMe
                         ? "0.75rem 0.75rem 0.25rem 0.75rem"
@@ -546,17 +546,17 @@ export default function ConversationPanel({ target, user, online, onActivity, on
           // ── Barra de grabación ──────────────────────────────────────────────
           <div
             className="flex items-center gap-3 px-3 py-2.5 rounded-2xl"
-            style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))", WebkitBackdropFilter: "blur(18px) saturate(1.3)", backdropFilter: "blur(18px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 8px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)" }}
+            style={{ background: "linear-gradient(180deg, rgba(var(--overlay-rgb), 0.07), rgba(var(--overlay-rgb), 0.03))", WebkitBackdropFilter: "blur(18px) saturate(1.3)", backdropFilter: "blur(18px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 8px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)" }}
           >
             <button
               onClick={recorder.cancel}
               className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
-              style={{ color: "#eb5757" }}
+              style={{ color: "var(--danger)" }}
               title="Cancelar"
             >
               🗑
             </button>
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#eb5757", animation: "fadeIn 1s infinite alternate" }} />
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "var(--danger)", animation: "fadeIn 1s infinite alternate" }} />
             <span className="text-[13px] tabular-nums shrink-0" style={{ color: "var(--text)" }}>
               {Math.floor(recorder.seconds / 60)}:{String(recorder.seconds % 60).padStart(2, "0")}
             </span>
@@ -576,7 +576,7 @@ export default function ConversationPanel({ target, user, online, onActivity, on
             </div>
             <button
               onClick={stopAndSendAudio}
-              className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-white"
+              className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-t1"
               style={{ background: "var(--accent)" }}
               title="Enviar nota de voz"
             >
@@ -587,7 +587,7 @@ export default function ConversationPanel({ target, user, online, onActivity, on
           // ── Entrada normal ──────────────────────────────────────────────────
           <div
             className="flex items-end gap-2 px-3 py-2 rounded-2xl"
-            style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))", WebkitBackdropFilter: "blur(18px) saturate(1.3)", backdropFilter: "blur(18px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 8px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08)" }}
+            style={{ background: "linear-gradient(180deg, rgba(var(--overlay-rgb), 0.07), rgba(var(--overlay-rgb), 0.03))", WebkitBackdropFilter: "blur(18px) saturate(1.3)", backdropFilter: "blur(18px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 8px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)" }}
           >
             <button
               type="button"
@@ -609,14 +609,14 @@ export default function ConversationPanel({ target, user, online, onActivity, on
               onKeyDown={onKeyDown}
               rows={1}
               placeholder="Escribe un mensaje…"
-              className="flex-1 min-w-0 bg-transparent text-white text-[14px] outline-none resize-none py-1 placeholder:text-[#62666d]"
+              className="flex-1 min-w-0 bg-transparent text-t1 text-[14px] outline-none resize-none py-1 placeholder:text-[#8f8b7c]"
               style={{ caretColor: "var(--accent-blue)", maxHeight: 140 }}
             />
             {text.trim() ? (
               <button
                 onClick={send}
                 disabled={sending}
-                className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-white text-base font-bold transition disabled:opacity-30"
+                className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-t1 text-base font-bold transition disabled:opacity-30"
                 style={{ background: "var(--accent)" }}
                 aria-label="Enviar"
               >
@@ -636,7 +636,7 @@ export default function ConversationPanel({ target, user, online, onActivity, on
           </div>
         )}
         {recorder.error && (
-          <p className="text-[11px] mt-1.5" style={{ color: "#eb5757" }}>
+          <p className="text-[11px] mt-1.5" style={{ color: "var(--danger)" }}>
             {recorder.error}
           </p>
         )}

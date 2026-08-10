@@ -135,13 +135,13 @@ export default function AdvancedMatchProfile({ userId }: { userId: string }) {
       {/* 2. fuerte en */}
       <Section title="¿En qué eres tú fuerte de verdad?" n={2} hint="máx. 2">
         <ChipGrid options={FORTALEZAS} selected={f.fuerte_en}
-          onToggle={(v) => toggleMax2("fuerte_en", v)} accent="#3fca7d" />
+          onToggle={(v) => toggleMax2("fuerte_en", v)} accent="#9a9d78" />
       </Section>
 
       {/* 3. necesitas */}
       <Section title="¿Qué necesitas que traiga la otra persona?" n={3} hint="máx. 2">
         <ChipGrid options={FORTALEZAS} selected={f.necesita}
-          onToggle={(v) => toggleMax2("necesita", v)} accent="#8b7bff" />
+          onToggle={(v) => toggleMax2("necesita", v)} accent="#c2542f" />
       </Section>
 
       {/* 4. ambición */}
@@ -200,7 +200,7 @@ export default function AdvancedMatchProfile({ userId }: { userId: string }) {
           placeholder="En una frase, con tus palabras (máx. 200 caracteres)"
           className="mb-3 w-full rounded-xl px-4 py-2.5 text-sm outline-none transition"
           style={{ background: "var(--surface-3)", border: "1px solid var(--border)", color: "var(--text)" }} />
-        <ChipGrid options={TEMAS_OPTS} selected={f.temas} onToggle={toggleTema} accent="#ffca3a" />
+        <ChipGrid options={TEMAS_OPTS} selected={f.temas} onToggle={toggleTema} accent="#d97c50" />
       </Section>
 
       {/* 10. escala y exit — la desalineación de visión es la fisura más predecible */}
@@ -288,7 +288,7 @@ export default function AdvancedMatchProfile({ userId }: { userId: string }) {
               <button key={r.key} onClick={() => togglePeso(r.key)} title={r.evalua}
                 className="rounded-full px-3 py-1.5 text-sm transition"
                 style={{
-                  background: active ? "rgba(94,106,210,0.18)" : "var(--surface)",
+                  background: active ? "rgba(194, 84, 47,0.18)" : "var(--surface)",
                   border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
                   color: active ? "var(--text)" : "var(--text-dim)",
                 }}>
@@ -362,8 +362,8 @@ export default function AdvancedMatchProfile({ userId }: { userId: string }) {
 
       <div className="flex items-center gap-3">
         <button onClick={handleSave} disabled={saving}
-          className="rounded-lg px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-          style={{ background: "linear-gradient(180deg, #5e6ad2, #4f5ac0)" }}>
+          className="rounded-lg px-5 py-2.5 text-sm font-medium text-t1 transition hover:opacity-90 disabled:opacity-50"
+          style={{ background: "linear-gradient(180deg, #c2542f, #a34420)" }}>
           {saving ? "Guardando…" : "Guardar perfil avanzado"}
         </button>
         {msg && <span className="text-sm" style={{ color: "var(--text-dim)" }}>{msg}</span>}
@@ -395,7 +395,7 @@ function Choice({ active, title, hint, wide, onClick }: {
     <button onClick={onClick} title={hint}
       className={`rounded-xl px-3 py-2 text-left transition ${wide ? "w-full" : ""}`}
       style={{
-        background: active ? "rgba(94,106,210,0.15)" : "var(--surface-3)",
+        background: active ? "rgba(194, 84, 47,0.15)" : "var(--surface-3)",
         border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
       }}>
       <span className="block text-sm font-medium" style={{ color: "var(--text)" }}>{title}</span>
@@ -459,7 +459,7 @@ function AreaRow({ label, rating, onNivel, onPasion }: {
       <button onClick={onPasion} disabled={!rating}
         aria-label={`Me apasiona: ${label}`} title="Además me apasiona"
         className="w-6 shrink-0 text-center text-[14px] transition disabled:opacity-25"
-        style={{ color: rating?.pasion ? "#ff9f43" : "var(--text-dimmer)" }}>
+        style={{ color: rating?.pasion ? "var(--amber)" : "var(--text-dimmer)" }}>
         {rating?.pasion ? "🔥" : "○"}
       </button>
     </div>
@@ -481,7 +481,7 @@ function Scale({ left, right, value, onChange }: {
           <button key={v} onClick={() => onChange(v)} aria-label={`${v} de 4`}
             className="h-8 flex-1 rounded-lg transition"
             style={{
-              background: value === v ? "rgba(94,106,210,0.25)" : "var(--surface-3)",
+              background: value === v ? "rgba(194, 84, 47,0.25)" : "var(--surface-3)",
               border: `1px solid ${value === v ? "var(--accent)" : "var(--border)"}`,
             }} />
         ))}

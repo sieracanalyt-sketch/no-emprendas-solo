@@ -175,6 +175,7 @@ export default function Perfil() {
       if (!user) return
       await supabase.from("users").delete().eq("id", user.id)
       await supabase.rpc("delete_user")
+      await supabase.auth.signOut()
       navigate("/")
     } catch {
       alert("Error al eliminar la cuenta. Inténtalo de nuevo.")
@@ -254,9 +255,9 @@ export default function Perfil() {
               style={{
                 width: 66, height: 66, borderRadius: 20,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 27, fontWeight: 700, color: "#fff",
-                background: "linear-gradient(150deg, #6b77e0, #4b56b8)",
-                boxShadow: "0 10px 26px rgba(94,106,210,0.4), inset 0 1px 0 rgba(255,255,255,0.25)",
+                fontSize: 27, fontWeight: 700, color: "var(--on-accent)",
+                background: "linear-gradient(150deg, #d97c50, #a34420)",
+                boxShadow: "0 10px 26px rgba(194, 84, 47,0.4), inset 0 1px 0 rgba(var(--overlay-rgb), 0.25)",
               }}
             >
               {(perfil.nombre || "?").trim()[0]?.toUpperCase() || "?"}
@@ -266,7 +267,7 @@ export default function Perfil() {
             className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ borderRadius: 20, background: "rgba(0,0,0,0.5)" }}
           >
-            <span style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>
+            <span style={{ color: "var(--on-accent)", fontSize: 11, fontWeight: 600 }}>
               {uploadingAvatar ? "Subiendo…" : "Cambiar"}
             </span>
           </div>
@@ -279,7 +280,7 @@ export default function Perfil() {
           className="sr-only"
         />
         <div className="min-w-0">
-          <h1 className="text-[23px] font-semibold tracking-tight text-white truncate">
+          <h1 className="text-[23px] font-semibold tracking-tight text-t1 truncate">
             {perfil.nombre || "Tu perfil"}
           </h1>
           <p className="text-[13px] mt-0.5" style={{ color: "var(--text-dim)" }}>
@@ -297,14 +298,14 @@ export default function Perfil() {
         <div className="flex items-center gap-3">
           <div
             className="flex-1 rounded-full overflow-hidden"
-            style={{ height: 4, background: "rgba(255,255,255,0.06)" }}
+            style={{ height: 4, background: "rgba(var(--overlay-rgb), 0.06)" }}
           >
             <div
               className="profile-progress-fill rounded-full h-full"
-              style={{ width: `${displayPct}%`, background: donePct === 100 ? "#4ade80" : "#5e6ad2" }}
+              style={{ width: `${displayPct}%`, background: donePct === 100 ? "#9a9d78" : "#c2542f" }}
             />
           </div>
-          <span className="text-[11.5px] whitespace-nowrap shrink-0" style={{ color: "#8a8f98" }}>
+          <span className="text-[11.5px] whitespace-nowrap shrink-0" style={{ color: "#c7c2b3" }}>
             {donePct === 100 ? (
               <span className="flex items-center gap-1" style={{ color: "rgba(74,222,128,0.85)" }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -337,7 +338,7 @@ export default function Perfil() {
             <button
               onClick={() => setShowMissing(v => !v)}
               className="flex items-center gap-1 text-[11.5px] transition-colors"
-              style={{ color: showMissing ? "var(--text-dim)" : "#62666d", background: "none", border: "none", cursor: "pointer" }}
+              style={{ color: showMissing ? "var(--text-dim)" : "#8f8b7c", background: "none", border: "none", cursor: "pointer" }}
             >
               <svg
                 width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -355,14 +356,14 @@ export default function Perfil() {
                     key={item.key}
                     onClick={() => handleMissingClick(item.key)}
                     className="text-left text-[12px] flex items-center gap-1.5 transition-colors group"
-                    style={{ color: "#62666d", background: "none", border: "none", cursor: "pointer" }}
+                    style={{ color: "#8f8b7c", background: "none", border: "none", cursor: "pointer" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "var(--text-dim)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "#62666d")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "#8f8b7c")}
                   >
                     <span style={{ color: "rgba(249,115,22,0.6)" }}>·</span>
                     {item.label}
                     {item.key === "conexion" && (
-                      <span className="text-[10.5px]" style={{ color: "#5e6ad2" }}>→ NES Connect</span>
+                      <span className="text-[10.5px]" style={{ color: "#c2542f" }}>→ NES Connect</span>
                     )}
                   </button>
                 ))}
@@ -429,9 +430,9 @@ export default function Perfil() {
                     onClick={() => setProjectStatus(active ? null : opt.value as ProjectStatus)}
                     className="flex-1 py-2 px-2 rounded-xl text-[12.5px] font-medium transition-all text-center"
                     style={{
-                      background: active ? "rgba(94,106,210,0.15)" : "var(--surface-3)",
+                      background: active ? "rgba(194, 84, 47,0.15)" : "var(--surface-3)",
                       border: `1px solid ${active ? "#6366f1" : "var(--border)"}`,
-                      color: active ? "#f7f8f8" : "#8a8f98",
+                      color: active ? "#f0ede4" : "#c7c2b3",
                     }}
                   >
                     {opt.label}
@@ -468,15 +469,15 @@ export default function Perfil() {
                 {buscando.map((tag, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium text-white"
-                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium text-t1"
+                    style={{ background: "rgba(var(--overlay-rgb), 0.06)", border: "1px solid rgba(var(--overlay-rgb), 0.08)" }}
                   >
                     <span>{tag}</span>
                     <button
                       onClick={() => removeTag(i)}
                       className="leading-none transition-colors"
                       style={{ color: "var(--text-dim)" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t1)")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-dim)")}
                     >
                       ×
@@ -502,7 +503,7 @@ export default function Perfil() {
           onClick={guardarPerfil}
           disabled={saving}
           className="px-5 py-2 bg-white text-black text-[13px] font-semibold rounded-full hover:bg-white/90 transition disabled:opacity-50"
-          style={{ boxShadow: "0 8px 24px rgba(255,255,255,0.12)" }}
+          style={{ boxShadow: "0 8px 24px rgba(var(--overlay-rgb), 0.12)" }}
         >
           {saving ? "Guardando…" : "Guardar cambios"}
         </button>
@@ -511,10 +512,10 @@ export default function Perfil() {
       {/* ── Perfil avanzado (premium, gratis durante la beta) ────────────── */}
       <section className="glass rounded-3xl p-6 mt-8">
         <div className="flex items-center gap-3 flex-wrap">
-          <h2 className="text-[17px] font-semibold tracking-tight text-white">Perfil avanzado</h2>
+          <h2 className="text-[17px] font-semibold tracking-tight text-t1">Perfil avanzado</h2>
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-            style={{ background: "rgba(94,106,210,0.15)", color: "var(--accent)", border: "1px solid rgba(94,106,210,0.35)" }}
+            style={{ background: "rgba(194, 84, 47,0.15)", color: "var(--accent)", border: "1px solid rgba(194, 84, 47,0.35)" }}
           >
             Premium · gratis en beta
           </span>

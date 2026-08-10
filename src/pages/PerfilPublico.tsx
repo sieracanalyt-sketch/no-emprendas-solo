@@ -31,7 +31,7 @@ export default function PerfilPublico() {
   if (!userData)
     return (
       <div className="flex items-center justify-center h-48">
-        <p className="text-white/40 text-sm">Cargando…</p>
+        <p className="text-t1/40 text-sm">Cargando…</p>
       </div>
     )
 
@@ -39,13 +39,13 @@ export default function PerfilPublico() {
     <div className="max-w-2xl mx-auto px-4 py-8 animate-in">
       <div className="flex items-center gap-5 mb-8">
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white/70 shrink-0"
-          style={{ background: "rgba(255,255,255,0.1)" }}
+          className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-t1/70 shrink-0"
+          style={{ background: "rgba(var(--overlay-rgb), 0.1)" }}
         >
           {userData.nombre?.[0]?.toUpperCase() ?? "?"}
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-t1">
             {userData.nombre || "Usuario"}
           </h1>
         </div>
@@ -59,7 +59,7 @@ export default function PerfilPublico() {
         <InfoRow label="Proyecto" value={userData.proyecto || "Sin proyecto"} />
 
         <div className="px-5 py-4">
-          <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider mb-3">
+          <p className="text-[11px] font-medium text-t1/40 uppercase tracking-wider mb-3">
             Busca
           </p>
           {userData.buscando && userData.buscando.length > 0 ? (
@@ -67,10 +67,10 @@ export default function PerfilPublico() {
               {userData.buscando.map((tag, i) => (
                 <span
                   key={i}
-                  className="text-xs text-white px-3 py-1 rounded-full"
+                  className="text-xs text-t1 px-3 py-1 rounded-full"
                   style={{
-                    background: "rgba(255,255,255,0.1)",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(var(--overlay-rgb), 0.1)",
+                    border: "1px solid rgba(var(--overlay-rgb), 0.12)",
                   }}
                 >
                   {tag}
@@ -78,7 +78,7 @@ export default function PerfilPublico() {
               ))}
             </div>
           ) : (
-            <p className="text-white/30 text-sm">No ha especificado nada</p>
+            <p className="text-t1/30 text-sm">No ha especificado nada</p>
           )}
         </div>
       </div>
@@ -89,10 +89,10 @@ export default function PerfilPublico() {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-5 py-4">
-      <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider mb-1">
+      <p className="text-[11px] font-medium text-t1/40 uppercase tracking-wider mb-1">
         {label}
       </p>
-      <p className="text-white/80 text-sm leading-relaxed">{value}</p>
+      <p className="text-t1/80 text-sm leading-relaxed">{value}</p>
     </div>
   )
 }

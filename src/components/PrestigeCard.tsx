@@ -47,17 +47,17 @@ export default function PrestigeCard({ userId }: { userId: string }) {
   if (prestige === null) return null
 
   const gold = prestige >= 70
-  const color = gold ? "#f5c442" : prestige >= 40 ? "#5e6ad2" : "#8a8f98"
+  const color = gold ? "var(--amber)" : prestige >= 40 ? "var(--accent)" : "var(--t2)"
 
   return (
     <div
       className="rounded-2xl p-4 sm:p-5"
       style={{
         background: gold
-          ? "linear-gradient(180deg, rgba(245,196,66,0.06), rgba(245,196,66,0.015)), var(--surface)"
+          ? "linear-gradient(180deg, rgba(217,124,80,0.06), rgba(217,124,80,0.015)), var(--surface)"
           : "var(--surface)",
-        border: `1px solid ${gold ? "rgba(245,196,66,0.3)" : "var(--glass-border)"}`,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05)",
+        border: `1px solid ${gold ? "rgba(217,124,80,0.3)" : "var(--glass-border)"}`,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(var(--overlay-rgb), 0.05)",
       }}
     >
       <div className="flex items-center justify-between gap-3 mb-1">
@@ -66,8 +66,8 @@ export default function PrestigeCard({ userId }: { userId: string }) {
             className="inline-flex items-center justify-center rounded-lg"
             style={{
               width: 30, height: 30,
-              background: gold ? "rgba(245,196,66,0.16)" : "rgba(94,106,210,0.16)",
-              border: `1px solid ${gold ? "rgba(245,196,66,0.4)" : "rgba(94,106,210,0.4)"}`,
+              background: gold ? "rgba(217,124,80,0.16)" : "rgba(194, 84, 47,0.16)",
+              border: `1px solid ${gold ? "rgba(217,124,80,0.4)" : "rgba(194, 84, 47,0.4)"}`,
               color,
             }}
           >
@@ -75,7 +75,7 @@ export default function PrestigeCard({ userId }: { userId: string }) {
               <path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z" />
             </svg>
           </span>
-          <h3 className="text-[14px] font-semibold text-white">Prestigio por aportar</h3>
+          <h3 className="text-[14px] font-semibold text-t1">Prestigio por aportar</h3>
         </div>
         <span className="text-[22px] font-bold leading-none" style={{ color }}>
           {prestige}
@@ -95,15 +95,15 @@ export default function PrestigeCard({ userId }: { userId: string }) {
           return (
             <div key={f.key}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[12px] font-medium text-white">{f.label}</span>
-                <span className="text-[11px] font-semibold" style={{ color: full ? "#22c55e" : "var(--text-dim)" }}>
+                <span className="text-[12px] font-medium text-t1">{f.label}</span>
+                <span className="text-[11px] font-semibold" style={{ color: full ? "var(--green)" :"var(--text-dim)" }}>
                   {pts}/{f.max}
                 </span>
               </div>
-              <div className="h-1.5 rounded-full overflow-hidden mb-0.5" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <div className="h-1.5 rounded-full overflow-hidden mb-0.5" style={{ background: "rgba(var(--overlay-rgb), 0.06)" }}>
                 <div
                   className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${pct}%`, background: full ? "#22c55e" : color }}
+                  style={{ width: `${pct}%`, background: full ? "var(--green)" :color }}
                 />
               </div>
               {!full && (

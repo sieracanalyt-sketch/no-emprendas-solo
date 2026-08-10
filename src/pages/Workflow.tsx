@@ -53,9 +53,9 @@ const COLUMNS: { status: Status; label: string; desc: string }[] = [
 ]
 const PRIORITIES: Priority[] = ["Urgente", "Alta", "Media", "Baja"]
 const PRIORITY_COLOR: Record<Priority, string> = {
-  Urgente: "#eb5757", Alta: "#f2994a", Media: "#e2b93b", Baja: "#8a8f98",
+  Urgente: "#eb5757", Alta: "#f2994a", Media: "#e2b93b", Baja: "#c7c2b3",
 }
-const MEMBER_COLORS = ["#5e6ad2", "#3b82f6", "#22c55e", "#ec4899", "#f2994a", "#06b6d4", "#a78bfa", "#f472b6"]
+const MEMBER_COLORS = ["#c2542f", "#3b82f6", "#22c55e", "#ec4899", "#f2994a", "#06b6d4", "#a78bfa", "#f472b6"]
 const FALLBACK_MEMBER: Member = { id: "", nombre: "Sin asignar", avatar: null, role: "Sin rol definido", joinedAt: new Date().toISOString(), posX: null, posY: null }
 const CUSTOM_ROLES_KEY  = "nes_custom_roles"
 const MILESTONES_KEY    = "nes_milestones"
@@ -67,11 +67,11 @@ const SHOW_REVIEW_KEY   = "nes_show_review_column"
 function memberColorById(members: Member[], id: string | null) {
   if (!id) return MEMBER_COLORS[0]
   const idx = members.findIndex(m => m.id === id)
-  if (idx === -1) return "#62666d"
+  if (idx === -1) return "#8f8b7c"
   return MEMBER_COLORS[idx % MEMBER_COLORS.length]
 }
 function getRoleColor(allRoles: { name: string; color: string }[], role: string) {
-  return allRoles.find(r => r.name === role)?.color ?? "#8a8f98"
+  return allRoles.find(r => r.name === role)?.color ?? "#c7c2b3"
 }
 /**
  * Cierra un desplegable al pulsar fuera.
@@ -109,8 +109,8 @@ function fmtRel(date: Date) {
   return `hace ${Math.floor(diff / 3600000)}h`
 }
 function heatColor(count: number) {
-  if (count === 0) return "#3b82f6"
-  if (count <= 3)  return "#22c55e"
+  if (count === 0) return "#8f8b7c"
+  if (count <= 3)  return "#9a9d78"
   if (count <= 6)  return "#f59e0b"
   return "#ef4444"
 }
@@ -190,7 +190,7 @@ function MemberAvatar({ member, size = 26 }: { member: Member; size?: number }) 
       style={{ width: size, height: size, borderRadius: "9999px", boxShadow: `0 0 0 1px ${color}66` }} />
   )
   return (
-    <div className="flex items-center justify-center font-semibold shrink-0 text-white"
+    <div className="flex items-center justify-center font-semibold shrink-0 text-t1"
       style={{ width: size, height: size, fontSize: size * 0.42, borderRadius: "9999px",
         background: `linear-gradient(135deg,${color},${color}bb)`, boxShadow: `0 0 0 1px ${color}55` }}>
       {initial}
@@ -218,7 +218,7 @@ function ToastContainer() {
   return (
     <div className="fixed bottom-5 right-5 z-[9998] flex flex-col gap-2 pointer-events-none">
       {toasts.map(t => {
-        const col = t.type === "error" ? "#eb5757" : t.type === "success" ? "#22c55e" : "#5e6ad2"
+        const col = t.type === "error" ? "#eb5757" : t.type === "success" ? "#9a9d78" : "#c2542f"
         return (
           <div key={t.id} className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-[13px] font-medium pointer-events-auto"
             style={{ background: `${col}18`, border: `1px solid ${col}44`, color: col, backdropFilter: "blur(8px)", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
@@ -522,7 +522,7 @@ export default function Workflow() {
         @keyframes wf-pop{0%{transform:translate(-50%,-50%) scale(0);opacity:0}65%{transform:translate(-50%,-50%) scale(1.06);opacity:1}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
         @keyframes modal-pop{0%{opacity:0;transform:scale(0.92) translateY(8px)}100%{opacity:1;transform:scale(1) translateY(0)}}
         @keyframes wf-float{0%,100%{transform:translate(-50%,-50%) translateY(0px)}50%{transform:translate(-50%,-50%) translateY(-5px)}}
-        @keyframes wf-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,106,210,0.3),0 0 0 0 rgba(94,106,210,0.1)}50%{box-shadow:0 0 0 12px rgba(94,106,210,0.07),0 0 0 24px rgba(94,106,210,0.02)}}
+        @keyframes wf-pulse{0%,100%{box-shadow:0 0 0 0 rgba(194, 84, 47,0.3),0 0 0 0 rgba(194, 84, 47,0.1)}50%{box-shadow:0 0 0 12px rgba(194, 84, 47,0.07),0 0 0 24px rgba(194, 84, 47,0.02)}}
         @keyframes wf-diamond-pulse{0%,100%{opacity:0.7}50%{opacity:1}}
       `}</style>
       <div className="flex flex-col page-viewport">
@@ -530,7 +530,7 @@ export default function Workflow() {
         <header className="shrink-0 px-5 md:px-6 pt-5 pb-0">
           <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
             <div>
-              <h1 className="text-[22px] font-semibold tracking-tight text-white">Flujo de trabajo</h1>
+              <h1 className="text-[22px] font-semibold tracking-tight text-t1">Flujo de trabajo</h1>
               <p className="text-[12px] mt-0.5" style={{ color: "var(--text-dim)" }}>
                 Gestiona tareas y conexiones de tu equipo.
               </p>
@@ -543,9 +543,9 @@ export default function Workflow() {
             <div
               className="flex items-center gap-1 p-1 rounded-2xl w-full max-w-3xl"
               style={{
-                background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+                background: "linear-gradient(180deg, rgba(var(--overlay-rgb), 0.06), rgba(var(--overlay-rgb), 0.02))",
                 border: "1px solid var(--glass-border)",
-                boxShadow: "0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07)",
+                boxShadow: "0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(var(--overlay-rgb), 0.07)",
                 WebkitBackdropFilter: "blur(18px) saturate(1.3)",
                 backdropFilter: "blur(18px) saturate(1.3)",
               }}
@@ -568,15 +568,15 @@ export default function Workflow() {
                     className="flex-1 flex flex-col items-center gap-0.5 px-3 sm:px-5 py-2.5 rounded-xl transition-all duration-300"
                     style={{
                       background: active
-                        ? "linear-gradient(180deg, rgba(94,106,210,0.32), rgba(94,106,210,0.16))"
+                        ? "linear-gradient(180deg, rgba(194, 84, 47,0.32), rgba(194, 84, 47,0.16))"
                         : "transparent",
-                      border: active ? "1px solid rgba(94,106,210,0.55)" : "1px solid transparent",
-                      boxShadow: active ? "0 4px 18px rgba(94,106,210,0.3), inset 0 1px 0 rgba(255,255,255,0.12)" : "none",
+                      border: active ? "1px solid rgba(194, 84, 47,0.55)" : "1px solid transparent",
+                      boxShadow: active ? "0 4px 18px rgba(194, 84, 47,0.3), inset 0 1px 0 rgba(var(--overlay-rgb), 0.12)" : "none",
                       transform: active ? "translateY(-1px)" : "none",
                     }}
                   >
                     <span className="flex items-center gap-2 text-[14px] font-semibold"
-                      style={{ color: active ? "#fff" : "var(--text-dim)" }}>
+                      style={{ color: active ? "var(--t1)" : "var(--text-dim)" }}>
                       <span className="inline-flex">{icon}</span>{label}
                     </span>
                     <span className="text-[10px] hidden sm:block"
@@ -592,11 +592,11 @@ export default function Workflow() {
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>Progreso global</span>
-                <span className="text-[11px] font-semibold" style={{ color: progress === 100 ? "#22c55e" : "#5e6ad2" }}>{progress}%</span>
+                <span className="text-[11px] font-semibold" style={{ color: progress === 100 ? "#9a9d78" : "#c2542f" }}>{progress}%</span>
               </div>
-              <div className="h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <div className="h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(var(--overlay-rgb), 0.06)" }}>
                 <div className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${progress}%`, background: progress === 100 ? "#22c55e" : "linear-gradient(90deg,#5e6ad2,#3b82f6)" }} />
+                  style={{ width: `${progress}%`, background: progress === 100 ? "#9a9d78" : "linear-gradient(90deg,#c2542f,#d97c50)" }} />
               </div>
             </div>
           )}
@@ -672,9 +672,9 @@ function TasksView() {
           <button onClick={() => { setMyWorkloadOnly(!myWorkloadOnly); setFocusMember(null) }}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium transition"
             style={{
-              background: myWorkloadOnly ? "rgba(94,106,210,0.14)" : "var(--surface)",
-              border: myWorkloadOnly ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)",
-              color: myWorkloadOnly ? "#aab2f0" : "var(--text-dim)",
+              background: myWorkloadOnly ? "rgba(194, 84, 47,0.14)" : "var(--surface)",
+              border: myWorkloadOnly ? "1px solid rgba(194, 84, 47,0.45)" : "1px solid var(--border)",
+              color: myWorkloadOnly ? "#d97c50" : "var(--text-dim)",
             }}>Mi carga</button>
           <FocusPill active={!focusMember && !myWorkloadOnly}
             onClick={() => { setFocusMember(null); setMyWorkloadOnly(false) }} label="Todos" />
@@ -728,8 +728,8 @@ function TasksView() {
                 <section key={col.status}
                   className={`${mobileTab === col.status ? "flex" : "hidden"} md:flex flex-col min-h-0 h-full rounded-lg transition-all`}
                   style={{
-                    background: over ? "rgba(94,106,210,0.07)" : "transparent",
-                    outline: over ? "1px dashed rgba(94,106,210,0.4)" : "1px solid transparent",
+                    background: over ? "rgba(194, 84, 47,0.07)" : "transparent",
+                    outline: over ? "1px dashed rgba(194, 84, 47,0.4)" : "1px solid transparent",
                   }}
                   onDragOver={e => { e.preventDefault(); if (dragOver !== col.status) setDragOver(col.status) }}
                   onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null) }}
@@ -737,8 +737,8 @@ function TasksView() {
                   <div className="flex items-center justify-between px-2 py-2 shrink-0">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-semibold text-white">{col.label}</span>
-                        <span className="text-[11px] px-1.5 rounded-md" style={{ color: "var(--text-dim)", background: "rgba(255,255,255,0.05)" }}>
+                        <span className="text-[13px] font-semibold text-t1">{col.label}</span>
+                        <span className="text-[11px] px-1.5 rounded-md" style={{ color: "var(--text-dim)", background: "rgba(var(--overlay-rgb), 0.05)" }}>
                           {colTasks.length}
                         </span>
                       </div>
@@ -747,7 +747,7 @@ function TasksView() {
                     <button onClick={() => setModalStatus(col.status)}
                       className="w-6 h-6 rounded-md flex items-center justify-center text-[15px] leading-none transition shrink-0"
                       style={{ color: "var(--text-dim)" }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#fff" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.06)"; e.currentTarget.style.color = "var(--t1)" }}
                       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)" }}>
                       +
                     </button>
@@ -1030,7 +1030,7 @@ function GestionView() {
         <style>{`
           @keyframes wf-float{0%,100%{transform:translate(-50%,-50%) translateY(0px)}50%{transform:translate(-50%,-50%) translateY(-5px)}}
           @keyframes wf-pop{0%{transform:translate(-50%,-50%) scale(0);opacity:0}65%{transform:translate(-50%,-50%) scale(1.2);opacity:1}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
-          @keyframes wf-pulse{0%,100%{box-shadow:0 0 0 0 rgba(94,106,210,0.3),0 0 0 0 rgba(94,106,210,0.1)}50%{box-shadow:0 0 0 12px rgba(94,106,210,0.07),0 0 0 24px rgba(94,106,210,0.02)}}
+          @keyframes wf-pulse{0%,100%{box-shadow:0 0 0 0 rgba(194, 84, 47,0.3),0 0 0 0 rgba(194, 84, 47,0.1)}50%{box-shadow:0 0 0 12px rgba(194, 84, 47,0.07),0 0 0 24px rgba(194, 84, 47,0.02)}}
           @keyframes wf-depart{to{opacity:0.2;filter:grayscale(1)}}
           @keyframes wf-diamond-pulse{0%,100%{opacity:0.7}50%{opacity:1}}
         `}</style>
@@ -1059,7 +1059,7 @@ function GestionView() {
             const isDep = simDeparture === id
             const color = nodeColor(id)
             const isOrphan = isDep ? false : simDeparture !== null && tasks.filter(t => t.assignee === id).length > 0
-            const lineColor = isDep ? "rgba(235,87,87,0.7)" : isOrphan ? "rgba(235,87,87,0.5)" : isHov ? color : "rgba(255,255,255,0.07)"
+            const lineColor = isDep ? "rgba(235,87,87,0.7)" : isOrphan ? "rgba(235,87,87,0.5)" : isHov ? color : "rgba(var(--overlay-rgb), 0.07)"
             return (
               <line key={`c-${id}`} x1={fcx} y1={fcy} x2={x} y2={y}
                 stroke={lineColor} strokeWidth={isHov || isDep ? 1.5 : 0.7}
@@ -1075,7 +1075,7 @@ function GestionView() {
             const width    = 0.4 + Math.min(strength, 5) * 0.25
             return (
               <line key={`${a.id}-${b.id}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                stroke="rgba(255,255,255,1)" strokeOpacity={opacity} strokeWidth={width}
+                stroke="rgba(var(--overlay-rgb), 1)" strokeOpacity={opacity} strokeWidth={width}
                 style={{ transition: "stroke-opacity 0.5s" }} />
             )
           }))}
@@ -1084,7 +1084,7 @@ function GestionView() {
           {lasso && (
             <rect x={Math.min(lasso.x1, lasso.x2)} y={Math.min(lasso.y1, lasso.y2)}
               width={Math.abs(lasso.x2 - lasso.x1)} height={Math.abs(lasso.y2 - lasso.y1)}
-              fill="rgba(94,106,210,0.07)" stroke="rgba(94,106,210,0.5)" strokeWidth={1} strokeDasharray="4 3" />
+              fill="rgba(194, 84, 47,0.07)" stroke="rgba(194, 84, 47,0.5)" strokeWidth={1} strokeDasharray="4 3" />
           )}
 
           {/* Milestone diamonds (clic para eliminar) */}
@@ -1110,9 +1110,9 @@ function GestionView() {
         <div className="absolute flex flex-col items-center justify-center z-10"
           style={{ left: fcx, top: fcy, transform: "translate(-50%,-50%)",
             width: 76, height: 76, borderRadius: "9999px",
-            background: "linear-gradient(135deg,rgba(94,106,210,0.22),rgba(59,130,246,0.14))",
-            border: "1.5px solid rgba(94,106,210,0.5)", animation: "wf-pulse 3s ease-in-out infinite" }}>
-          <span className="text-[11px] font-semibold text-white text-center leading-tight px-2">Proyecto</span>
+            background: "linear-gradient(135deg,rgba(194, 84, 47,0.22),rgba(59,130,246,0.14))",
+            border: "1.5px solid rgba(194, 84, 47,0.5)", animation: "wf-pulse 3s ease-in-out infinite" }}>
+          <span className="text-[11px] font-semibold text-t1 text-center leading-tight px-2">Proyecto</span>
         </div>
 
         {/* Member nodes — arrastrables (se guarda la disposición para todo el equipo) */}
@@ -1154,23 +1154,23 @@ function GestionView() {
               {m.avatar ? (
                 <img src={m.avatar} alt={m.nombre} referrerPolicy="no-referrer" className="object-cover"
                   style={{ width: 48, height: 48, borderRadius: "9999px",
-                    border: `2px solid ${isSel ? "#5e6ad2" : isHov || isDrag ? color : color + "60"}`,
+                    border: `2px solid ${isSel ? "#c2542f" : isHov || isDrag ? color : color + "60"}`,
                     boxShadow: isDrag ? `0 18px 44px rgba(0,0,0,0.55), 0 0 26px ${color}70`
-                      : isSel ? `0 0 0 3px rgba(94,106,210,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
+                      : isSel ? `0 0 0 3px rgba(194, 84, 47,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
                     transition: "border-color 0.25s,box-shadow 0.25s", transform: "translate(-50%,-50%)" }} />
               ) : (
-                <div className="flex items-center justify-center font-semibold text-white"
+                <div className="flex items-center justify-center font-semibold text-t1"
                   style={{ width: 48, height: 48, fontSize: 18, borderRadius: "9999px",
                     background: `linear-gradient(135deg,${color},${color}99)`,
-                    border: `2px solid ${isSel ? "#5e6ad2" : isHov || isDrag ? color : color + "55"}`,
+                    border: `2px solid ${isSel ? "#c2542f" : isHov || isDrag ? color : color + "55"}`,
                     boxShadow: isDrag ? `0 18px 44px rgba(0,0,0,0.55), 0 0 26px ${color}70`
-                      : isSel ? `0 0 0 3px rgba(94,106,210,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
+                      : isSel ? `0 0 0 3px rgba(194, 84, 47,0.4),0 0 18px ${color}50` : isHov ? `0 0 18px ${color}50` : "none",
                     transition: "border-color 0.25s,box-shadow 0.25s", transform: "translate(-50%,-50%)" }}>
                   {initial}
                 </div>
               )}
               <div className="flex flex-col items-center gap-0.5" style={{ transform: "translateX(-50%) translateY(14px)" }}>
-                <span className="text-[12px] font-medium text-white whitespace-nowrap" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>
+                <span className="text-[12px] font-medium text-t1 whitespace-nowrap" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>
                   {m.nombre.split(" ")[0]}
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded-md whitespace-nowrap"
@@ -1195,7 +1195,7 @@ function GestionView() {
             <div className="flex items-center gap-2.5 mb-2.5">
               <MemberAvatar member={hoveredMember} size={32} />
               <div>
-                <p className="text-[13px] font-semibold text-white leading-tight">{hoveredMember.nombre}</p>
+                <p className="text-[13px] font-semibold text-t1 leading-tight">{hoveredMember.nombre}</p>
                 <RoleTag role={hoveredMember.role} color={getRoleColor(allRoles, hoveredMember.role)} small />
               </div>
             </div>
@@ -1204,11 +1204,11 @@ function GestionView() {
             </div>
             <div className="flex gap-3 mb-2 text-[11px]">
               <div className="text-center">
-                <div className="text-[15px] font-bold text-white">{hoveredTasks.length}</div>
+                <div className="text-[15px] font-bold text-t1">{hoveredTasks.length}</div>
                 <div style={{ color: "var(--text-dimmer)" }}>tareas</div>
               </div>
               <div className="text-center">
-                <div className="text-[15px] font-bold text-white">{hoveredTasks.filter(t => t.status === "done").length}</div>
+                <div className="text-[15px] font-bold text-t1">{hoveredTasks.filter(t => t.status === "done").length}</div>
                 <div style={{ color: "var(--text-dimmer)" }}>hechas</div>
               </div>
               <div className="text-center">
@@ -1304,7 +1304,7 @@ function GestionView() {
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* Graph */}
         <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden select-none"
-          style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%,rgba(94,106,210,0.05) 0%,transparent 70%)", cursor: lassoStart.current ? "crosshair" : "default" }}
+          style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%,rgba(194, 84, 47,0.05) 0%,transparent 70%)", cursor: lassoStart.current ? "crosshair" : "default" }}
           onMouseDown={onContainerMouseDown}
           onMouseMove={onContainerMouseMove}
           onMouseUp={onContainerMouseUp}>
@@ -1312,10 +1312,10 @@ function GestionView() {
           {members.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
               <div className="w-16 h-16 rounded-full flex items-center justify-center"
-                style={{ background: "rgba(94,106,210,0.1)", border: "1px dashed rgba(94,106,210,0.35)" }}>
+                style={{ background: "rgba(194, 84, 47,0.1)", border: "1px dashed rgba(194, 84, 47,0.35)" }}>
                 <span style={{ fontSize: 26 }}>🌐</span>
               </div>
-              <p className="text-[14px] font-medium text-white">Mapa vacío</p>
+              <p className="text-[14px] font-medium text-t1">Mapa vacío</p>
               <p className="text-[12px]" style={{ color: "var(--text-dim)" }}>Añade miembros al equipo para ver el grafo de conexiones.</p>
             </div>
           ) : graphContent()}
@@ -1334,16 +1334,16 @@ function GestionView() {
         {metricsOpen && (
           <div className="shrink-0 w-60 flex flex-col border-l" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
             <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-              <span className="text-[12px] font-semibold text-white">Radar de rendimiento</span>
+              <span className="text-[12px] font-semibold text-t1">Radar de rendimiento</span>
               <button onClick={() => setMetricsOpen(false)} className="text-[12px] transition" style={{ color: "var(--text-dim)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
+                onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-              <MetricBar label="Velocidad de cierre" value={velocity} color="#22c55e" desc={`${doneTasks}/${tasks.length} tareas completas`} />
+              <MetricBar label="Velocidad de cierre" value={velocity} color="#9a9d78" desc={`${doneTasks}/${tasks.length} tareas completas`} />
               <MetricBar label="Ratio de bloqueos" value={blockedRatio} color="#f2994a" desc={`${blockedTasks} bloqueadas`} invert />
-              <MetricBar label="Equilibrio de roles" value={roleBalance} color="#5e6ad2" desc={`${uniqueRoles} roles / ${members.length} miembros`} />
-              <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-                <p className="text-[11px] font-medium text-white mb-2">Distribución de carga</p>
+              <MetricBar label="Equilibrio de roles" value={roleBalance} color="#c2542f" desc={`${uniqueRoles} roles / ${members.length} miembros`} />
+              <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(var(--overlay-rgb), 0.03)", border: "1px solid var(--border)" }}>
+                <p className="text-[11px] font-medium text-t1 mb-2">Distribución de carga</p>
                 {members.map(m => {
                   const count = tasks.filter(t => t.assignee === m.id).length
                   const pct   = tasks.length > 0 ? (count / tasks.length) * 100 : 0
@@ -1354,7 +1354,7 @@ function GestionView() {
                         <span className="text-[10px]" style={{ color: "var(--text-dim)" }}>{m.nombre.split(" ")[0]}</span>
                         <span className="text-[10px] font-medium" style={{ color: col }}>{count}</span>
                       </div>
-                      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(var(--overlay-rgb), 0.05)" }}>
                         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: col }} />
                       </div>
                     </div>
@@ -1373,13 +1373,13 @@ function GestionView() {
           <span className="text-[10px] whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{fmtDate(new Date(minTime).toISOString())}</span>
           <input type="range" min={0} max={1} step={0.001} value={timelineSlider}
             onChange={e => setTimelineSlider(parseFloat(e.target.value))}
-            className="flex-1 accent-[#5e6ad2]" style={{ height: 4 }} />
-          <span className="text-[10px] whitespace-nowrap min-w-[44px] text-right" style={{ color: timelineSlider >= 0.999 ? "#5e6ad2" : "var(--text-dim)" }}>
+            className="flex-1 accent-[#c2542f]" style={{ height: 4 }} />
+          <span className="text-[10px] whitespace-nowrap min-w-[44px] text-right" style={{ color: timelineSlider >= 0.999 ? "#c2542f" : "var(--text-dim)" }}>
             {sliderLabel()}
           </span>
           {timelineSlider < 0.999 && (
             <span className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap"
-              style={{ background: "rgba(94,106,210,0.14)", color: "#aab2f0", border: "1px solid rgba(94,106,210,0.35)" }}>
+              style={{ background: "rgba(194, 84, 47,0.14)", color: "var(--accent)", border: "1px solid rgba(194, 84, 47,0.35)" }}>
               {visibleMembers.length}/{members.length}
             </span>
           )}
@@ -1388,8 +1388,8 @@ function GestionView() {
 
       {/* Bulk action bar (Feature 9) */}
       {lassoSelected.size > 0 && (
-        <div className="shrink-0 px-5 py-2.5 flex items-center gap-3 flex-wrap" style={{ borderTop: "1px solid var(--border)", background: "rgba(94,106,210,0.06)" }}>
-          <span className="text-[12px] font-medium" style={{ color: "#aab2f0" }}>
+        <div className="shrink-0 px-5 py-2.5 flex items-center gap-3 flex-wrap" style={{ borderTop: "1px solid var(--border)", background: "rgba(194, 84, 47,0.06)" }}>
+          <span className="text-[12px] font-medium" style={{ color: "var(--accent)" }}>
             {lassoSelected.size} miembro{lassoSelected.size !== 1 ? "s" : ""} seleccionado{lassoSelected.size !== 1 ? "s" : ""}
           </span>
           <span className="text-[11px]" style={{ color: "var(--text-dimmer)" }}>Asignar rol:</span>
@@ -1400,7 +1400,7 @@ function GestionView() {
           </select>
           <button onClick={() => setLassoSelected(new Set())}
             className="px-2.5 py-1 rounded-md text-[12px] transition" style={{ color: "var(--text-dim)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
             Deseleccionar
           </button>
         </div>
@@ -1430,16 +1430,16 @@ function GestionView() {
           style={{
             // Fondo 100% opaco (sin alpha): el color con transparencia dejaba
             // traslucir el tablero de detrás y se veía "borroso" en el centro.
-            backgroundColor: "#0c0d0e",
-            backgroundImage: "radial-gradient(ellipse 70% 60% at 50% 50%, #171b33 0%, #0c0d0e 70%)",
+            backgroundColor: "#11140c",
+            backgroundImage: "radial-gradient(ellipse 70% 60% at 50% 50%, #1e2413 0%, #11140c 70%)",
           }}>
           <button onClick={() => setPitchMode(false)}
             className="absolute top-5 right-5 z-10 px-3 py-1.5 rounded-lg text-[12px] font-medium transition"
-            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-dim)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
+            style={{ background: "rgba(var(--overlay-rgb), 0.07)", border: "1px solid rgba(var(--overlay-rgb), 0.1)", color: "var(--text-dim)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
             ✕ Salir
           </button>
-          <div className="absolute top-5 left-5 text-[11px] uppercase tracking-widest font-semibold" style={{ color: "rgba(94,106,210,0.7)" }}>
+          <div className="absolute top-5 left-5 text-[11px] uppercase tracking-widest font-semibold" style={{ color: "rgba(194, 84, 47,0.7)" }}>
             Flujo de trabajo · Presentación
           </div>
           <div className="w-full h-full relative">
@@ -1459,10 +1459,10 @@ function MetricBar({ label, value, color, desc, invert = false }: {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] font-medium text-white">{label}</span>
+        <span className="text-[11px] font-medium text-t1">{label}</span>
         <span className="text-[12px] font-bold" style={{ color }}>{value}%</span>
       </div>
-      <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ background: "rgba(255,255,255,0.05)" }}>
+      <div className="h-1.5 rounded-full overflow-hidden mb-1" style={{ background: "rgba(var(--overlay-rgb), 0.05)" }}>
         <div className="h-full rounded-full transition-all duration-700" style={{ width: `${display}%`, background: color }} />
       </div>
       <p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{desc}</p>
@@ -1478,12 +1478,12 @@ function GBtn({ children, onClick, active = false, title }: {
     <button onClick={onClick} title={title}
       className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition"
       style={{
-        background: active ? "rgba(94,106,210,0.14)" : "var(--surface)",
-        border: active ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)",
-        color: active ? "#aab2f0" : "var(--text-dim)",
+        background: active ? "rgba(194, 84, 47,0.14)" : "var(--surface)",
+        border: active ? "1px solid rgba(194, 84, 47,0.45)" : "1px solid var(--border)",
+        color: active ? "#d97c50" : "var(--text-dim)",
       }}
-      onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
-      onMouseLeave={e => (e.currentTarget.style.color = active ? "#aab2f0" : "var(--text-dim)")}>
+      onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")}
+      onMouseLeave={e => (e.currentTarget.style.color = active ? "#d97c50" : "var(--text-dim)")}>
       {children}
     </button>
   )
@@ -1499,13 +1499,13 @@ function CtxMenuPanel({ x, y, memberId, simDeparture, onSimulate, onRemove, onCl
   const m = members.find(x => x.id === memberId)
   return (
     <div ref={ref} className="fixed z-50 w-52 rounded-lg p-1.5"
-      style={{ top: y, left: x, background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
-      <p className="px-2 py-1.5 text-[11px] font-semibold text-white truncate">{m?.nombre ?? "Miembro"}</p>
+      style={{ top: y, left: x, background: "var(--glass-dark-bg)", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)" }}>
+      <p className="px-2 py-1.5 text-[11px] font-semibold text-t1 truncate">{m?.nombre ?? "Miembro"}</p>
       <div className="h-px my-1" style={{ background: "var(--border)" }} />
       <button onClick={onSimulate}
         className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition"
-        style={{ color: simDeparture === memberId ? "#22c55e" : "#f2994a" }}
-        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+        style={{ color: simDeparture === memberId ? "#9a9d78" : "#f2994a" }}
+        onMouseEnter={e => (e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.05)")}
         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
         {simDeparture === memberId ? "✓ Finalizar simulación" : "⚡ Simular baja"}
       </button>
@@ -1534,8 +1534,8 @@ function MilestoneModal({ onSave, onClose }: { onSave: (label: string, color: st
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[20vh]"
       style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)" }} onMouseDown={onClose}>
       <div className="w-72 rounded-xl p-4" onMouseDown={e => e.stopPropagation()}
-        style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
-        <h3 className="text-[14px] font-semibold text-white mb-3">Nuevo hito</h3>
+        style={{ background: "var(--surface)", border: "1px solid rgba(var(--overlay-rgb), 0.1)", boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
+        <h3 className="text-[14px] font-semibold text-t1 mb-3">Nuevo hito</h3>
         <input autoFocus value={label} onChange={e => setLabel(e.target.value)}
           onKeyDown={e => e.key === "Enter" && label.trim() && onSave(label.trim(), color)}
           placeholder="Nombre del hito…" className="field-input w-full px-3 py-2 rounded-md text-[13px] mb-3" />
@@ -1549,7 +1549,7 @@ function MilestoneModal({ onSave, onClose }: { onSave: (label: string, color: st
           <button onClick={onClose} className="flex-1 py-1.5 rounded-md text-[12px] transition" style={{ color: "var(--text-dim)", border: "1px solid var(--border)" }}>Cancelar</button>
           <button onClick={() => label.trim() && onSave(label.trim(), color)} disabled={!label.trim()}
             className="flex-1 py-1.5 rounded-md text-[12px] font-semibold transition disabled:opacity-40"
-            style={{ background: color, color: "#fff" }}>Crear hito</button>
+            style={{ background: color, color: "var(--on-accent)" }}>Crear hito</button>
         </div>
       </div>
     </div>
@@ -1593,7 +1593,7 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
         style={{ background: "linear-gradient(180deg, rgba(30,32,38,0.9), rgba(19,21,25,0.9))",
           WebkitBackdropFilter: "blur(24px) saturate(1.3)", backdropFilter: "blur(24px) saturate(1.3)",
           border: "1px solid var(--glass-border)",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.08)", maxHeight: "82vh",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)", maxHeight: "82vh",
           animation: "modal-pop 0.28s cubic-bezier(0.34,1.2,0.64,1) both" }}
         onMouseDown={e => e.stopPropagation()}>
 
@@ -1601,35 +1601,35 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
         <div className="flex-1 flex flex-col p-5 min-w-0 overflow-hidden">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div>
-              <h2 className="text-[16px] font-semibold text-white">Encuentra tu rol</h2>
+              <h2 className="text-[16px] font-semibold text-t1">Encuentra tu rol</h2>
               <p className="text-[11px] mt-0.5" style={{ color: "var(--text-dimmer)" }}>Responde 2 preguntas y te recomendamos el perfil ideal.</p>
             </div>
             <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-[13px] transition shrink-0"
               style={{ color: "var(--text-dim)" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
           </div>
 
           {/* Step indicator */}
           <div className="flex gap-1.5 mb-4 shrink-0">
             {(["q1","q2","result"] as const).map((s, i) => (
               <div key={s} className="flex-1 h-0.5 rounded-full transition-all duration-400"
-                style={{ background: s === step || (step === "result" && i <= 2) ? "#5e6ad2" : "rgba(255,255,255,0.1)" }} />
+                style={{ background: s === step || (step === "result" && i <= 2) ? "#c2542f" : "rgba(var(--overlay-rgb), 0.1)" }} />
             ))}
           </div>
 
           {/* Q1 */}
           {step === "q1" && (
             <div className="flex flex-col gap-2 flex-1">
-              <p className="text-[14px] font-medium text-white mb-1">¿Cuál describe mejor lo que haces?</p>
+              <p className="text-[14px] font-medium text-t1 mb-1">¿Cuál describe mejor lo que haces?</p>
               {QUIZ_AREAS.map(opt => (
                 <button key={opt.value} onClick={() => { setArea(opt.value); setStep("q2") }}
                   className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition group"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(94,106,210,0.1)"; e.currentTarget.style.borderColor = "rgba(94,106,210,0.35)" }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
+                  style={{ background: "rgba(var(--overlay-rgb), 0.03)", border: "1px solid var(--border)" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(194, 84, 47,0.1)"; e.currentTarget.style.borderColor = "rgba(194, 84, 47,0.35)" }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
                   <span style={{ fontSize: 20 }}>{opt.emoji}</span>
-                  <span className="text-[13px] text-white">{opt.label}</span>
-                  <span className="ml-auto text-[12px] opacity-0 group-hover:opacity-100 transition" style={{ color: "#5e6ad2" }}>→</span>
+                  <span className="text-[13px] text-t1">{opt.label}</span>
+                  <span className="ml-auto text-[12px] opacity-0 group-hover:opacity-100 transition" style={{ color: "#c2542f" }}>→</span>
                 </button>
               ))}
             </div>
@@ -1640,19 +1640,19 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
             <div className="flex flex-col gap-2 flex-1">
               <button onClick={() => setStep("q1")} className="flex items-center gap-1.5 mb-2 text-[11px] transition w-fit"
                 style={{ color: "var(--text-dim)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
+                onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
                 ← Volver
               </button>
-              <p className="text-[14px] font-medium text-white mb-1">¿Cuál es tu nivel de experiencia?</p>
+              <p className="text-[14px] font-medium text-t1 mb-1">¿Cuál es tu nivel de experiencia?</p>
               {QUIZ_LEVELS.map(opt => (
                 <button key={opt.value} onClick={() => { setLevel(opt.value); setStep("result") }}
                   className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition group"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(94,106,210,0.1)"; e.currentTarget.style.borderColor = "rgba(94,106,210,0.35)" }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
+                  style={{ background: "rgba(var(--overlay-rgb), 0.03)", border: "1px solid var(--border)" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(194, 84, 47,0.1)"; e.currentTarget.style.borderColor = "rgba(194, 84, 47,0.35)" }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
                   <span style={{ fontSize: 20 }}>{opt.emoji}</span>
-                  <span className="text-[13px] text-white">{opt.label}</span>
-                  <span className="ml-auto text-[12px] opacity-0 group-hover:opacity-100 transition" style={{ color: "#5e6ad2" }}>→</span>
+                  <span className="text-[13px] text-t1">{opt.label}</span>
+                  <span className="ml-auto text-[12px] opacity-0 group-hover:opacity-100 transition" style={{ color: "#c2542f" }}>→</span>
                 </button>
               ))}
             </div>
@@ -1663,7 +1663,7 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
             <div className="flex flex-col flex-1">
               <button onClick={() => setStep("q2")} className="flex items-center gap-1.5 mb-3 text-[11px] transition w-fit"
                 style={{ color: "var(--text-dim)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
+                onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>
                 ← Volver
               </button>
               <p className="text-[11px] uppercase tracking-wider mb-2.5" style={{ color: "var(--text-dimmer)" }}>✨ Roles recomendados para ti</p>
@@ -1674,17 +1674,17 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
                   return (
                     <button key={name} onClick={() => handle(name)}
                       className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition group"
-                      style={{ background: isCurrent ? `${r?.color ?? "#5e6ad2"}14` : "rgba(255,255,255,0.03)", border: `1px solid ${isCurrent ? (r?.color ?? "#5e6ad2") + "40" : "var(--border)"}`, animationDelay: `${i * 60}ms` }}
-                      onMouseEnter={e => { e.currentTarget.style.background = `${r?.color ?? "#5e6ad2"}14`; e.currentTarget.style.borderColor = `${r?.color ?? "#5e6ad2"}40` }}
-                      onMouseLeave={e => { e.currentTarget.style.background = isCurrent ? `${r?.color ?? "#5e6ad2"}14` : "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = isCurrent ? `${r?.color ?? "#5e6ad2"}40` : "var(--border)" }}>
-                      <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold text-white"
-                        style={{ background: r?.color ?? "#5e6ad2" }}>{i + 1}</span>
+                      style={{ background: isCurrent ? `${r?.color ?? "#c2542f"}14` : "rgba(var(--overlay-rgb), 0.03)", border: `1px solid ${isCurrent ? (r?.color ?? "#c2542f") + "40" : "var(--border)"}`, animationDelay: `${i * 60}ms` }}
+                      onMouseEnter={e => { e.currentTarget.style.background = `${r?.color ?? "#c2542f"}14`; e.currentTarget.style.borderColor = `${r?.color ?? "#c2542f"}40` }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isCurrent ? `${r?.color ?? "#c2542f"}14` : "rgba(var(--overlay-rgb), 0.03)"; e.currentTarget.style.borderColor = isCurrent ? `${r?.color ?? "#c2542f"}40` : "var(--border)" }}>
+                      <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold text-t1"
+                        style={{ background: r?.color ?? "#c2542f" }}>{i + 1}</span>
                       <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-white">{name}</p>
+                        <p className="text-[13px] font-semibold text-t1">{name}</p>
                         <p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{r?.category}</p>
                       </div>
                       <span className="ml-auto text-[11px] font-medium opacity-0 group-hover:opacity-100 transition px-2 py-0.5 rounded-md"
-                        style={{ background: `${r?.color ?? "#5e6ad2"}22`, color: r?.color ?? "#5e6ad2" }}>
+                        style={{ background: `${r?.color ?? "#c2542f"}22`, color: r?.color ?? "#c2542f" }}>
                         {isCurrent ? "✓ Actual" : "Seleccionar"}
                       </span>
                     </button>
@@ -1702,7 +1702,7 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
         </div>
 
         {/* ── RIGHT: Buscador lateral ── */}
-        <div className="w-60 shrink-0 flex flex-col border-l" style={{ borderColor: "var(--border)", background: "rgba(255,255,255,0.015)" }}>
+        <div className="w-60 shrink-0 flex flex-col border-l" style={{ borderColor: "var(--border)", background: "rgba(var(--overlay-rgb), 0.015)" }}>
           <div className="p-3 shrink-0">
             <input ref={inputRef} value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Buscar entre todos los roles…"
@@ -1712,7 +1712,7 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
           <div className="flex flex-wrap gap-1 px-3 pb-2.5 shrink-0">
             <button onClick={() => setCatFilter(null)}
               className="text-[10px] px-2 py-0.5 rounded-full transition"
-              style={{ background: !catFilter ? "rgba(255,255,255,0.1)" : "transparent", color: !catFilter ? "#fff" : "var(--text-dimmer)", border: "1px solid var(--border)" }}>
+              style={{ background: !catFilter ? "rgba(var(--overlay-rgb), 0.1)" : "transparent", color: !catFilter ? "var(--t1)" : "var(--text-dimmer)", border: "1px solid var(--border)" }}>
               Todos
             </button>
             {ROLE_CATEGORIES.map(c => (
@@ -1734,7 +1734,7 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
               return (
                 <div key={cat.label}>
                   {!catFilter && (
-                    <div className="px-3 py-1.5 flex items-center gap-1.5 sticky top-0" style={{ background: "rgba(21,23,27,0.95)", WebkitBackdropFilter: "blur(8px)", backdropFilter: "blur(8px)" }}>
+                    <div className="px-3 py-1.5 flex items-center gap-1.5 sticky top-0" style={{ background: "var(--glass-dark-bg)", WebkitBackdropFilter: "blur(8px)", backdropFilter: "blur(8px)" }}>
                       <span style={{ fontSize: 11 }}>{cat.emoji}</span>
                       <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: cat.color }}>{cat.label}</span>
                     </div>
@@ -1748,7 +1748,7 @@ function AllRolesModal({ onPick, onClose, currentRole = "" }: {
                         onMouseEnter={e => (e.currentTarget.style.background = `${cat.color}10`)}
                         onMouseLeave={e => (e.currentTarget.style.background = isCurrent ? `${cat.color}10` : "transparent")}>
                         <span className="min-w-0">
-                          <span className="block text-[12px] text-white truncate">{name}</span>
+                          <span className="block text-[12px] text-t1 truncate">{name}</span>
                           <span className="block text-[10px] leading-snug line-clamp-2" style={{ color: "var(--text-dimmer)" }}>{desc}</span>
                         </span>
                         {isCurrent
@@ -1779,8 +1779,8 @@ function AddMemberRolePicker({ userName, onBack, onPick }: {
     <>
       <div className="flex items-center gap-2 px-2 py-1.5">
         <button onClick={onBack} className="text-[11px] transition" style={{ color: "var(--text-dim)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>← Volver</button>
-        <span className="text-[12px] font-medium text-white truncate">{userName}</span>
+          onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>← Volver</button>
+        <span className="text-[12px] font-medium text-t1 truncate">{userName}</span>
       </div>
       {/* Search */}
       <div className="px-2 pb-1.5">
@@ -1792,9 +1792,9 @@ function AddMemberRolePicker({ userName, onBack, onPick }: {
           {ALL_ROLES_FLAT.filter(r => r.name.toLowerCase().includes(search.toLowerCase())).slice(0, 10).map(r => (
             <button key={r.name} onClick={() => onPick(r.name)}
               className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left transition"
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.05)")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-              <span className="text-[12px] text-white">{r.name}</span>
+              <span className="text-[12px] text-t1">{r.name}</span>
               <span className="text-[10px] shrink-0" style={{ color: "var(--text-dimmer)" }}>{r.category}</span>
             </button>
           ))}
@@ -1806,19 +1806,19 @@ function AddMemberRolePicker({ userName, onBack, onPick }: {
             {MAIN_QUICK_ROLES.map(r => (
               <button key={r.name} onClick={() => onPick(r.name)}
                 className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}
+                style={{ background: "rgba(var(--overlay-rgb), 0.03)", border: "1px solid var(--border)" }}
                 onMouseEnter={e => { e.currentTarget.style.background = `${r.color}14`; e.currentTarget.style.borderColor = `${r.color}40` }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.03)"; e.currentTarget.style.borderColor = "var(--border)" }}>
                 <span style={{ fontSize: 18 }}>{r.emoji}</span>
-                <div><p className="text-[12px] font-semibold text-white">{r.name}</p><p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{r.desc}</p></div>
+                <div><p className="text-[12px] font-semibold text-t1">{r.name}</p><p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{r.desc}</p></div>
               </button>
             ))}
           </div>
           <div className="border-t" style={{ borderColor: "var(--border)" }}>
             <button onClick={() => setShowAll(true)}
               className="w-full flex items-center justify-between px-3 py-2 text-[12px] font-medium transition"
-              style={{ color: "#aab2f0" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(94,106,210,0.08)")}
+              style={{ color: "var(--accent)" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(194, 84, 47,0.08)")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
               Ver todos los roles (+{ALL_ROLES_FLAT.length}) <span>→</span>
             </button>
@@ -1849,15 +1849,15 @@ function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
     <div className="relative" ref={ref}>
       <button onClick={onToggle} className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full transition"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-        onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)")}
+        onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(var(--overlay-rgb), 0.15)")}
         onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
         <MemberAvatar member={member} size={22} />
-        <span className="text-[12px] font-medium text-white">{member.nombre.split(" ")[0]}</span>
+        <span className="text-[12px] font-medium text-t1">{member.nombre.split(" ")[0]}</span>
         <RoleTag role={member.role} color={color} small />
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-2 z-30 w-64 rounded-xl overflow-hidden"
-          style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
+          style={{ background: "var(--glass-dark-bg)", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)" }}>
           {/* Search */}
           <div className="px-2.5 pt-2.5 pb-1.5">
             <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
@@ -1870,9 +1870,9 @@ function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
               {ALL_ROLES_FLAT.filter(r => r.name.toLowerCase().includes(search.toLowerCase())).slice(0, 12).map(r => (
                 <button key={r.name} onClick={() => handlePick(r.name)}
                   className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left transition"
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.05)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                  <span className="text-[12px] text-white">{r.name}</span>
+                  <span className="text-[12px] text-t1">{r.name}</span>
                   <span className="text-[10px] shrink-0" style={{ color: "var(--text-dimmer)" }}>{r.category}</span>
                 </button>
               ))}
@@ -1890,12 +1890,12 @@ function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
                   return (
                     <button key={r.name} onClick={() => handlePick(r.name)}
                       className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition"
-                      style={{ background: active ? `${r.color}18` : "rgba(255,255,255,0.03)", border: `1px solid ${active ? r.color + "40" : "var(--border)"}` }}
+                      style={{ background: active ? `${r.color}18` : "rgba(var(--overlay-rgb), 0.03)", border: `1px solid ${active ? r.color + "40" : "var(--border)"}` }}
                       onMouseEnter={e => (e.currentTarget.style.background = `${r.color}14`)}
-                      onMouseLeave={e => (e.currentTarget.style.background = active ? `${r.color}18` : "rgba(255,255,255,0.03)")}>
+                      onMouseLeave={e => (e.currentTarget.style.background = active ? `${r.color}18` : "rgba(var(--overlay-rgb), 0.03)")}>
                       <span style={{ fontSize: 18 }}>{r.emoji}</span>
                       <div className="min-w-0">
-                        <p className="text-[12px] font-semibold" style={{ color: active ? r.color : "#fff" }}>{r.name}</p>
+                        <p className="text-[12px] font-semibold" style={{ color: active ? r.color : "var(--t1)" }}>{r.name}</p>
                         <p className="text-[10px]" style={{ color: "var(--text-dimmer)" }}>{r.desc}</p>
                       </div>
                       {active && <span className="ml-auto text-[11px]" style={{ color: r.color }}>✓</span>}
@@ -1907,8 +1907,8 @@ function RoleChip({ member, open, onToggle, onPick, onClose, onRemove }: {
               <div className="border-t" style={{ borderColor: "var(--border)" }}>
                 <button onClick={() => { setShowAll(true); onClose() }}
                   className="w-full flex items-center justify-between px-3 py-2.5 text-[12px] font-medium transition"
-                  style={{ color: "#aab2f0" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(94,106,210,0.08)")}
+                  style={{ color: "var(--accent)" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(194, 84, 47,0.08)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                   Ver todos los roles (+{ALL_ROLES_FLAT.length})
                   <span style={{ fontSize: 11 }}>→</span>
@@ -1943,12 +1943,12 @@ function AddMemberButton({ open, onToggle, onClose, selectedUser, onSelectUser, 
   return (
     <div className="relative" ref={ref}>
       <button onClick={onToggle} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium transition"
-        style={{ background: open ? "rgba(94,106,210,0.14)" : "var(--surface)", border: open ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)", color: open ? "#aab2f0" : "var(--text-dim)" }}>
+        style={{ background: open ? "rgba(194, 84, 47,0.14)" : "var(--surface)", border: open ? "1px solid rgba(194, 84, 47,0.45)" : "1px solid var(--border)", color: open ? "#d97c50" : "var(--text-dim)" }}>
         + Añadir
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-2 z-30 w-60 rounded-lg p-1.5"
-          style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
+          style={{ background: "var(--glass-dark-bg)", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)" }}>
           {available.length === 0 ? (
             <p className="px-2 py-3 text-[12px] text-center" style={{ color: "var(--text-dim)" }}>Todos los usuarios ya están en el equipo</p>
           ) : picked && selectedUser ? (
@@ -1966,16 +1966,16 @@ function AddMemberButton({ open, onToggle, onClose, selectedUser, onSelectUser, 
                   <button key={u.id} onClick={() => onSelectUser(u.id)}
                     className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition text-left"
                     style={{ background: "transparent" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.05)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                     {u.avatar ? (
                       <img src={u.avatar} alt={u.nombre} className="w-6 h-6 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
                     ) : (
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-semibold shrink-0" style={{ background: color }}>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-t1 text-[11px] font-semibold shrink-0" style={{ background: color }}>
                         {(u.nombre || "?")[0].toUpperCase()}
                       </div>
                     )}
-                    <span className="text-[13px] text-white truncate">{u.nombre}</span>
+                    <span className="text-[13px] text-t1 truncate">{u.nombre}</span>
                   </button>
                 )
               })}
@@ -2006,7 +2006,7 @@ function CreateRoleButton({ open, onToggle, onClose, onSave }: {
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-2 z-30 w-56 rounded-lg p-3"
-          style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
+          style={{ background: "var(--glass-dark-bg)", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)" }}>
           <p className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--text-dimmer)" }}>Nuevo rol</p>
           <input autoFocus value={name} onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === "Enter" && save()}
@@ -2018,7 +2018,7 @@ function CreateRoleButton({ open, onToggle, onClose, onSave }: {
               style={{ background: `${color}1a`, color, border: `1px solid ${color}33` }}>{name || "Vista previa"}</span>
           </div>
           <button onClick={save} disabled={!name.trim()} className="w-full py-1.5 rounded-md text-[12px] font-semibold transition disabled:opacity-40"
-            style={{ background: color, color: "#fff" }}>Crear</button>
+            style={{ background: color, color: "var(--on-accent)" }}>Crear</button>
         </div>
       )}
     </div>
@@ -2030,8 +2030,8 @@ function FocusPill({ active, onClick, label, avatar }: {
 }) {
   return (
     <button onClick={onClick} className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
-      style={{ background: active ? "rgba(94,106,210,0.14)" : "var(--surface)", border: active ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)", color: active ? "#aab2f0" : "var(--text-dim)" }}>
-      {avatar ?? <span className="w-2 h-2 rounded-full" style={{ background: active ? "#5e6ad2" : "var(--text-dimmer)" }} />}
+      style={{ background: active ? "rgba(194, 84, 47,0.14)" : "var(--surface)", border: active ? "1px solid rgba(194, 84, 47,0.45)" : "1px solid var(--border)", color: active ? "#d97c50" : "var(--text-dim)" }}>
+      {avatar ?? <span className="w-2 h-2 rounded-full" style={{ background: active ? "#c2542f" : "var(--text-dimmer)" }} />}
       {label}
     </button>
   )
@@ -2042,9 +2042,9 @@ function ActionBtn({ onClick, label, hint, title, active }: {
 }) {
   return (
     <button onClick={onClick} title={title} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium transition"
-      style={{ background: active ? "rgba(255,255,255,0.07)" : "var(--surface)", border: "1px solid var(--border)", color: active ? "#fff" : "var(--text-dim)" }}
-      onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
-      onMouseLeave={e => (e.currentTarget.style.color = active ? "#fff" : "var(--text-dim)")}>
+      style={{ background: active ? "rgba(var(--overlay-rgb), 0.07)" : "var(--surface)", border: "1px solid var(--border)", color: active ? "var(--t1)" : "var(--text-dim)" }}
+      onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")}
+      onMouseLeave={e => (e.currentTarget.style.color = active ? "var(--t1)" : "var(--text-dim)")}>
       <span className="hidden sm:inline">{label}</span>
       {hint && <span className="text-[10px] opacity-40 hidden md:inline">{hint}</span>}
     </button>
@@ -2074,15 +2074,15 @@ function TaskCard({ task, member, columns, onDragStart, onMove, onToggleBlocked,
           <button onClick={() => setMenu(v => !v)}
             className="w-6 h-6 -mr-1 rounded-md flex items-center justify-center text-[15px] leading-none opacity-0 group-hover:opacity-100 transition"
             style={{ color: "var(--text-dim)" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.06)")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>⋯</button>
           {menu && (
             <div className="absolute right-0 top-full mt-1 z-30 w-48 rounded-lg p-1.5"
-              style={{ background: "linear-gradient(180deg, rgba(32,34,40,0.92), rgba(21,23,27,0.92))", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
+              style={{ background: "var(--glass-dark-bg)", WebkitBackdropFilter: "blur(22px) saturate(1.3)", backdropFilter: "blur(22px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)" }}>
               <button onClick={() => { onEdit(); setMenu(false) }}
                 className="w-full text-left px-2 py-1.5 rounded-md text-[12px] font-medium transition"
-                style={{ color: "#fff" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(94,106,210,0.16)")}
+                style={{ color: "var(--t1)" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(194, 84, 47,0.16)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                 Editar tarea…
               </button>
@@ -2093,14 +2093,14 @@ function TaskCard({ task, member, columns, onDragStart, onMove, onToggleBlocked,
                   disabled={c.status === task.status}
                   className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition disabled:opacity-35"
                   style={{ color: "var(--text)" }}
-                  onMouseEnter={e => { if (c.status !== task.status) e.currentTarget.style.background = "rgba(255,255,255,0.05)" }}
+                  onMouseEnter={e => { if (c.status !== task.status) e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.05)" }}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>{c.label}</button>
               ))}
               <div className="my-1 h-px" style={{ background: "var(--border)" }} />
               <button onClick={() => { onToggleBlocked(); setMenu(false) }}
                 className="w-full text-left px-2 py-1.5 rounded-md text-[12px] transition"
-                style={{ color: task.blocked ? "#22c55e" : "#f2994a" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                style={{ color: task.blocked ? "#9a9d78" : "#f2994a" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.05)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                 {task.blocked ? "Desbloquear" : "Marcar bloqueado"}
               </button>
@@ -2113,7 +2113,7 @@ function TaskCard({ task, member, columns, onDragStart, onMove, onToggleBlocked,
           )}
         </div>
       </div>
-      <p className="text-[13.5px] font-medium text-white leading-snug">{task.title}</p>
+      <p className="text-[13.5px] font-medium text-t1 leading-snug">{task.title}</p>
       {task.description && (
         <p className="text-[12px] mt-1 leading-relaxed line-clamp-2" style={{ color: "var(--text-dim)" }}>{task.description}</p>
       )}
@@ -2181,15 +2181,15 @@ function TaskModal({ task, status, defaultAssignee, onClose, onSave, onDelete }:
         style={{
           background: "linear-gradient(180deg, #23262e, #16181c)",
           border: "1px solid var(--glass-border)",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.07)",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(var(--overlay-rgb), 0.07)",
           maxHeight: "88vh",
           animation: "modal-pop 0.24s cubic-bezier(0.34,1.2,0.64,1) both",
         }}
         onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-semibold text-white">{editing ? "Editar tarea" : "Nueva tarea"}</h3>
+          <h3 className="text-[15px] font-semibold text-t1">{editing ? "Editar tarea" : "Nueva tarea"}</h3>
           {!editing && (
-            <span className="text-[11px] px-2 py-0.5 rounded-md" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}>
+            <span className="text-[11px] px-2 py-0.5 rounded-md" style={{ background: "rgba(var(--overlay-rgb), 0.05)", color: "var(--text-dim)" }}>
               {COLUMNS.find(c => c.status === status)?.label ?? ""}
             </span>
           )}
@@ -2212,7 +2212,7 @@ function TaskModal({ task, status, defaultAssignee, onClose, onSave, onDelete }:
                 return (
                   <button key={c.status} onClick={() => setCol(c.status)}
                     className="px-2.5 py-1 rounded-md text-[12px] font-medium transition"
-                    style={{ background: active ? "rgba(94,106,210,0.16)" : "rgba(255,255,255,0.03)", color: active ? "#aab2f0" : "var(--text-dim)", border: `1px solid ${active ? "rgba(94,106,210,0.45)" : "var(--border)"}` }}>
+                    style={{ background: active ? "rgba(194, 84, 47,0.16)" : "rgba(var(--overlay-rgb), 0.03)", color: active ? "#d97c50" : "var(--text-dim)", border: `1px solid ${active ? "rgba(194, 84, 47,0.45)" : "var(--border)"}` }}>
                     {c.label}
                   </button>
                 )
@@ -2228,7 +2228,7 @@ function TaskModal({ task, status, defaultAssignee, onClose, onSave, onDelete }:
             return (
               <button key={p} onClick={() => setPriority(p)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition"
-                style={{ background: active ? `${c}1f` : "rgba(255,255,255,0.03)", color: active ? c : "var(--text-dim)", border: `1px solid ${active ? `${c}55` : "var(--border)"}` }}>
+                style={{ background: active ? `${c}1f` : "rgba(var(--overlay-rgb), 0.03)", color: active ? c : "var(--text-dim)", border: `1px solid ${active ? `${c}55` : "var(--border)"}` }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />{p}
               </button>
             )
@@ -2244,7 +2244,7 @@ function TaskModal({ task, status, defaultAssignee, onClose, onSave, onDelete }:
                 return (
                   <button key={m.id} onClick={() => setAssignee(active ? "" : m.id)}
                     className="flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
-                    style={{ background: active ? "rgba(94,106,210,0.14)" : "rgba(255,255,255,0.03)", border: active ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)", color: active ? "#aab2f0" : "var(--text-dim)" }}>
+                    style={{ background: active ? "rgba(194, 84, 47,0.14)" : "rgba(var(--overlay-rgb), 0.03)", border: active ? "1px solid rgba(194, 84, 47,0.45)" : "1px solid var(--border)", color: active ? "#d97c50" : "var(--text-dim)" }}>
                     <MemberAvatar member={m} size={18} />{m.nombre.split(" ")[0]}
                   </button>
                 )
@@ -2260,7 +2260,7 @@ function TaskModal({ task, status, defaultAssignee, onClose, onSave, onDelete }:
           {dueDate && (
             <button onClick={() => setDueDate("")} className="px-2.5 py-2 rounded-md text-[12px] transition"
               style={{ color: "var(--text-dim)", border: "1px solid var(--border)" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")}
               onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>Quitar</button>
           )}
         </div>
@@ -2269,13 +2269,13 @@ function TaskModal({ task, status, defaultAssignee, onClose, onSave, onDelete }:
           <button onClick={() => setBlocked(!blocked)}
             className="w-full flex items-center justify-between px-3 py-2 rounded-md text-[12.5px] font-medium transition mb-5"
             style={{
-              background: blocked ? "rgba(242,153,74,0.12)" : "rgba(255,255,255,0.03)",
+              background: blocked ? "rgba(242,153,74,0.12)" : "rgba(var(--overlay-rgb), 0.03)",
               border: `1px solid ${blocked ? "rgba(242,153,74,0.4)" : "var(--border)"}`,
               color: blocked ? "#f2994a" : "var(--text-dim)",
             }}>
             <span>{blocked ? "Bloqueada — algo la está frenando" : "Marcar como bloqueada"}</span>
             <span className="relative w-8 h-[18px] rounded-full transition shrink-0"
-              style={{ background: blocked ? "rgba(242,153,74,0.55)" : "rgba(255,255,255,0.12)" }}>
+              style={{ background: blocked ? "rgba(242,153,74,0.55)" : "rgba(var(--overlay-rgb), 0.12)" }}>
               <span className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-all"
                 style={{ left: blocked ? 16 : 2 }} />
             </span>
@@ -2305,7 +2305,7 @@ function TaskModal({ task, status, defaultAssignee, onClose, onSave, onDelete }:
           ) : <span />}
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="px-3.5 py-2 rounded-md text-[13px] font-medium transition" style={{ color: "var(--text-dim)" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>Cancelar</button>
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>Cancelar</button>
             <button onClick={submit} disabled={!title.trim()}
               className="px-4 py-2 rounded-md text-[13px] font-semibold bg-white text-black transition hover:bg-white/90 disabled:opacity-40">
               {editing ? "Guardar cambios" : "Crear tarea"}
@@ -2325,18 +2325,18 @@ function MiniSwitch({ on, onToggle, label, title, badge }: {
     <button onClick={onToggle} title={title}
       className="flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[12px] font-medium transition"
       style={{
-        background: on ? "rgba(94,106,210,0.14)" : "var(--surface)",
-        border: on ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)",
-        color: on ? "#aab2f0" : "var(--text-dim)",
+        background: on ? "rgba(194, 84, 47,0.14)" : "var(--surface)",
+        border: on ? "1px solid rgba(194, 84, 47,0.45)" : "1px solid var(--border)",
+        color: on ? "#d97c50" : "var(--text-dim)",
       }}>
       <span className="relative w-[26px] h-[15px] rounded-full transition shrink-0"
-        style={{ background: on ? "#5e6ad2" : "rgba(255,255,255,0.14)" }}>
+        style={{ background: on ? "#c2542f" : "rgba(var(--overlay-rgb), 0.14)" }}>
         <span className="absolute top-[2px] w-[11px] h-[11px] rounded-full bg-white transition-all"
           style={{ left: on ? 13 : 2 }} />
       </span>
       <span className="hidden sm:inline">{label}</span>
       {badge !== undefined && (
-        <span className="text-[10px] px-1 rounded" style={{ background: "rgba(255,255,255,0.08)" }}>{badge}</span>
+        <span className="text-[10px] px-1 rounded" style={{ background: "rgba(var(--overlay-rgb), 0.08)" }}>{badge}</span>
       )}
     </button>
   )
@@ -2357,13 +2357,13 @@ function SearchModal({ query, onQueryChange, onClose }: {
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh]"
       style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(3px)" }} onMouseDown={onClose}>
       <div className="w-full max-w-lg rounded-xl overflow-hidden"
-        style={{ background: "linear-gradient(180deg, rgba(30,32,38,0.9), rgba(19,21,25,0.9))", WebkitBackdropFilter: "blur(24px) saturate(1.3)", backdropFilter: "blur(24px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)" }}
+        style={{ background: "linear-gradient(180deg, rgba(30,32,38,0.9), rgba(19,21,25,0.9))", WebkitBackdropFilter: "blur(24px) saturate(1.3)", backdropFilter: "blur(24px) saturate(1.3)", border: "1px solid var(--glass-border)", boxShadow: "0 24px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)" }}
         onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
           <span style={{ color: "var(--text-dim)", fontSize: 14 }}>🔍</span>
           <input ref={inputRef} value={query} onChange={e => onQueryChange(e.target.value)}
-            placeholder="Buscar tareas…" className="flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-[var(--text-dimmer)]" />
-          <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}>Esc</span>
+            placeholder="Buscar tareas…" className="flex-1 bg-transparent text-[14px] text-t1 outline-none placeholder:text-[var(--text-dimmer)]" />
+          <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "rgba(var(--overlay-rgb), 0.05)", color: "var(--text-dim)" }}>Esc</span>
         </div>
         <div className="max-h-72 overflow-y-auto">
           {!query.trim() && <p className="text-[12px] text-center py-8" style={{ color: "var(--text-dimmer)" }}>Escribe para buscar tareas…</p>}
@@ -2375,14 +2375,14 @@ function SearchModal({ query, onQueryChange, onClose }: {
             return (
               <div key={t.id} className="flex items-center gap-3 px-4 py-2.5 cursor-default"
                 style={{ borderBottom: "1px solid var(--border)" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.03)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c }} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-white truncate">{t.title}</p>
+                  <p className="text-[13px] font-medium text-t1 truncate">{t.title}</p>
                   {t.description && <p className="text-[11px] truncate" style={{ color: "var(--text-dim)" }}>{t.description}</p>}
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-md shrink-0" style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)" }}>{col?.label}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md shrink-0" style={{ background: "rgba(var(--overlay-rgb), 0.05)", color: "var(--text-dim)" }}>{col?.label}</span>
                 {m && <span className="text-[11px] shrink-0" style={{ color: "var(--text-dimmer)" }}>{m.nombre.split(" ")[0]}</span>}
               </div>
             )
@@ -2398,9 +2398,9 @@ function ActivityPanel({ activity, onClose }: { activity: ActivityEntry[]; onClo
   return (
     <div className="shrink-0 w-64 flex flex-col border-l overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
       <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-        <span className="text-[12px] font-semibold text-white">Actividad reciente</span>
+        <span className="text-[12px] font-semibold text-t1">Actividad reciente</span>
         <button onClick={onClose} className="w-5 h-5 flex items-center justify-center rounded text-[13px] transition" style={{ color: "var(--text-dim)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
+          onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")} onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>✕</button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {activity.length === 0 ? (
@@ -2409,7 +2409,7 @@ function ActivityPanel({ activity, onClose }: { activity: ActivityEntry[]; onClo
           <div className="flex flex-col">
             {activity.map(a => (
               <div key={a.id} className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
-                <p className="text-[12px] text-white leading-snug">{a.text}</p>
+                <p className="text-[12px] text-t1 leading-snug">{a.text}</p>
                 <p className="text-[10px] mt-0.5" style={{ color: "var(--text-dimmer)" }}>{fmtRel(a.time)}</p>
               </div>
             ))}
@@ -2449,13 +2449,13 @@ function PrioridadesView() {
           <button onClick={() => { setMyWorkloadOnly(!myWorkloadOnly); setFocusMember(null) }}
             className="px-2.5 py-1 rounded-full text-[12px] font-medium transition"
             style={{
-              background: myWorkloadOnly ? "rgba(94,106,210,0.14)" : "var(--surface)",
-              border: myWorkloadOnly ? "1px solid rgba(94,106,210,0.45)" : "1px solid var(--border)",
-              color: myWorkloadOnly ? "#aab2f0" : "var(--text-dim)",
+              background: myWorkloadOnly ? "rgba(194, 84, 47,0.14)" : "var(--surface)",
+              border: myWorkloadOnly ? "1px solid rgba(194, 84, 47,0.45)" : "1px solid var(--border)",
+              color: myWorkloadOnly ? "#d97c50" : "var(--text-dim)",
             }}>Mi carga</button>
           <button onClick={() => setMiDiaOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold transition"
-            style={{ background: "linear-gradient(180deg,#5e6ad2,#4d59c4)", color: "#fff", boxShadow: "0 2px 8px rgba(94,106,210,0.35)" }}>
+            style={{ background: "linear-gradient(180deg,#c2542f,#a34420)", color: "var(--on-accent)", boxShadow: "0 2px 8px rgba(194, 84, 47,0.35)" }}>
             ☀ Mi Día
           </button>
         </div>
@@ -2484,7 +2484,7 @@ function PrioridadesView() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[13px]">{meta.emoji}</span>
-                      <span className="text-[13px] font-semibold text-white truncate">{meta.title}</span>
+                      <span className="text-[13px] font-semibold text-t1 truncate">{meta.title}</span>
                       <span className="text-[10px] px-1.5 rounded-md shrink-0"
                         style={{ color: meta.color, background: `${meta.color}1a`, border: `1px solid ${meta.color}33` }}>
                         {items.length}
@@ -2517,7 +2517,7 @@ function PrioridadesView() {
         <span>{active.length} activa{active.length !== 1 ? "s" : ""}</span>
         <span>·</span>
         <span>{doneCount} completada{doneCount !== 1 ? "s" : ""}</span>
-        {filtering && <><span>·</span><span style={{ color: "#aab2f0" }}>vista filtrada</span></>}
+        {filtering && <><span>·</span><span style={{ color: "var(--accent)" }}>vista filtrada</span></>}
       </div>
 
       {miDiaOpen && <MiDiaModal onClose={() => setMiDiaOpen(false)} />}
@@ -2534,14 +2534,14 @@ function MatrixCard({ task, member, accent, onDragStart, onComplete }: {
   return (
     <div draggable onDragStart={e => { e.dataTransfer.effectAllowed = "move"; onDragStart() }}
       className="group relative rounded-lg p-2.5 cursor-grab active:cursor-grabbing"
-      style={{ background: "var(--surface)", WebkitBackdropFilter: "blur(8px)", backdropFilter: "blur(8px)", border: `1px solid ${task.blocked ? "rgba(242,153,74,0.45)" : "var(--glass-border)"}`, boxShadow: "0 4px 14px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+      style={{ background: "var(--surface)", WebkitBackdropFilter: "blur(8px)", backdropFilter: "blur(8px)", border: `1px solid ${task.blocked ? "rgba(242,153,74,0.45)" : "var(--glass-border)"}`, boxShadow: "0 4px 14px rgba(0,0,0,0.16), inset 0 1px 0 rgba(var(--overlay-rgb), 0.04)" }}>
       <div className="flex items-start gap-2">
         <span className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PRIORITY_COLOR[task.priority] }} />
-        <p className="flex-1 text-[12.5px] font-medium text-white leading-snug line-clamp-2">{task.title}</p>
+        <p className="flex-1 text-[12.5px] font-medium text-t1 leading-snug line-clamp-2">{task.title}</p>
         <button onClick={onComplete} title="Completar"
           className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] opacity-0 group-hover:opacity-100 transition"
           style={{ border: "1px solid var(--border-strong)", color: "var(--text-dim)" }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(34,197,94,0.15)"; e.currentTarget.style.color = "#22c55e"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.4)" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(34,197,94,0.15)"; e.currentTarget.style.color = "#9a9d78"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.4)" }}
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}>
           ✓
         </button>
@@ -2683,7 +2683,7 @@ function MiDiaModal({ onClose }: { onClose: () => void }) {
           maxWidth: 560, maxHeight: "86vh",
           background: "linear-gradient(180deg, #23262e, #16181c)",
           border: "1px solid var(--glass-border)",
-          boxShadow: "0 32px 90px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.07)",
+          boxShadow: "0 32px 90px rgba(0,0,0,0.85), inset 0 1px 0 rgba(var(--overlay-rgb), 0.07)",
           animation: "modal-pop 0.26s cubic-bezier(0.34,1.2,0.64,1) both",
         }}
         onMouseDown={e => e.stopPropagation()}>
@@ -2709,20 +2709,20 @@ function MiDiaBody({ plan, planTasks, pool, groups, addToDay, removeFromDay, com
         style={{ background: solid ? "linear-gradient(180deg, #23262e 78%, transparent)" : "linear-gradient(180deg, var(--bg) 78%, transparent)" }}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-[20px] font-semibold text-white flex items-center gap-2">☀ Mi Día</h2>
+            <h2 className="text-[20px] font-semibold text-t1 flex items-center gap-2">☀ Mi Día</h2>
             <p className="text-[12.5px] mt-0.5 capitalize" style={{ color: "var(--text-dim)" }}>{today}</p>
           </div>
           {onClose && (
             <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition shrink-0"
-              style={{ color: "var(--text-dim)", background: "rgba(255,255,255,0.04)" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+              style={{ color: "var(--text-dim)", background: "rgba(var(--overlay-rgb), 0.04)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")}
               onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}
               aria-label="Cerrar Mi Día">✕</button>
           )}
         </div>
         <div className="flex items-center gap-2 mt-3 flex-wrap text-[11.5px]" style={{ color: "var(--text-dimmer)" }}>
-          <span className="px-2 py-0.5 rounded-full" style={{ background: "rgba(94,106,210,0.14)", color: "#aab2f0" }}>
-            <b className="text-white">{planTasks.length}</b> {planTasks.length === 1 ? "tarea hoy" : "tareas hoy"}
+          <span className="px-2 py-0.5 rounded-full" style={{ background: "rgba(194, 84, 47,0.14)", color: "var(--accent)" }}>
+            <b className="text-t1">{planTasks.length}</b> {planTasks.length === 1 ? "tarea hoy" : "tareas hoy"}
           </span>
           {plan.carried.length > 0 && (
             <span className="px-2 py-0.5 rounded-full" style={{ background: "rgba(242,153,74,0.12)", color: "#f2994a" }}>
@@ -2758,10 +2758,10 @@ function MiDiaBody({ plan, planTasks, pool, groups, addToDay, removeFromDay, com
                     <button onClick={() => complete(t.id)} title="Completar"
                       className="shrink-0 w-[20px] h-[20px] rounded-full flex items-center justify-center text-[11px] transition"
                       style={{ border: "1.5px solid var(--border-strong)", color: "transparent" }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.color = "#22c55e" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#9a9d78"; e.currentTarget.style.color = "#9a9d78" }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.color = "transparent" }}>✓</button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] text-white leading-snug">{t.title}</p>
+                      <p className="text-[13px] text-t1 leading-snug">{t.title}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {carried && (
                           <span className="text-[9.5px] font-medium px-1.5 py-px rounded"
@@ -2798,7 +2798,7 @@ function MiDiaBody({ plan, planTasks, pool, groups, addToDay, removeFromDay, com
                   <button key={t.id} onClick={() => addToDay(t.id)}
                     className="flex items-center gap-3 px-3 py-2 rounded-xl text-left transition"
                     style={{ background: "transparent", border: "1px dashed var(--border)" }}
-                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.03)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
                     onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "var(--border)" }}>
                     <span className="shrink-0 w-[20px] h-[20px] rounded-md flex items-center justify-center text-[14px]"
                       style={{ background: `${meta.color}1a`, color: meta.color }}>+</span>
@@ -2815,7 +2815,7 @@ function MiDiaBody({ plan, planTasks, pool, groups, addToDay, removeFromDay, com
           <button onClick={simulateNewDay}
             className="text-[11px] font-medium px-2.5 py-1.5 rounded-md transition shrink-0"
             style={{ color: "var(--text-dim)", border: "1px solid var(--border)" }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "rgba(255,255,255,0.04)" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "var(--t1)"; e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.04)" }}
             onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.background = "transparent" }}>
             ⟳ Simular nuevo día
           </button>

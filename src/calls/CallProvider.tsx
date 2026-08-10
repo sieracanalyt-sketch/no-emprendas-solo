@@ -189,7 +189,7 @@ export default function CallProvider({ children }: { children: React.ReactNode }
                 <button
                   onClick={accept}
                   className="w-14 h-14 rounded-full flex items-center justify-center text-xl transition-transform hover:scale-105 active:scale-95"
-                  style={{ background: "#22c55e", boxShadow: "0 8px 24px rgba(34,197,94,0.45)", animation: "nes-ring-bounce 1.2s ease-in-out infinite" }}
+                  style={{ background: "#9a9d78", boxShadow: "0 8px 24px rgba(34,197,94,0.45)", animation: "nes-ring-bounce 1.2s ease-in-out infinite" }}
                   aria-label="Contestar"
                 >
                   {incoming.video ? "🎥" : "📞"}

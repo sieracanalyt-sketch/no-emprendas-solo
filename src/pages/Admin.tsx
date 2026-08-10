@@ -120,7 +120,7 @@ function WaitlistSection() {
           disabled={busy}
           onClick={() => call(true)}
           className="rounded-full px-4 py-2 text-sm"
-          style={{ background: "rgba(255,255,255,0.08)", color: "var(--text)" }}
+          style={{ background: "rgba(var(--overlay-rgb), 0.08)", color: "var(--text)" }}
         >
           Ver a quién
         </button>
@@ -133,7 +133,7 @@ function WaitlistSection() {
           }}
           className="rounded-full px-4 py-2 text-sm font-medium"
           style={{
-            background: !preview || busy ? "rgba(255,255,255,0.08)" : "#00ff7f",
+            background: !preview || busy ? "rgba(var(--overlay-rgb), 0.08)" : "#00ff7f",
             color: !preview || busy ? "var(--text-dimmer)" : "#04120a",
           }}
           title={preview ? "" : "Primero pulsa «Ver a quién»"}
@@ -218,7 +218,7 @@ function FlagsSection() {
                 disabled={busy === f.feature}
                 className="relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40"
                 style={{
-                  background: f.active ? "#5e6ad2" : "rgba(255,255,255,0.10)",
+                  background: f.active ? "#c2542f" : "rgba(var(--overlay-rgb), 0.10)",
                   border: "1px solid var(--border-strong)",
                 }}
                 title={f.active ? "Desactivar (todos ven la feature)" : "Activar (solo premium)"}
@@ -331,10 +331,10 @@ function InvitesSection() {
           disabled={creating}
           className="rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-40"
           style={{
-            background: "linear-gradient(180deg,#6b77e0,#5460cb)",
-            color: "#fff",
-            border: "1px solid rgba(255,255,255,0.16)",
-            boxShadow: "0 6px 18px rgba(94,106,210,0.32), inset 0 1px 0 rgba(255,255,255,0.22)",
+            background: "linear-gradient(180deg,#d97c50,#a34420)",
+            color: "var(--on-accent)",
+            border: "1px solid rgba(var(--overlay-rgb), 0.16)",
+            boxShadow: "0 6px 18px rgba(194, 84, 47,0.32), inset 0 1px 0 rgba(var(--overlay-rgb), 0.22)",
           }}
         >
           {creating ? "Generando…" : "Generar código"}
@@ -344,13 +344,13 @@ function InvitesSection() {
       {justCreated && (
         <div
           className="row-card mt-3 flex items-center justify-between rounded-xl p-3.5"
-          style={{ background: "rgba(94,106,210,0.12)", border: "1px solid rgba(94,106,210,0.3)" }}
+          style={{ background: "rgba(194, 84, 47,0.12)", border: "1px solid rgba(194, 84, 47,0.3)" }}
         >
-          <span className="font-mono text-sm" style={{ color: "#fff" }}>{justCreated}</span>
+          <span className="font-mono text-sm" style={{ color: "var(--t1)" }}>{justCreated}</span>
           <button
             onClick={() => copy(justCreated)}
             className="text-xs font-medium"
-            style={{ color: "#9aa4f0" }}
+            style={{ color: "var(--accent)" }}
           >
             Copiar
           </button>
@@ -386,15 +386,15 @@ function InvitesSection() {
               <button
                 onClick={() => copy(c.code)}
                 className="shrink-0 text-xs font-medium"
-                style={{ color: "#9aa4f0" }}
+                style={{ color: "var(--accent)" }}
               >
                 Copiar
               </button>
               <span
                 className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
                 style={{
-                  background: agotado ? "rgba(255,255,255,0.06)" : "rgba(74,222,128,0.14)",
-                  color: agotado ? "var(--text-dim)" : "#4ade80",
+                  background: agotado ? "rgba(var(--overlay-rgb), 0.06)" : "rgba(74,222,128,0.14)",
+                  color: agotado ? "var(--text-dim)" : "#9a9d78",
                 }}
               >
                 {agotado ? `agotado · ${c.uses_count}/${c.max_uses}` : `${c.uses_count}/${c.max_uses} usos`}
@@ -488,7 +488,7 @@ function UsersSection() {
                 {u.is_admin && (
                   <span
                     className="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                    style={{ background: "rgba(94,106,210,0.16)", color: "#9aa4f0" }}
+                    style={{ background: "rgba(194, 84, 47,0.16)", color: "var(--accent)" }}
                   >
                     admin
                   </span>
@@ -501,8 +501,8 @@ function UsersSection() {
             <span
               className="rounded-full px-2 py-0.5 text-[11px] font-medium"
               style={{
-                background: u.tier === "premium" ? "rgba(94,106,210,0.16)" : "rgba(255,255,255,0.06)",
-                color: u.tier === "premium" ? "#9aa4f0" : "var(--text-dim)",
+                background: u.tier === "premium" ? "rgba(194, 84, 47,0.16)" : "rgba(var(--overlay-rgb), 0.06)",
+                color: u.tier === "premium" ? "#d97c50" : "var(--text-dim)",
               }}
             >
               {u.tier}

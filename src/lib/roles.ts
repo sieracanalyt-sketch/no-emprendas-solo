@@ -19,7 +19,7 @@ export type RoleCategory = {
 
 export const ROLE_CATEGORIES: RoleCategory[] = [
   {
-    label: "Negocio", emoji: "🏢", color: "#5e6ad2",
+    label: "Negocio", emoji: "🏢", color: "#c2542f",
     blurb: "Quien decide hacia dónde va el proyecto, cómo gana dinero y quién hace qué. Sin este bloque hay producto, pero no empresa.",
     roles: [
       { name: "CEO / Fundador", desc: "Marca el rumbo y responde de las decisiones difíciles. Levanta dinero, contrata y protege la visión cuando todo tira en otra dirección." },
@@ -76,7 +76,7 @@ export const ROLE_CATEGORIES: RoleCategory[] = [
     ],
   },
   {
-    label: "Marketing y Ventas", emoji: "📢", color: "#22c55e",
+    label: "Marketing y Ventas", emoji: "📢", color: "#9a9d78",
     blurb: "Quien consigue que existas para el mundo. Un producto excelente que nadie encuentra no es un negocio.",
     roles: [
       { name: "Director de Marketing", desc: "Estrategia y presupuesto de captación. Decide en qué canales se juega y mide qué devuelve cada euro." },
@@ -108,7 +108,7 @@ export const ROLE_CATEGORIES: RoleCategory[] = [
     ],
   },
   {
-    label: "Otros", emoji: "✨", color: "#8a8f98",
+    label: "Otros", emoji: "✨", color: "#c7c2b3",
     blurb: "Perfiles de apoyo y situaciones que no encajan en una casilla fija. Valen igual: en una fase temprana casi nadie tiene un solo rol.",
     roles: [
       { name: "Mentor / Coach", desc: "Acompaña a las personas, no al producto. Te ayuda a decidir mejor y a no quemarte por el camino." },
@@ -127,7 +127,7 @@ export const ALL_ROLES_FLAT = ROLE_CATEGORIES.flatMap(c =>
 
 /** Los tres atajos del selector rápido: no son cargos, son áreas. */
 export const MAIN_QUICK_ROLES = [
-  { name: "Negocio",     color: "#5e6ad2", emoji: "🏢", desc: "Estrategia, producto y operaciones" },
+  { name: "Negocio",     color: "#c2542f", emoji: "🏢", desc: "Estrategia, producto y operaciones" },
   { name: "Tecnología",  color: "#3b82f6", emoji: "💻", desc: "Desarrollo, datos e infraestructura" },
   { name: "Creatividad", color: "#ec4899", emoji: "🎨", desc: "Diseño, marketing y contenido"       },
 ]

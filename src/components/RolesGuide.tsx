@@ -17,7 +17,7 @@ export default function RolesGuideButton() {
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium transition"
         style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-dim)" }}
-        onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)" }}
+        onMouseEnter={e => { e.currentTarget.style.color = "var(--t1)"; e.currentTarget.style.borderColor = "rgba(var(--overlay-rgb), 0.18)" }}
         onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border)" }}
         title="Qué significa cada rol y cuál le falta a tu equipo"
       >
@@ -64,7 +64,7 @@ function RolesGuideModal({ onClose }: { onClose: () => void }) {
         style={{
           background: "linear-gradient(180deg, rgba(30,32,38,0.97), rgba(17,19,23,0.97))",
           border: "1px solid var(--glass-border)",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.08)",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)",
           maxHeight: "88vh",
           animation: "modal-pop 0.28s cubic-bezier(0.34,1.2,0.64,1) both",
         }}
@@ -76,7 +76,7 @@ function RolesGuideModal({ onClose }: { onClose: () => void }) {
         <div className="shrink-0 px-6 pt-5 pb-4 flex items-start justify-between gap-3"
           style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="min-w-0">
-            <h2 className="text-[18px] font-semibold text-white tracking-tight">¿Qué significan los roles?</h2>
+            <h2 className="text-[18px] font-semibold text-t1 tracking-tight">¿Qué significan los roles?</h2>
             <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: "var(--text-dim)" }}>
               El rol dice qué aporta cada persona al proyecto. Sirve para dos cosas: repartir tareas
               sin discutir quién hace qué, y ver de un vistazo qué perfil te falta.
@@ -85,8 +85,8 @@ function RolesGuideModal({ onClose }: { onClose: () => void }) {
           <button
             onClick={onClose}
             className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition"
-            style={{ color: "var(--text-dim)", background: "rgba(255,255,255,0.04)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+            style={{ color: "var(--text-dim)", background: "rgba(var(--overlay-rgb), 0.04)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")}
             onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}
             aria-label="Cerrar guía de roles"
           >
@@ -104,7 +104,7 @@ function RolesGuideModal({ onClose }: { onClose: () => void }) {
           <div className="flex flex-wrap gap-1.5">
             <button onClick={() => setCat(null)}
               className="text-[11px] px-2.5 py-1 rounded-full transition"
-              style={{ background: !cat ? "rgba(255,255,255,0.1)" : "transparent", color: !cat ? "#fff" : "var(--text-dimmer)", border: "1px solid var(--border)" }}>
+              style={{ background: !cat ? "rgba(var(--overlay-rgb), 0.1)" : "transparent", color: !cat ? "var(--t1)" : "var(--text-dimmer)", border: "1px solid var(--border)" }}>
               Todas
             </button>
             {ROLE_CATEGORIES.map(c => (
@@ -126,7 +126,7 @@ function RolesGuideModal({ onClose }: { onClose: () => void }) {
           {/* Los tres atajos: lo primero que ve el usuario al asignar un rol */}
           {!query && !cat && (
             <section>
-              <h3 className="text-[14.5px] font-semibold text-white mb-1">Los tres atajos rápidos</h3>
+              <h3 className="text-[14.5px] font-semibold text-t1 mb-1">Los tres atajos rápidos</h3>
               <p className="text-[12.5px] leading-relaxed mb-2.5" style={{ color: "var(--text-dim)" }}>
                 Al asignar un rol te salen primero estos tres. No son cargos: son <b>áreas</b>, para
                 salir del paso cuando aún no sabes el título exacto. Puedes afinarlo después.
@@ -159,7 +159,7 @@ function RolesGuideModal({ onClose }: { onClose: () => void }) {
                   style={{ background: `${c.color}1c`, border: `1px solid ${c.color}3a` }}>
                   {c.emoji}
                 </span>
-                <h3 className="text-[14.5px] font-semibold text-white">{c.label}</h3>
+                <h3 className="text-[14.5px] font-semibold text-t1">{c.label}</h3>
                 <span className="text-[10.5px] px-1.5 py-0.5 rounded-md" style={{ color: c.color, background: `${c.color}18` }}>
                   {c.roles.length}
                 </span>
@@ -170,7 +170,7 @@ function RolesGuideModal({ onClose }: { onClose: () => void }) {
                   const critical = CRITICAL_ROLES.includes(r.name)
                   return (
                     <div key={r.name} className="px-3.5 py-2.5 rounded-xl"
-                      style={{ background: "rgba(255,255,255,0.028)", border: "1px solid var(--border)" }}>
+                      style={{ background: "rgba(var(--overlay-rgb), 0.028)", border: "1px solid var(--border)" }}>
                       <p className="text-[12.5px] font-semibold flex items-center gap-2 flex-wrap" style={{ color: c.color }}>
                         {r.name}
                         {critical && (

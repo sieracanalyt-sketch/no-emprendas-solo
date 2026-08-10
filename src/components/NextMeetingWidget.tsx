@@ -62,7 +62,7 @@ export default function NextMeetingWidget({ user }: { user: User }) {
         </p>
         <span
           className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
-          style={{ background: "rgba(94,106,210,0.18)", color: "var(--accent)" }}
+          style={{ background: "rgba(194, 84, 47,0.18)", color: "var(--accent)" }}
         >
           {countdown(next.start_at)}
         </span>

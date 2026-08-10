@@ -50,14 +50,14 @@ export default function AddMembers() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <button
         onClick={() => navigate(`/group/${groupId}/info`)}
-        className="flex items-center gap-1.5 text-white/40 hover:text-white text-sm mb-8 transition-colors"
+        className="flex items-center gap-1.5 text-t1/40 hover:text-t1 text-sm mb-8 transition-colors"
       >
         ← Volver
       </button>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Añadir miembros</h1>
-        <p className="text-white/40 text-sm mt-0.5">
+        <h1 className="text-2xl font-bold text-t1">Añadir miembros</h1>
+        <p className="text-t1/40 text-sm mt-0.5">
           {selected.length > 0
             ? `${selected.length} seleccionado${selected.length !== 1 ? "s" : ""}`
             : "Selecciona las personas a añadir"}
@@ -65,7 +65,7 @@ export default function AddMembers() {
       </div>
 
       {available.length === 0 ? (
-        <p className="text-white/40 text-sm">Todos los usuarios ya son miembros.</p>
+        <p className="text-t1/40 text-sm">Todos los usuarios ya son miembros.</p>
       ) : (
         <div className="glass rounded-2xl overflow-hidden mb-5">
           {available.map((u, i) => {
@@ -76,20 +76,20 @@ export default function AddMembers() {
                 onClick={() => toggle(u.id)}
                 className="flex items-center justify-between px-4 py-3.5 cursor-pointer transition"
                 style={{
-                  background: isSelected ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
-                  borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                  background: isSelected ? "rgba(var(--overlay-rgb), 0.08)" : "rgba(var(--overlay-rgb), 0.03)",
+                  borderTop: i > 0 ? "1px solid rgba(var(--overlay-rgb), 0.06)" : "none",
                 }}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white/50"
-                    style={{ background: "rgba(255,255,255,0.09)" }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-t1/50"
+                    style={{ background: "rgba(var(--overlay-rgb), 0.09)" }}
                   >
                     {(u.nombre || "?")[0].toUpperCase()}
                   </div>
-                  <span className="text-white text-sm font-medium">{u.nombre || "Usuario"}</span>
+                  <span className="text-t1 text-sm font-medium">{u.nombre || "Usuario"}</span>
                 </div>
-                {isSelected && <span className="text-white text-xs font-medium">✓</span>}
+                {isSelected && <span className="text-t1 text-xs font-medium">✓</span>}
               </div>
             )
           })}

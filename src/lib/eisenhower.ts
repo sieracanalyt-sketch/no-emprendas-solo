@@ -31,9 +31,9 @@ export type QuadrantMeta = {
 // Orden de lectura natural: Q1 arriba-izq, Q2 arriba-der, Q3 abajo-izq, Q4 abajo-der.
 export const QUADRANTS: QuadrantMeta[] = [
   { q: 1, title: "Hacer ahora",  subtitle: "Urgente · Importante",       action: "Hazlo ya",          color: "#eb5757", emoji: "🔥" },
-  { q: 2, title: "Planificar",   subtitle: "Importante · No urgente",    action: "Agenda tiempo",     color: "#5e6ad2", emoji: "🗓️" },
+  { q: 2, title: "Planificar",   subtitle: "Importante · No urgente",    action: "Agenda tiempo",     color: "#c2542f", emoji: "🗓️" },
   { q: 3, title: "Delegar",      subtitle: "Urgente · No importante",    action: "Delega o agrupa",   color: "#e2b93b", emoji: "🤝" },
-  { q: 4, title: "Eliminar",     subtitle: "Ni urgente · Ni importante", action: "Backlog / descartar", color: "#8a8f98", emoji: "🧹" },
+  { q: 4, title: "Eliminar",     subtitle: "Ni urgente · Ni importante", action: "Backlog / descartar", color: "#c7c2b3", emoji: "🧹" },
 ]
 
 export const QUADRANT_BY_ID: Record<Quadrant, QuadrantMeta> =

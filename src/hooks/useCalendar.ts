@@ -71,7 +71,7 @@ export function useCalendar(user: User | null) {
         description: ev.description ?? "",
         start_at: ev.start_at,
         end_at: ev.end_at,
-        color: ev.color ?? "#5e6ad2",
+        color: ev.color ?? "#c2542f",
         status: ev.status ?? "confirmed",
         kind: ev.kind ?? "event",
         attendees: ev.attendees ?? [],

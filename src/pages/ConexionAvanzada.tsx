@@ -35,7 +35,7 @@ export default function ConexionAvanzada() {
           Matchmaking avanzado
         </h1>
         <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-          style={{ background: "rgba(94,106,210,0.15)", color: "var(--accent)" }}>Premium</span>
+          style={{ background: "rgba(194, 84, 47,0.15)", color: "var(--accent)" }}>Premium</span>
       </div>
       <p className="mb-6 text-sm" style={{ color: "var(--text-dim)" }}>
         Conexiones basadas en la evidencia de qué hace durar a los equipos fundadores — no en tener buen rollo.
@@ -55,10 +55,10 @@ export default function ConexionAvanzada() {
         <div className="text-sm" style={{ color: "var(--text-dim)" }}>Cargando…</div>
       ) : !isPremium ? (
         <div className="rounded-2xl p-8 text-center" style={{
-          background: "linear-gradient(180deg, rgba(94,106,210,0.08), transparent 60%), var(--surface)",
+          background: "linear-gradient(180deg, rgba(194, 84, 47,0.08), transparent 60%), var(--surface)",
           WebkitBackdropFilter: "blur(16px)",
           backdropFilter: "blur(16px)",
-          border: "1px dashed rgba(94,106,210,0.35)",
+          border: "1px dashed rgba(194, 84, 47,0.35)",
         }}>
           <div className="text-3xl">🔒</div>
           <p className="mt-3 text-base font-medium" style={{ color: "var(--text)" }}>
@@ -68,8 +68,8 @@ export default function ConexionAvanzada() {
             Responde 9 preguntas rápidas de conducta real y deja que la IA cruce toda la red para encontrar tus mejores co-fundadores.
           </p>
           <button onClick={() => setShowUpgrade(true)}
-            className="mt-4 rounded-lg px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
-            style={{ background: "linear-gradient(180deg, #5e6ad2, #4f5ac0)" }}>
+            className="mt-4 rounded-lg px-5 py-2.5 text-sm font-medium text-t1 transition hover:opacity-90"
+            style={{ background: "linear-gradient(180deg, #c2542f, #a34420)" }}>
             Ver Premium
           </button>
           <UpgradeModal feature="matching_advanced" open={showUpgrade} onClose={() => setShowUpgrade(false)} />

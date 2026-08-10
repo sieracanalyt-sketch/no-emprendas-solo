@@ -67,12 +67,12 @@ export default function GroupInfo() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <button
         onClick={() => navigate(`/group/${groupId}`)}
-        className="flex items-center gap-1.5 text-white/40 hover:text-white text-sm mb-8 transition-colors"
+        className="flex items-center gap-1.5 text-t1/40 hover:text-t1 text-sm mb-8 transition-colors"
       >
         ← Volver al chat
       </button>
 
-      <h1 className="text-2xl font-bold text-white mb-8">Información del grupo</h1>
+      <h1 className="text-2xl font-bold text-t1 mb-8">Información del grupo</h1>
 
       {groupInfo && (
         <div className="space-y-5">
@@ -81,14 +81,14 @@ export default function GroupInfo() {
             className="glass rounded-2xl overflow-hidden"
           >
             <div className="px-5 pt-4 pb-1">
-              <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">
+              <p className="text-[11px] font-medium text-t1/40 uppercase tracking-wider">
                 Nombre del grupo
               </p>
             </div>
             <div className="flex gap-3 px-5 pb-4 pt-2">
               <input
-                className="flex-1 px-4 py-2.5 rounded-lg text-white text-sm outline-none transition"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
+                className="flex-1 px-4 py-2.5 rounded-lg text-t1 text-sm outline-none transition"
+                style={{ background: "rgba(var(--overlay-rgb), 0.06)", border: "1px solid rgba(var(--overlay-rgb), 0.08)" }}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && changeName()}
@@ -107,12 +107,12 @@ export default function GroupInfo() {
             className="glass rounded-2xl overflow-hidden"
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-              <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">
+              <p className="text-[11px] font-medium text-t1/40 uppercase tracking-wider">
                 Miembros · {groupInfo.members.length}
               </p>
               <button
                 onClick={() => navigate(`/group/${groupId}/add-members`)}
-                className="text-white/40 hover:text-white text-xs transition-colors"
+                className="text-t1/40 hover:text-t1 text-xs transition-colors"
               >
                 + Añadir
               </button>
@@ -127,16 +127,16 @@ export default function GroupInfo() {
                   <div key={uid} className="flex items-center justify-between px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white/60"
-                        style={{ background: "rgba(255,255,255,0.1)" }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-t1/60"
+                        style={{ background: "rgba(var(--overlay-rgb), 0.1)" }}
                       >
                         {initial}
                       </div>
                       <div>
-                        <p className="text-white text-sm font-medium leading-tight">
+                        <p className="text-t1 text-sm font-medium leading-tight">
                           {name || "Cargando…"}
                         </p>
-                        {isCurrentUser && <p className="text-white/30 text-[11px]">Tú</p>}
+                        {isCurrentUser && <p className="text-t1/30 text-[11px]">Tú</p>}
                       </div>
                     </div>
                     {!isCurrentUser && (

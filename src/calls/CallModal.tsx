@@ -315,7 +315,7 @@ export default function CallModal({
             <>
               <div className="relative mb-5">
                 {(status === "ringing" || status === "connecting") && (
-                  <span className="absolute inset-0 rounded-full animate-ping" style={{ background: "rgba(94,106,210,0.35)" }} />
+                  <span className="absolute inset-0 rounded-full animate-ping" style={{ background: "rgba(194, 84, 47,0.35)" }} />
                 )}
                 <div className="relative">
                   <Avatar name={title} src={call.peer?.avatar} size={96} group={!!call.group} />
@@ -341,7 +341,7 @@ export default function CallModal({
             <p className="text-[17px] font-semibold text-white" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.8)" }}>
               {title}
             </p>
-            <p className="text-[13px] mt-0.5" style={{ color: status === "connected" ? "#4ade80" : "var(--text-dim)", textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}>
+            <p className="text-[13px] mt-0.5" style={{ color: status === "connected" ? "#9a9d78" : "var(--text-dim)", textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}>
               {connectedText}
             </p>
           </div>

@@ -361,10 +361,10 @@ function Row({
     <button
       onClick={onClick}
       className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left transition w-full"
-      style={{ background: active ? "rgba(255,255,255,0.06)" : "transparent" }}
+      style={{ background: active ? "rgba(var(--overlay-rgb), 0.06)" : "transparent" }}
       onMouseEnter={(e) => {
         if (!active)
-          e.currentTarget.style.background = "rgba(255,255,255,0.03)"
+          e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.03)"
       }}
       onMouseLeave={(e) => {
         if (!active) e.currentTarget.style.background = "transparent"
@@ -375,7 +375,7 @@ function Row({
         {online && (
           <span
             className="absolute bottom-0 right-0 w-3 h-3 rounded-full"
-            style={{ background: "#22c55e", border: "2px solid var(--surface-2)" }}
+            style={{ background: "var(--green)", border: "2px solid var(--surface-2)" }}
           />
         )}
       </div>
@@ -384,7 +384,7 @@ function Row({
         <div className="flex items-center justify-between gap-2">
           <p
             className={`truncate text-[14px] ${
-              unread > 0 ? "text-white font-semibold" : "text-white font-medium"
+              unread > 0 ? "text-t1 font-semibold" : "text-t1 font-medium"
             }`}
           >
             {name}
@@ -402,7 +402,7 @@ function Row({
           {unread > 0 && (
             <span
               className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-black"
-              style={{ background: "#22c55e" }}
+              style={{ background: "var(--green)" }}
             >
               {unread > 99 ? "99+" : unread}
             </span>
@@ -419,10 +419,10 @@ function EmptyState({ tab }: { tab: Tab }) {
       <div
         className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
         style={{
-          background: "linear-gradient(180deg, rgba(94,106,210,0.16), rgba(94,106,210,0.05))",
-          border: "1px solid rgba(94,106,210,0.28)",
-          color: "#aab2f0",
-          boxShadow: "0 8px 24px rgba(94,106,210,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
+          background: "linear-gradient(180deg, rgba(194, 84, 47,0.16), rgba(194, 84, 47,0.05))",
+          border: "1px solid rgba(194, 84, 47,0.28)",
+          color: "var(--accent-2)",
+          boxShadow: "0 8px 24px rgba(194, 84, 47,0.18), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)",
         }}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">

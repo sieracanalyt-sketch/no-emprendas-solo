@@ -1,30 +1,144 @@
 @import "tailwindcss";
 
 /* ============================================================
-   GLASSMORPHISM DESIGN TOKENS
+   TOKENS DE MARCA + GLASSMORPHISM
    Cristal flotante sobre glows de ambiente: superficies
-   translúcidas, bordes semi-transparentes, acento índigo.
+   translúcidas, bordes semi-transparentes, acento terracota.
+
+   Los tokens canónicos son los de marca (--canvas, --panel, --t1,
+   --accent…). Los nombres históricos (--bg, --surface, --text…) se
+   conservan como ALIAS para no romper las referencias existentes.
 ============================================================ */
 :root {
-  --bg: #0c0d0e;            /* fondo general */
-  --surface: rgba(255, 255, 255, 0.05);   /* tarjetas translúcidas (cristal) */
-  --surface-2: rgba(255, 255, 255, 0.03); /* sidebar mensajería */
-  --surface-3: rgba(255, 255, 255, 0.07); /* burbujas recibidas / inputs */
-  --border: rgba(255, 255, 255, 0.09);    /* borde de cristal */
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --text: #f7f8f8;         /* texto brillante */
-  --text-dim: #8a8f98;     /* texto gris apagado */
-  --text-dimmer: #62666d;  /* texto terciario */
-  --accent: #5e6ad2;       /* índigo Linear */
-  --accent-blue: #3b82f6;  /* azul eléctrico (focus) */
+  /* ── Paleta de marca (fuente de verdad) ───────────────────── */
+  --canvas: #11140c;        /* fondo base */
+  --panel: #171b10;         /* tarjetas / paneles (opaco) */
+  --panel-2: #14170d;       /* fondos secundarios (opaco) */
+  --border: rgba(245, 237, 228, 0.08);        /* borde default */
+  --border-hover: rgba(245, 237, 228, 0.22);  /* borde en hover */
+  --t1: #f0ede4;            /* texto primario */
+  --t2: #c7c2b3;            /* texto secundario */
+  --t3: #8f8b7c;            /* texto terciario / labels */
+  --accent: #c2542f;        /* terracota — CTA, links, elementos clave */
+  --accent-2: #d97c50;      /* terracota claro — hover, texto sobre fondo oscuro */
+  --green: #9a9d78;         /* caqui — completado / success / badges */
+  --green-2: #b5b891;       /* caqui claro — escalón intermedio de rampas */
+  --amber: #d97c50;         /* ya no hay ámbar separado: = accent-2 */
+  --danger: #eb5757;        /* error / destructivo (fuera de la paleta de marca) */
+  --danger-soft: #f0836f;   /* riesgo / red flags, menos agresivo que --danger */
+  /* Enlaces: el acento sólido no llega a 4.5:1 sobre el canvas OSCURO, así que
+     en oscuro tiran del terracota claro y en claro del profundo. */
+  --link: var(--accent-2);
+
+  /* Canal RGB del acento, para componer rgba() con alfa variable */
+  --accent-rgb: 194, 84, 47;
+  /* Canal del "cristal": en oscuro las veladuras son claras; en claro, oscuras.
+     Girar SOLO este token invierte los ~226 rgba() de superficie de la app. */
+  --overlay-rgb: 245, 237, 228;
+  /* Texto sobre superficie de acento: blanco en AMBOS temas (el terracota es
+     oscuro en los dos), por eso no se invierte. */
+  --on-accent: #ffffff;
+  color-scheme: dark;
+
+  /* ── Alias históricos (no usar en código nuevo) ────────────── */
+  --bg: var(--canvas);
+  --surface: rgba(245, 237, 228, 0.05);   /* tarjetas translúcidas (cristal) */
+  --surface-2: rgba(245, 237, 228, 0.03); /* sidebar mensajería */
+  --surface-3: rgba(245, 237, 228, 0.07); /* burbujas recibidas / inputs */
+  --border-strong: var(--border-hover);
+  --text: var(--t1);
+  --text-dim: var(--t2);
+  --text-dimmer: var(--t3);
+  --accent-blue: var(--accent-2);  /* el sistema de marca no tiene azul */
+
   /* receta del cristal, reutilizable en cualquier componente */
-  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
-  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-bg: linear-gradient(180deg, rgba(245, 237, 228, 0.07), rgba(245, 237, 228, 0.03));
+  --glass-border: rgba(245, 237, 228, 0.12);
   --glass-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    inset 0 1px 0 rgba(245, 237, 228, 0.10);
+  /* Cuerpo del cristal FLOTANTE (menús, popovers). Existe como token porque
+     varios componentes replican la receta inline y deben girar con el tema. */
+  --glass-dark-bg: linear-gradient(180deg, rgba(32, 36, 22, 0.92), rgba(23, 27, 16, 0.92));
   /* Cromo de la app: navbar flotante (ocupa h-14 en el flujo) y tab bar móvil */
   --chrome-top: 3.5rem;
   --chrome-bottom: 0px;
+}
+
+/* Exposición de la paleta de marca como utilidades Tailwind v4
+   (bg-canvas, text-t2, border-accent…). Solo color. */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-t1: var(--t1);
+  --color-t2: var(--t2);
+  --color-t3: var(--t3);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-green: var(--green);
+  --color-green-2: var(--green-2);
+  --color-amber: var(--amber);
+  --color-danger: var(--danger);
+  --color-link: var(--link);
+}
+
+/* ============================================================
+   TEMA CLARO
+   Mismo sistema de marca, invertido. Solo se redefinen tokens:
+   ningún componente necesita saber en qué tema está.
+   Se activa con [data-theme="light"] en <html> (ver lib/theme.ts).
+============================================================ */
+:root[data-theme="light"] {
+  --canvas: #f5ede4;        /* fondo base cálido */
+  --panel: #fffbf6;         /* tarjetas / paneles */
+  --panel-2: #efe6db;       /* fondos secundarios */
+  --border: rgba(17, 20, 12, 0.10);
+  --border-hover: rgba(17, 20, 12, 0.24);
+  --t1: #1c2113;            /* texto primario */
+  --t2: #4a4f3d;            /* texto secundario */
+  --t3: #636755;            /* texto terciario / labels (AA sobre --canvas) */
+  --accent: #a8461f;        /* terracota más profundo: contraste sobre claro */
+  --accent-2: #c2542f;
+  --green: #6f7350;         /* caqui oscurecido para legibilidad */
+  --green-2: #878a66;
+  --amber: #b8562a;
+  --danger: #c0392b;
+  --danger-soft: #b4472f;
+
+  --link: var(--accent);
+  --accent-rgb: 168, 70, 31;
+  --overlay-rgb: 17, 20, 12;   /* las veladuras pasan a ser oscuras */
+  color-scheme: light;
+
+  /* El cristal sobre fondo claro necesita menos alfa y sombra más suave */
+  --surface: rgba(17, 20, 12, 0.04);
+  --surface-2: rgba(17, 20, 12, 0.025);
+  --surface-3: rgba(17, 20, 12, 0.06);
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.55));
+  --glass-border: rgba(17, 20, 12, 0.12);
+  --glass-shadow: 0 24px 60px rgba(60, 40, 25, 0.10), 0 4px 16px rgba(60, 40, 25, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --glass-dark-bg: linear-gradient(180deg, rgba(255, 251, 246, 0.96), rgba(245, 237, 228, 0.96));
+}
+
+/* Glows de ambiente: en claro deben ser mucho más tenues o "queman" el fondo */
+:root[data-theme="light"] body::before {
+  opacity: 0.45;
+}
+
+/* El cristal oscuro flotante (modales, menús) se vuelve claro */
+:root[data-theme="light"] .glass-dark {
+  background: linear-gradient(180deg, rgba(255, 251, 246, 0.94), rgba(245, 237, 228, 0.94));
+  box-shadow: 0 24px 60px rgba(60, 40, 25, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* La lente deslizante de navegación refracta al revés sobre fondo claro */
+:root[data-theme="light"] .lg-lens {
+  background: linear-gradient(180deg, rgba(17, 20, 12, 0.10), rgba(17, 20, 12, 0.04));
+  box-shadow:
+    0 2px 10px rgba(60, 40, 25, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(17, 20, 12, 0.06);
 }
 
 /* En móvil la tab bar inferior ocupa espacio (+ safe area de iPhone) */
@@ -91,9 +205,9 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 620px 480px at 8% -6%, rgba(94, 106, 210, 0.16), transparent 65%),
-    radial-gradient(ellipse 560px 460px at 96% 104%, rgba(47, 141, 160, 0.13), transparent 65%),
-    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.03), transparent 55%);
+    radial-gradient(ellipse 620px 480px at 8% -6%, rgba(194, 84, 47, 0.16), transparent 65%),
+    radial-gradient(ellipse 560px 460px at 96% 104%, rgba(154, 157, 120, 0.13), transparent 65%),
+    radial-gradient(ellipse at 50% 0%, rgba(var(--overlay-rgb), 0.03), transparent 55%);
   pointer-events: none;
   z-index: -1;
 }
@@ -133,11 +247,11 @@ body::before {
 /* Cristal oscuro: para capas que FLOTAN sobre contenido (modales, menús,
    popovers). Más opaco que .glass para que el texto de debajo no ensucie. */
 .glass-dark {
-  background: linear-gradient(180deg, rgba(32, 34, 40, 0.88), rgba(21, 23, 27, 0.88));
+  background: linear-gradient(180deg, rgba(32, 36, 22, 0.88), rgba(23, 27, 16, 0.88));
   -webkit-backdrop-filter: blur(22px) saturate(1.3);
   backdrop-filter: blur(22px) saturate(1.3);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08);
 }
 
 /* Enlaces de navegación: gris apagado → blanco brillante en hover */
@@ -168,12 +282,12 @@ body::before {
   pointer-events: none;
   z-index: 0;
   /* cuerpo de cristal que refracta lo de debajo */
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+  background: linear-gradient(180deg, rgba(var(--overlay-rgb), 0.16), rgba(var(--overlay-rgb), 0.05));
   -webkit-backdrop-filter: blur(6px) saturate(1.6);
   backdrop-filter: blur(6px) saturate(1.6);
   box-shadow:
     0 2px 10px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 1px 0 rgba(var(--overlay-rgb), 0.35),
     inset 0 -1px 0 rgba(0, 0, 0, 0.12);
   transition:
     left 0.46s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -188,7 +302,7 @@ body::before {
   border-radius: inherit;
   padding: 1px;
   background: linear-gradient(120deg,
-    rgba(94, 106, 210, 0.9), rgba(47, 141, 160, 0.7) 45%, rgba(255, 255, 255, 0.85));
+    rgba(194, 84, 47, 0.9), rgba(154, 157, 120, 0.7) 45%, rgba(var(--overlay-rgb), 0.85));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -204,17 +318,17 @@ body::before {
   top: 2px;
   height: 42%;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent);
+  background: linear-gradient(180deg, rgba(var(--overlay-rgb), 0.5), transparent);
   filter: blur(1px);
   opacity: 0.55;
 }
 .lg-lens.lg-hidden { opacity: 0; }
 /* variante de acento (MERGE): la lente se tiñe de índigo */
 .lg-lens.lg-accent {
-  background: linear-gradient(180deg, rgba(94, 106, 210, 0.44), rgba(94, 106, 210, 0.16));
+  background: linear-gradient(180deg, rgba(194, 84, 47, 0.44), rgba(194, 84, 47, 0.16));
   box-shadow:
-    0 4px 18px rgba(94, 106, 210, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 4px 18px rgba(194, 84, 47, 0.4),
+    inset 0 1px 0 rgba(var(--overlay-rgb), 0.3);
 }
 .lg-lens.lg-accent::before { opacity: 1; }
 
@@ -240,11 +354,11 @@ body::before {
   display: flex;
   align-items: stretch;
   justify-content: space-around;
-  background: linear-gradient(180deg, rgba(32, 34, 40, 0.9), rgba(21, 23, 27, 0.9));
+  background: linear-gradient(180deg, rgba(32, 36, 22, 0.9), rgba(23, 27, 16, 0.9));
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   backdrop-filter: blur(24px) saturate(1.4);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08);
 }
 .bottomnav-item {
   position: relative;
@@ -300,37 +414,37 @@ body::before {
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(var(--overlay-rgb), 0.05);
   transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease,
     box-shadow 0.15s ease;
 }
 .row-card:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--overlay-rgb), 0.08);
   border-color: var(--border-strong);
   transform: translateY(-1px);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(var(--overlay-rgb), 0.07);
 }
 
 /* Botón de cristal (gradiente interno + blur) */
 .btn-linear {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(180deg, rgba(var(--overlay-rgb), 0.08), rgba(var(--overlay-rgb), 0.04));
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-strong);
   color: var(--text);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08);
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .btn-linear:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.07));
-  border-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, rgba(var(--overlay-rgb), 0.13), rgba(var(--overlay-rgb), 0.07));
+  border-color: rgba(var(--overlay-rgb), 0.2);
   transform: translateY(-1px);
 }
 .btn-linear:active { transform: translateY(0); }
 
 /* Input de cristal con anillo azul en focus */
 .field-input {
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(var(--overlay-rgb), 0.045);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-strong);
@@ -342,7 +456,7 @@ body::before {
 }
 .field-input:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--overlay-rgb), 0.06);
   border-color: rgba(59, 130, 246, 0.65);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
@@ -396,11 +510,11 @@ select {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--overlay-rgb), 0.08);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(var(--overlay-rgb), 0.16);
 }
 
 /* ============================================================
@@ -417,9 +531,9 @@ select {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(50% 55% at 12% 8%, rgba(94, 106, 210, 0.16), transparent 60%),
-    radial-gradient(46% 50% at 92% 85%, rgba(47, 141, 160, 0.12), transparent 62%),
-    radial-gradient(42% 48% at 85% 10%, rgba(138, 110, 220, 0.10), transparent 60%);
+    radial-gradient(50% 55% at 12% 8%, rgba(194, 84, 47, 0.16), transparent 60%),
+    radial-gradient(46% 50% at 92% 85%, rgba(154, 157, 120, 0.12), transparent 62%),
+    radial-gradient(42% 48% at 85% 10%, rgba(217, 124, 80, 0.10), transparent 60%);
 }
 
 .auth-root {
@@ -428,7 +542,7 @@ select {
   display: flex;
   overflow: hidden;
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
-  background: #0a0b0d; /* base sobre la que se derrama la aurora */
+  background: var(--canvas); /* base sobre la que se derrama la aurora */
 }
 
 /* Aurora a PANTALLA COMPLETA: baña izquierda y derecha por igual, así el
@@ -439,11 +553,11 @@ select {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(58% 68% at 15% 26%, rgba(94, 106, 210, 0.62), transparent 60%),
-    radial-gradient(54% 64% at 78% 72%, rgba(47, 141, 160, 0.50), transparent 62%),
-    radial-gradient(50% 62% at 94% 20%, rgba(138, 110, 220, 0.52), transparent 60%),
-    radial-gradient(52% 64% at 66% 48%, rgba(110, 96, 214, 0.32), transparent 66%),
-    radial-gradient(64% 74% at 45% 60%, rgba(94, 106, 210, 0.20), transparent 72%);
+    radial-gradient(58% 68% at 15% 26%, rgba(194, 84, 47, 0.62), transparent 60%),
+    radial-gradient(54% 64% at 78% 72%, rgba(154, 157, 120, 0.50), transparent 62%),
+    radial-gradient(50% 62% at 94% 20%, rgba(217, 124, 80, 0.52), transparent 60%),
+    radial-gradient(52% 64% at 66% 48%, rgba(154, 157, 120, 0.32), transparent 66%),
+    radial-gradient(64% 74% at 45% 60%, rgba(194, 84, 47, 0.20), transparent 72%);
   animation: authDrift 26s ease-in-out infinite alternate;
 }
 @keyframes authDrift {
@@ -496,11 +610,11 @@ select {
   align-items: center;
   padding: 3rem 4rem;
   overflow-y: auto;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.035));
+  background: linear-gradient(160deg, rgba(var(--overlay-rgb), 0.11), rgba(var(--overlay-rgb), 0.035));
   -webkit-backdrop-filter: blur(46px) saturate(1.55);
   backdrop-filter: blur(46px) saturate(1.55);
   /* seam suave (solo highlight de cristal, sin oscurecer) */
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.12);
+  box-shadow: inset 1px 0 0 rgba(var(--overlay-rgb), 0.12);
 }
 .auth-card {
   width: 100%;
@@ -553,7 +667,7 @@ select {
 .auth-input {
   width: 100%;
   padding: 0.9rem 1.1rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--overlay-rgb), 0.05);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-strong);
@@ -567,7 +681,7 @@ select {
 .auth-input:focus {
   border-color: rgba(59, 130, 246, 0.65);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--overlay-rgb), 0.06);
 }
 /* toggle de ojo para la contraseña */
 .auth-eye {
@@ -587,20 +701,20 @@ select {
   border-radius: 8px;
   transition: color 0.15s ease, background 0.15s ease;
 }
-.auth-eye:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.auth-eye:hover { color: var(--text); background: rgba(var(--overlay-rgb), 0.06); }
 
 /* CTA primario: acento índigo con glow (ver design.md §7) */
 .auth-submit {
   width: 100%;
   padding: 0.9rem;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(var(--overlay-rgb), 0.18);
   color: #fff;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  background: linear-gradient(180deg, #6b77e0, #5460cb);
-  box-shadow: 0 10px 30px rgba(94, 106, 210, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: linear-gradient(180deg, #d97c50, #a34420);
+  box-shadow: 0 10px 30px rgba(194, 84, 47, 0.42), inset 0 1px 0 rgba(var(--overlay-rgb), 0.25);
   transition: transform 0.15s ease, filter 0.15s ease;
 }
 .auth-submit:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.07); }
@@ -628,7 +742,7 @@ select {
 .auth-dots { display: flex; gap: 7px; }
 .auth-dot {
   width: 22px; height: 3px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(var(--overlay-rgb), 0.25);
   overflow: hidden;
 }
 
@@ -652,12 +766,12 @@ select {
 ============================================================ */
 @keyframes tourPulse {
   0%, 100% {
-    box-shadow: 0 0 0 4px rgba(94, 106, 210, 0.16),
-      0 0 18px 2px rgba(94, 106, 210, 0.34);
+    box-shadow: 0 0 0 4px rgba(194, 84, 47, 0.16),
+      0 0 18px 2px rgba(194, 84, 47, 0.34);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(94, 106, 210, 0.28),
-      0 0 30px 7px rgba(94, 106, 210, 0.6);
+    box-shadow: 0 0 0 6px rgba(194, 84, 47, 0.28),
+      0 0 30px 7px rgba(194, 84, 47, 0.6);
   }
 }
 @keyframes tourCardIn {
@@ -718,7 +832,7 @@ select {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 1.5px solid rgba(94, 106, 210, 0.9);
+  border: 1.5px solid rgba(194, 84, 47, 0.9);
   animation: tourPulse 2.1s ease-in-out infinite;
 }
 
@@ -734,7 +848,7 @@ select {
   border-radius: 20px;
   padding: 20px;
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    inset 0 1px 0 rgba(var(--overlay-rgb), 0.08);
   animation: tourCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .tour-card--centered {
@@ -751,7 +865,7 @@ select {
   top: -7px;
   width: 14px;
   height: 14px;
-  background: #17181b;
+  background: #171b10;
   border-left: 1px solid var(--border-strong);
   border-top: 1px solid var(--border-strong);
   transform: rotate(45deg);
@@ -764,13 +878,13 @@ select {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  color: #aeb6ff;
+  color: var(--accent);
   background: radial-gradient(
     circle at 50% 30%,
-    rgba(94, 106, 210, 0.32),
-    rgba(94, 106, 210, 0.12)
+    rgba(194, 84, 47, 0.32),
+    rgba(194, 84, 47, 0.12)
   );
-  border: 1px solid rgba(94, 106, 210, 0.35);
+  border: 1px solid rgba(194, 84, 47, 0.35);
 }
 .tour-card--centered .tour-icon {
   width: 56px;
@@ -783,7 +897,7 @@ select {
   height: 6px;
   width: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--overlay-rgb), 0.18);
   border: none;
   padding: 0;
   cursor: pointer;
@@ -800,9 +914,9 @@ select {
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #aeb6ff;
-  background: rgba(94, 106, 210, 0.16);
-  border: 1px solid rgba(94, 106, 210, 0.3);
+  color: var(--accent);
+  background: rgba(194, 84, 47, 0.16);
+  border: 1px solid rgba(194, 84, 47, 0.3);
   border-radius: 999px;
   padding: 3px 9px;
 }
@@ -819,7 +933,7 @@ select {
 
 .tour-next {
   background: var(--accent);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(var(--overlay-rgb), 0.12);
   color: #fff;
   font-size: 13px;
   font-weight: 500;
@@ -828,11 +942,11 @@ select {
   cursor: pointer;
   transition: background 0.15s ease, transform 0.1s ease;
 }
-.tour-next:hover { background: #6b77e0; }
+.tour-next:hover { background: #d97c50; }
 .tour-next:active { transform: scale(0.97); }
 
 .tour-back {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--overlay-rgb), 0.04);
   border: 1px solid var(--border-strong);
   color: var(--text);
   font-size: 13px;
@@ -842,7 +956,7 @@ select {
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.tour-back:hover { background: rgba(255, 255, 255, 0.08); }
+.tour-back:hover { background: rgba(var(--overlay-rgb), 0.08); }
 
 .tour-close {
   position: absolute;
@@ -860,7 +974,7 @@ select {
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.tour-close:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+.tour-close:hover { background: rgba(var(--overlay-rgb), 0.06); color: var(--text); }
 
 /* Botón "?" de la Navbar para relanzar el tour */
 .tour-help-btn {
@@ -870,7 +984,7 @@ select {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--overlay-rgb), 0.04);
   border: 1px solid var(--border);
   color: var(--text-dim);
   font-size: 13px;
@@ -879,8 +993,28 @@ select {
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .tour-help-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--overlay-rgb), 0.08);
   color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* Toggle de tema: mismo cuerpo que el botón de ayuda, con icono */
+.theme-toggle {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(var(--overlay-rgb), 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.theme-toggle:hover {
+  background: rgba(var(--overlay-rgb), 0.08);
+  color: var(--accent);
   border-color: var(--border-strong);
 }
 
@@ -925,7 +1059,7 @@ select {
   border-radius: 20px 20px 0 0;
   max-height: 72vh;
   overflow-y: auto;
-  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08);
   animation: gateSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -949,7 +1083,7 @@ select {
   width: 36px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--overlay-rgb), 0.12);
   margin: 12px auto 0;
 }
 @media (min-width: 640px) {

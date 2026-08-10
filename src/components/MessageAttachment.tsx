@@ -116,7 +116,7 @@ function AudioAttachment({ att }: { att: Attachment }) {
       <audio ref={audioRef} src={att.url} preload="metadata" />
       <button
         onClick={toggle}
-        className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-white"
+        className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-t1"
         style={{ background: "var(--accent)" }}
         aria-label={playing ? "Pausar" : "Reproducir"}
       >
@@ -134,7 +134,7 @@ function AudioAttachment({ att }: { att: Attachment }) {
               style={{
                 width: 2,
                 height: h,
-                background: active ? "var(--accent)" : "rgba(255,255,255,0.18)",
+                background: active ? "var(--accent)" : "rgba(var(--overlay-rgb), 0.18)",
               }}
             />
           )

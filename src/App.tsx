@@ -48,7 +48,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="w-full min-h-screen bg-[#0c0d0e] text-white">
+    <div className="w-full min-h-screen bg-canvas text-t1">
       <CallProvider>
       {!hideNavbar && <div className="app-aurora" aria-hidden />}
       {!hideNavbar && <Navbar />}

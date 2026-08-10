@@ -56,12 +56,12 @@ export default function Login() {
 
   return (
     <AuthLayout>
-      <h1 style={{ color: "#fff", fontSize: "clamp(1.6rem, 2.4vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15, margin: 0 }}>
+      <h1 style={{ color: "var(--t1)", fontSize: "clamp(1.6rem, 2.4vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15, margin: 0 }}>
         Bienvenido de nuevo
       </h1>
       <p style={{ marginTop: "0.6rem", color: "var(--text-dim)", fontSize: "0.9rem" }}>
         ¿No tienes una cuenta?{" "}
-        <Link to="/register" style={{ color: "#9aa4f0", fontWeight: 500 }}>Regístrate</Link>
+        <Link to="/register" style={{ color: "var(--link)", fontWeight: 500 }}>Regístrate</Link>
       </p>
 
       {oauthMessage && (

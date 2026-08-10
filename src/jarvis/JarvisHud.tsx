@@ -13,9 +13,9 @@ import "./jarvis.css"
 // MERGE — asistente de voz del fundador, embebido en NES con estética minimalista.
 // La lógica de conexión vive en useJarvisRoom; aquí solo se presenta.
 
-const toneColor: Record<Tone, string> = { up: "#3fb950", down: "#f85149", warn: "#d29922", flat: "var(--text)" }
+const toneColor: Record<Tone, string> = { up: "#9a9d78", down: "#f85149", warn: "#d29922", flat: "var(--text)" }
 const AXIS = "var(--text-dimmer)"
-const GRID = "rgba(255,255,255,0.06)"
+const GRID = "rgba(var(--overlay-rgb), 0.06)"
 
 function useTypewriter(text: string, speed = 20, delay = 0) {
   const [out, setOut] = useState(""); const [done, setDone] = useState(false)
@@ -328,7 +328,7 @@ export default function MergeConsole() {
 function StateBar({ s }: { s: AgentState }) {
   if (s === "idle") return null
   if (s === "listening") return (
-    <div className="mg-state" style={{ color: "#3fb950" }}>
+    <div className="mg-state" style={{ color: "#9a9d78" }}>
       <span className="mg-listen-ring" />
       <span style={{ color: "var(--text)" }}>Te escucho — habla</span>
     </div>
@@ -530,7 +530,7 @@ function AppliedFeed({ items, onClear }: { items: AppliedChange[]; onClear: () =
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {items.map((it) => (
           <div key={it.id} className="mg-fade" style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13.5, lineHeight: 1.5 }}>
-            <span aria-hidden style={{ color: it.ok ? "#3fb950" : "#f85149", fontWeight: 700, lineHeight: 1.5 }}>
+            <span aria-hidden style={{ color: it.ok ? "#9a9d78" : "#f85149", fontWeight: 700, lineHeight: 1.5 }}>
               {it.ok ? "✓" : "✕"}
             </span>
             <span style={{ color: it.ok ? "var(--text)" : "var(--text-dim)" }}>{it.text}</span>
@@ -588,7 +588,7 @@ function TaskList({ d }: { d: TaskListData }) {
               <span aria-hidden style={{
                 marginTop: 1, width: 19, height: 19, flexShrink: 0, borderRadius: 6,
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 700, color: on ? "#fff" : "transparent",
+                fontSize: 12, fontWeight: 700, color: on ? "var(--t1)" : "transparent",
                 background: on ? "var(--accent)" : "transparent",
                 border: `1.5px solid ${on ? "var(--accent)" : "var(--border-strong)"}`,
               }}>✓</span>
@@ -613,7 +613,7 @@ function TaskList({ d }: { d: TaskListData }) {
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto", flexWrap: "wrap" }}>
         {saved !== null ? (
-          <span style={{ fontSize: 13.5, color: "#3fb950" }}>
+          <span style={{ fontSize: 13.5, color: "#9a9d78" }}>
             ✓ {saved} {saved === 1 ? "tarea guardada" : "tareas guardadas"} en el Backlog de tu workflow.
           </span>
         ) : (
@@ -680,7 +680,7 @@ function Metrics({ d }: { d: MetricsData }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div><div className="mg-label">Métricas · {d.range_days} días</div>
           <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text)", marginTop: 4 }}>{d.label}</div></div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: up ? "#3fb950" : "#f85149" }}>{up ? "▲" : "▼"} {Math.abs(d.delta_pct).toFixed(0)}%</div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: up ? "#9a9d78" : "#f85149" }}>{up ? "▲" : "▼"} {Math.abs(d.delta_pct).toFixed(0)}%</div>
       </div>
       <svg viewBox={`0 0 ${MW} ${MH}`} style={{ width: "100%", flex: 1, minHeight: 240 }}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => {
@@ -696,7 +696,7 @@ function Metrics({ d }: { d: MetricsData }) {
         {last && <circle cx={last[0]} cy={last[1]} r={4.5} fill="var(--accent)" opacity={draw ? 1 : 0} style={{ transition: "opacity 0.4s 1s" }} />}
       </svg>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {d.available.map((m) => <span key={m} className="mg-chip" style={m === d.metric ? { borderColor: "rgba(94,106,210,0.4)", background: "rgba(94,106,210,0.1)", color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.04em" } : { textTransform: "uppercase", letterSpacing: "0.04em" }}>{m.replace("_", " ")}</span>)}
+        {d.available.map((m) => <span key={m} className="mg-chip" style={m === d.metric ? { borderColor: "rgba(194, 84, 47,0.4)", background: "rgba(194, 84, 47,0.1)", color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.04em" } : { textTransform: "uppercase", letterSpacing: "0.04em" }}>{m.replace("_", " ")}</span>)}
       </div>
     </div>
   )
@@ -712,9 +712,9 @@ function Pipeline({ d }: { d: PipelineData }) {
         {d.stages.map((s, i) => (
           <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 96, textAlign: "right", fontSize: 13, color: "var(--text-dim)" }}>{s.label}</div>
-            <div style={{ position: "relative", height: 34, flex: 1, borderRadius: 8, overflow: "hidden", background: "rgba(255,255,255,0.03)" }}>
+            <div style={{ position: "relative", height: 34, flex: 1, borderRadius: 8, overflow: "hidden", background: "rgba(var(--overlay-rgb), 0.03)" }}>
               <div className="mg-grow" style={{ height: "100%", width: `${(s.count / maxC) * 100}%`, borderRadius: 8, background: "var(--accent)", animationDelay: `${i * 120}ms` }} />
-              <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, fontWeight: 600, color: "#fff" }}>{s.count}</span>
+              <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, fontWeight: 600, color: "var(--on-accent)" }}>{s.count}</span>
             </div>
           </div>
         ))}
@@ -723,7 +723,7 @@ function Pipeline({ d }: { d: PipelineData }) {
         <div className="mg-label">En riesgo · <span style={{ color: "#f85149" }}>{d.at_risk_count}</span></div>
         <div className="mg-scroll" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {d.deals.map((dl, i) => (
-            <div key={dl.name} className="mg-fade" style={{ borderRadius: 12, padding: 12, animationDelay: `${i * 80}ms`, background: dl.at_risk ? "rgba(248,81,73,0.07)" : "rgba(255,255,255,0.025)" }}>
+            <div key={dl.name} className="mg-fade" style={{ borderRadius: 12, padding: 12, animationDelay: `${i * 80}ms`, background: dl.at_risk ? "rgba(248,81,73,0.07)" : "rgba(var(--overlay-rgb), 0.025)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <span style={{ fontWeight: 600, color: dl.at_risk ? "#f85149" : "var(--text)" }}>{dl.name}</span>
                 <span className="mg-label">{dl.stage} · {sizeL[dl.size]}</span>
@@ -739,7 +739,7 @@ function Pipeline({ d }: { d: PipelineData }) {
 
 function Intel({ d }: { d: IntelData }) {
   const icon = (t: string) => t === "meeting" ? "◈ Reunión" : t === "doc" ? "▤ Doc" : "✉ Mensaje"
-  const col = (t: string) => t === "meeting" ? "var(--accent)" : t === "doc" ? "#3fb950" : "#3b82f6"
+  const col = (t: string) => t === "meeting" ? "var(--accent)" : t === "doc" ? "var(--green)" : "var(--accent-2)"
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: 28, minHeight: 460 }}>
       <div className="mg-label">Intel{d.query ? ` · ${d.query}` : ""}</div>
@@ -794,12 +794,12 @@ function Focus({ d }: { d: FocusData }) {
       <div className="mg-label">{done ? "Sesión completa" : "Foco · en curso"}</div>
       <div style={{ position: "relative", width: 280, height: 280 }}>
         <svg viewBox="0 0 300 300" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
-          <circle cx="150" cy="150" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={4} />
-          <circle cx="150" cy="150" r={R} fill="none" stroke={done ? "#3fb950" : "var(--accent)"} strokeWidth={4} strokeLinecap="round"
+          <circle cx="150" cy="150" r={R} fill="none" stroke="rgba(var(--overlay-rgb), 0.07)" strokeWidth={4} />
+          <circle cx="150" cy="150" r={R} fill="none" stroke={done ? "#9a9d78" : "var(--accent)"} strokeWidth={4} strokeLinecap="round"
             strokeDasharray={C} strokeDashoffset={C * (1 - frac)} style={{ transition: "stroke-dashoffset 0.3s linear" }} />
         </svg>
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ fontSize: 56, fontWeight: 600, color: done ? "#3fb950" : "var(--text)", fontVariantNumeric: "tabular-nums" }}>{done ? "¡YA!" : `${mm}:${ss}`}</div>
+          <div style={{ fontSize: 56, fontWeight: 600, color: done ? "#9a9d78" : "var(--text)", fontVariantNumeric: "tabular-nums" }}>{done ? "¡YA!" : `${mm}:${ss}`}</div>
           <div className="mg-label" style={{ marginTop: 10 }}>{d.label}</div>
         </div>
       </div>
@@ -845,17 +845,17 @@ function Match({ d }: { d: MatchData }) {
               <span style={{
                 width: 24, height: 24, borderRadius: "50%", display: "inline-flex", alignItems: "center",
                 justifyContent: "center", fontSize: 12, fontWeight: 700,
-                background: "rgba(94,106,210,0.15)", color: "var(--accent)",
+                background: "rgba(194, 84, 47,0.15)", color: "var(--accent)",
               }}>{m.posicion}</span>
               <span style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{m.nombre}</span>
             </div>
             <p style={{ margin: "10px 0 0", fontSize: 13.5, lineHeight: 1.6, color: "var(--text)" }}>{m.porque_encaja}</p>
             <p style={{ margin: "8px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-dim)" }}>
-              <b style={{ color: "#3fb950" }}>Lo mejor: </b>{m.punto_fuerte}
+              <b style={{ color: "#9a9d78" }}>Lo mejor: </b>{m.punto_fuerte}
             </p>
             {m.a_hablar_desde_el_principio && (
               <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-dim)" }}>
-                <b style={{ color: "#e3b341" }}>A hablar desde el principio: </b>{m.a_hablar_desde_el_principio}
+                <b style={{ color: "var(--accent)" }}>A hablar desde el principio: </b>{m.a_hablar_desde_el_principio}
               </p>
             )}
             <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-dim)" }}>

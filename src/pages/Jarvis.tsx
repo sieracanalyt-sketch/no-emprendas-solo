@@ -12,7 +12,7 @@ export default function Merge() {
       >
         <span
           className="rounded-full px-2 py-0.5"
-          style={{ background: "rgba(94,106,210,0.15)", border: "1px solid rgba(94,106,210,0.35)" }}
+          style={{ background: "rgba(194, 84, 47,0.15)", border: "1px solid rgba(194, 84, 47,0.35)" }}
         >
           Premium · gratis en beta
         </span>

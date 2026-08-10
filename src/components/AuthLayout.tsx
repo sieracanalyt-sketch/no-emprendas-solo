@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import logo from "../assets/logo.png"
+import ThemeToggle from "./ThemeToggle"
 
 // Marca NES: el logo es un símbolo blanco sobre fondo negro. Lo pintamos como
 // máscara de luminancia (el blanco → opaco, el negro → transparente), así el
@@ -35,12 +36,17 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <div className="auth-aurora" />
       <div className="auth-grain" />
 
+      {/* El login no monta la navbar, así que el toggle de tema va aquí */}
+      <div style={{ position: "absolute", top: "1.25rem", right: "1.25rem", zIndex: 2 }}>
+        <ThemeToggle />
+      </div>
+
       {/* ── Panel visual (oculto en móvil) ─────────────────────────── */}
       <div className="auth-visual">
         {/* Wordmark pequeño arriba-izquierda (el texto va aquí, separado del logo) */}
         <div className="flex items-center gap-2.5">
           <BrandMark size={22} />
-          <span style={{ color: "#fff", fontWeight: 600, fontSize: "0.95rem", letterSpacing: "-0.01em" }}>
+          <span style={{ color: "var(--t1)", fontWeight: 600, fontSize: "0.95rem", letterSpacing: "-0.01em" }}>
             NoEmprendasSolo
           </span>
         </div>
@@ -54,7 +60,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
                 position: "absolute",
                 inset: "-30%",
                 borderRadius: "50%",
-                background: "radial-gradient(circle, rgba(128,140,240,0.42), rgba(94,106,210,0.14) 55%, transparent 74%)",
+                background: "radial-gradient(circle, rgba(217,124,80,0.42), rgba(194, 84, 47,0.14) 55%, transparent 74%)",
                 filter: "blur(40px)",
               }}
             />
@@ -67,7 +73,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           <h2
             className="auth-tagline"
             style={{
-              color: "#fff",
+              color: "var(--t1)",
               fontSize: "clamp(1.6rem, 2.6vw, 2.3rem)",
               fontWeight: 800,
               letterSpacing: "-0.03em",
@@ -79,7 +85,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <span>Encuentra a tu <em style={{ fontStyle: "italic", fontWeight: 600 }}>gente.</em></span>
             <span>Construye en <em style={{ fontStyle: "italic", fontWeight: 600 }}>comunidad.</em></span>
           </h2>
-          <p style={{ marginTop: "1.1rem", color: "rgba(255,255,255,0.72)", fontSize: "0.95rem", lineHeight: 1.5, maxWidth: 360 }}>
+          <p style={{ marginTop: "1.1rem", color: "rgba(var(--overlay-rgb), 0.72)", fontSize: "0.95rem", lineHeight: 1.5, maxWidth: 360 }}>
             La tribu donde los fundadores se cruzan, colaboran y crecen juntos.
           </p>
           <div className="auth-dots" style={{ marginTop: "1.6rem" }} aria-hidden>
@@ -96,7 +102,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           {/* Marca solo en móvil (el panel visual está oculto) */}
           <div className="flex md:hidden items-center gap-2.5" style={{ marginBottom: "2rem" }}>
             <BrandMark size={30} />
-            <span style={{ color: "#fff", fontWeight: 600, fontSize: "1rem", letterSpacing: "-0.01em" }}>
+            <span style={{ color: "var(--t1)", fontWeight: 600, fontSize: "1rem", letterSpacing: "-0.01em" }}>
               NoEmprendasSolo
             </span>
           </div>

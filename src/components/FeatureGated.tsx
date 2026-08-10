@@ -39,10 +39,10 @@ function LockedPanel({ feature }: { feature: string }) {
         className="rounded-2xl p-5 text-center"
         style={{
           background:
-            "linear-gradient(180deg, rgba(94,106,210,0.07), rgba(94,106,210,0.015) 40%), var(--surface)",
+            "linear-gradient(180deg, rgba(194, 84, 47,0.07), rgba(194, 84, 47,0.015) 40%), var(--surface)",
           WebkitBackdropFilter: "blur(16px)",
           backdropFilter: "blur(16px)",
-          border: "1px dashed rgba(94,106,210,0.35)",
+          border: "1px dashed rgba(194, 84, 47,0.35)",
         }}
       >
         <div className="text-2xl">🔒</div>
@@ -56,8 +56,8 @@ function LockedPanel({ feature }: { feature: string }) {
           onClick={() => setOpen(true)}
           className="mt-3 rounded-lg px-4 py-2 text-sm font-medium transition hover:opacity-90"
           style={{
-            background: "linear-gradient(180deg, #5e6ad2, #4f5ac0)",
-            color: "#fff",
+            background: "linear-gradient(180deg, #c2542f, #a34420)",
+            color: "var(--on-accent)",
           }}
         >
           Ver Premium

@@ -85,7 +85,7 @@ function MatchCard({ m }: { m: MergieMatch }) {
     <div className="rounded-2xl p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <div className="flex items-center gap-2.5">
         <span className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold"
-          style={{ background: "rgba(94,106,210,0.15)", color: "var(--accent)" }}>{m.posicion}</span>
+          style={{ background: "rgba(194, 84, 47,0.15)", color: "var(--accent)" }}>{m.posicion}</span>
         <span className="truncate text-base font-semibold" style={{ color: "var(--text)" }}>{m.nombre}</span>
         {hasScore && (
           <span className="ml-auto shrink-0 text-sm font-semibold tabular-nums"
@@ -112,7 +112,7 @@ function MatchCard({ m }: { m: MergieMatch }) {
 
       {m.capado_por_red_flag && (
         <p className="mt-3 rounded-xl px-3 py-2 text-[12px] leading-relaxed"
-          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: "#f0836f" }}>
+          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--danger-soft)" }}>
           Nota limitada a propósito: hay una señal de riesgo fuerte que no se puede compensar con
           el resto de categorías. Léela antes de seguir.
         </p>
@@ -120,15 +120,15 @@ function MatchCard({ m }: { m: MergieMatch }) {
 
       <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--text)" }}>{m.porque_encaja}</p>
       <p className="mt-2 text-sm" style={{ color: "var(--text-dim)" }}>
-        <b style={{ color: "#3fca7d" }}>Lo mejor:</b> {m.punto_fuerte}
+        <b style={{ color: "var(--green)" }}>Lo mejor:</b> {m.punto_fuerte}
       </p>
 
-      <FlagList items={m.green_flags} label="A favor" color="#3fca7d" />
-      <FlagList items={m.red_flags} label="Riesgos" color="#f0836f" />
+      <FlagList items={m.green_flags} label="A favor" color="var(--green)" />
+      <FlagList items={m.red_flags} label="Riesgos" color="var(--danger-soft)" />
 
       {m.a_hablar_desde_el_principio && (
         <p className="mt-1.5 text-sm" style={{ color: "var(--text-dim)" }}>
-          <b style={{ color: "#e3b341" }}>A hablar desde el principio:</b> {m.a_hablar_desde_el_principio}
+          <b style={{ color: "var(--amber)" }}>A hablar desde el principio:</b> {m.a_hablar_desde_el_principio}
         </p>
       )}
 
@@ -194,10 +194,10 @@ function FlagList({ items, label, color }: { items?: string[]; label: string; co
 
 /** Calibración honesta: el verde fuerte se reserva a evidencia real, no se regala. */
 function scoreColor(score: number): string {
-  if (score >= 80) return "#3fca7d"
-  if (score >= 60) return "#8bc34a"
-  if (score >= 40) return "#e3b341"
-  return "#f0836f"
+  if (score >= 80) return "var(--green)"
+  if (score >= 60) return "var(--green-2)"
+  if (score >= 40) return "var(--amber)"
+  return "var(--danger-soft)"
 }
 
 function GapRow({ g }: { g: NonNullable<MergieResult["gaps"]> }) {

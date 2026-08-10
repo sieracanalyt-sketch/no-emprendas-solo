@@ -28,7 +28,7 @@ const GUIDES: Record<"workflow" | "calendario", Guide> = {
       {
         icon: "📋",
         title: "Tareas — el tablero Kanban",
-        accent: "#5e6ad2",
+        accent: "#c2542f",
         intro:
           "Un tablero que se sincroniza en tiempo real con todo el equipo. Nada de \"¿en qué estabas tú?\": se ve de un vistazo.",
         items: [
@@ -71,7 +71,7 @@ const GUIDES: Record<"workflow" | "calendario", Guide> = {
       {
         icon: "🌐",
         title: "Gestión — el mapa vivo del equipo",
-        accent: "#22c55e",
+        accent: "#9a9d78",
         intro:
           "Tu equipo como un organismo: cada persona es un nodo conectado al proyecto. Arrastra a las personas para organizarlas (por áreas, por proyectos, como quieras) — la disposición se guarda y la ve todo el equipo.",
         items: [
@@ -87,7 +87,7 @@ const GUIDES: Record<"workflow" | "calendario", Guide> = {
       {
         icon: "🤖",
         title: "MERGE también trabaja aquí",
-        accent: "#3b82f6",
+        accent: "#d97c50",
         intro:
           "MERGE no solo lee tu tablero: lo cambia. Háblale con naturalidad y aplica los cambios él mismo, con tus permisos — nada que no pudieras hacer tú a mano. Y cada cambio te lo enseña escrito, no te fías de su palabra.",
         items: [
@@ -119,7 +119,7 @@ const GUIDES: Record<"workflow" | "calendario", Guide> = {
       {
         icon: "🗓",
         title: "Lo básico",
-        accent: "#5e6ad2",
+        accent: "#c2542f",
         items: [
           { name: "Crear un evento", desc: "Haz clic (o arrastra) sobre cualquier hueco de la semana. Elige tipo: evento, reunión, bloque de enfoque o tarea. Cada tipo tiene su color." },
           { name: "Reprogramar arrastrando", desc: "Agarra cualquier evento y muévelo a otra hora o día. Si viene de Google Calendar, el cambio se sincroniza allí también." },
@@ -174,7 +174,7 @@ export default function GuideButton({ page }: { page: "workflow" | "calendario" 
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition"
         style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-dim)" }}
-        onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)" }}
+        onMouseEnter={e => { e.currentTarget.style.color = "var(--t1)"; e.currentTarget.style.borderColor = "rgba(var(--overlay-rgb), 0.18)" }}
         onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border)" }}
         title="Cómo sacarle partido a esta página"
       >
@@ -205,7 +205,7 @@ export function GuideModal({ page, onClose }: { page: "workflow" | "calendario";
         style={{
           background: "linear-gradient(180deg, rgba(30,32,38,0.96), rgba(17,19,23,0.96))",
           border: "1px solid var(--glass-border)",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.08)",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(var(--overlay-rgb), 0.08)",
           maxHeight: "88vh",
           animation: "modal-pop 0.28s cubic-bezier(0.34,1.2,0.64,1) both",
         }}
@@ -217,14 +217,14 @@ export function GuideModal({ page, onClose }: { page: "workflow" | "calendario";
         <div className="shrink-0 px-6 pt-5 pb-4 flex items-start justify-between gap-3"
           style={{ borderBottom: "1px solid var(--border)" }}>
           <div>
-            <h2 className="text-[18px] font-semibold text-white tracking-tight">{guide.title}</h2>
+            <h2 className="text-[18px] font-semibold text-t1 tracking-tight">{guide.title}</h2>
             <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: "var(--text-dim)" }}>{guide.subtitle}</p>
           </div>
           <button
             onClick={onClose}
             className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[14px] transition"
-            style={{ color: "var(--text-dim)", background: "rgba(255,255,255,0.04)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
+            style={{ color: "var(--text-dim)", background: "rgba(var(--overlay-rgb), 0.04)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--t1)")}
             onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}
             aria-label="Cerrar guía"
           >
@@ -239,11 +239,11 @@ export function GuideModal({ page, onClose }: { page: "workflow" | "calendario";
               <div className="flex items-center gap-2.5 mb-2">
                 <span
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-[15px] shrink-0"
-                  style={{ background: `${s.accent ?? "#5e6ad2"}1c`, border: `1px solid ${s.accent ?? "#5e6ad2"}3a` }}
+                  style={{ background: `${s.accent ?? "#c2542f"}1c`, border: `1px solid ${s.accent ?? "#c2542f"}3a` }}
                 >
                   {s.icon}
                 </span>
-                <h3 className="text-[14.5px] font-semibold text-white">{s.title}</h3>
+                <h3 className="text-[14.5px] font-semibold text-t1">{s.title}</h3>
               </div>
               {s.intro && (
                 <p className="text-[12.5px] leading-relaxed mb-2.5" style={{ color: "var(--text-dim)" }}>
@@ -256,9 +256,9 @@ export function GuideModal({ page, onClose }: { page: "workflow" | "calendario";
                     <div
                       key={it.name}
                       className="px-3.5 py-2.5 rounded-xl"
-                      style={{ background: "rgba(255,255,255,0.028)", border: "1px solid var(--border)" }}
+                      style={{ background: "rgba(var(--overlay-rgb), 0.028)", border: "1px solid var(--border)" }}
                     >
-                      <p className="text-[12.5px] font-semibold" style={{ color: s.accent ?? "#aab2f0" }}>
+                      <p className="text-[12.5px] font-semibold" style={{ color: s.accent ?? "#d97c50" }}>
                         {it.name}
                       </p>
                       <p className="text-[12px] mt-0.5 leading-relaxed" style={{ color: "var(--text-dim)" }}>

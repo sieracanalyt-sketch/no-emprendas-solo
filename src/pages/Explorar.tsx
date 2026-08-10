@@ -135,9 +135,9 @@ export default function Explorar() {
       {/* Header */}
       <div className="mb-7">
         <div className="flex items-center gap-2.5">
-          <h1 className="text-[22px] font-semibold tracking-tight text-white">NES Connect</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight text-t1">NES Connect</h1>
           <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
-            style={{ background: "rgba(94,106,210,0.14)", color: "#aab2f0", border: "1px solid rgba(94,106,210,0.35)" }}>
+            style={{ background: "rgba(194, 84, 47,0.14)", color: "var(--accent)", border: "1px solid rgba(194, 84, 47,0.35)" }}>
             Matchmaking
           </span>
         </div>
@@ -146,9 +146,9 @@ export default function Explorar() {
         </p>
         {!loading && candidates.length > 0 && (
           <div className="flex items-center gap-3 mt-3 text-[11px]" style={{ color: "var(--text-dimmer)" }}>
-            <span><span className="text-white font-semibold">{stats.active}</span> activos</span>
+            <span><span className="text-t1 font-semibold">{stats.active}</span> activos</span>
             <span>·</span>
-            <span><span style={{ color: "#3b82f6" }} className="font-semibold">{stats.strong}</span> match fuerte</span>
+            <span><span style={{ color: "var(--accent)" }} className="font-semibold">{stats.strong}</span> match fuerte</span>
             {hiddenCount > 0 && (<><span>·</span><span>{hiddenCount} ocultos 2 semanas</span></>)}
           </div>
         )}
@@ -231,7 +231,7 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
   const strong = isStrongMatch(match.score)
   const name = profile.nombre || "Fundador"
   const initial = name.trim()[0]?.toUpperCase() || "?"
-  const scoreColor = match.inactive ? "#62666d" : strong ? "#3b82f6" : match.score >= 55 ? "#5e6ad2" : "#8a8f98"
+  const scoreColor = match.inactive ? "#8f8b7c" : strong ? "#c2542f" : match.score >= 55 ? "#d97c50" : "#c7c2b3"
 
   return (
     <div
@@ -244,8 +244,8 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
         backdropFilter: "blur(14px) saturate(1.2)",
         border: `1px solid ${strong ? "rgba(59,130,246,0.30)" : "var(--glass-border)"}`,
         boxShadow: strong
-          ? "0 0 0 1px rgba(59,130,246,0.12), 0 8px 30px rgba(59,130,246,0.07), inset 0 1px 0 rgba(255,255,255,0.06)"
-          : "0 8px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05)",
+          ? "0 0 0 1px rgba(59,130,246,0.12), 0 8px 30px rgba(59,130,246,0.07), inset 0 1px 0 rgba(var(--overlay-rgb), 0.06)"
+          : "0 8px 24px rgba(0,0,0,0.18), inset 0 1px 0 rgba(var(--overlay-rgb), 0.05)",
         opacity: leaving ? 0 : 1,
         transform: leaving ? "translateX(-110%)" : "translateX(0)",
         transition: "transform 0.36s cubic-bezier(0.4,0,0.2,1), opacity 0.36s ease",
@@ -265,8 +265,8 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
         <button onClick={onProfile} className="shrink-0">
           <div className="w-12 h-12 rounded-full flex items-center justify-center text-[16px] font-semibold"
             style={{
-              background: "rgba(255,255,255,0.06)",
-              border: `1px solid ${strong ? "rgba(59,130,246,0.35)" : "rgba(255,255,255,0.08)"}`,
+              background: "rgba(var(--overlay-rgb), 0.06)",
+              border: `1px solid ${strong ? "rgba(59,130,246,0.35)" : "rgba(var(--overlay-rgb), 0.08)"}`,
               color: "var(--text-dim)",
             }}>
             {initial}
@@ -276,12 +276,12 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={onProfile} className="text-white font-semibold text-[15px] leading-tight hover:underline">
+            <button onClick={onProfile} className="text-t1 font-semibold text-[15px] leading-tight hover:underline">
               {name}
             </button>
             {profile.role && (
               <span className="text-[10.5px] px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)", border: "1px solid var(--border)" }}>
+                style={{ background: "rgba(var(--overlay-rgb), 0.05)", color: "var(--text-dim)", border: "1px solid var(--border)" }}>
                 {profile.role}
               </span>
             )}
@@ -289,9 +289,9 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
                 title="Prestigio por aportar: perfil completo, respuestas rápidas y constancia"
                 style={{
-                  background: (profile.prestige ?? 0) >= 70 ? "rgba(245,196,66,0.12)" : "rgba(255,255,255,0.05)",
-                  color: (profile.prestige ?? 0) >= 70 ? "#f5c442" : "var(--text-dim)",
-                  border: `1px solid ${(profile.prestige ?? 0) >= 70 ? "rgba(245,196,66,0.35)" : "var(--border)"}`,
+                  background: (profile.prestige ?? 0) >= 70 ? "rgba(217,124,80,0.12)" : "rgba(var(--overlay-rgb), 0.05)",
+                  color: (profile.prestige ?? 0) >= 70 ? "#d97c50" : "var(--text-dim)",
+                  border: `1px solid ${(profile.prestige ?? 0) >= 70 ? "rgba(217,124,80,0.35)" : "var(--border)"}`,
                 }}>
                 ⭐ {profile.prestige}
               </span>
@@ -299,7 +299,7 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
             {match.inactive && (
               <span className="text-[10px] px-2 py-0.5 rounded-full inline-flex items-center gap-1"
                 style={{ background: "rgba(98,102,109,0.12)", color: "var(--text-dimmer)" }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#62666d" }} />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#8f8b7c" }} />
                 Inactivo {match.daysInactive >= 999 ? `${INACTIVITY_DAYS}+` : match.daysInactive}d
               </span>
             )}
@@ -314,7 +314,7 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
             <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
               {match.reasons.map((r, k) => (
                 <span key={k} className="text-[10.5px] px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(94,106,210,0.10)", color: "#aab2f0", border: "1px solid rgba(94,106,210,0.22)" }}>
+                  style={{ background: "rgba(194, 84, 47,0.10)", color: "var(--accent)", border: "1px solid rgba(194, 84, 47,0.22)" }}>
                   {r}
                 </span>
               ))}
@@ -326,10 +326,10 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
         <button
           onClick={() => setShowBreakdown(true)}
           className="shrink-0 text-right rounded-lg p-1 -m-1 transition-colors cursor-pointer"
-          style={{ background: showBreakdown ? "rgba(255,255,255,0.04)" : "transparent" }}
+          style={{ background: showBreakdown ? "rgba(var(--overlay-rgb), 0.04)" : "transparent" }}
           title="Ver cómo se calcula este match"
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
-          onMouseLeave={e => (e.currentTarget.style.background = showBreakdown ? "rgba(255,255,255,0.04)" : "transparent")}
+          onMouseEnter={e => (e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.06)")}
+          onMouseLeave={e => (e.currentTarget.style.background = showBreakdown ? "rgba(var(--overlay-rgb), 0.04)" : "transparent")}
         >
           <div className="text-[22px] font-bold leading-none" style={{ color: scoreColor }}>
             {match.score}<span className="text-[12px] font-medium">%</span>
@@ -340,7 +340,7 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
               <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
             </svg>
           </div>
-          <div className="mt-2 h-[3px] w-16 rounded-full overflow-hidden ml-auto" style={{ background: "rgba(255,255,255,0.06)" }}>
+          <div className="mt-2 h-[3px] w-16 rounded-full overflow-hidden ml-auto" style={{ background: "rgba(var(--overlay-rgb), 0.06)" }}>
             <div className="h-full rounded-full" style={{ width: `${match.score}%`, background: scoreColor }} />
           </div>
         </button>
@@ -352,8 +352,8 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
           <button onClick={onLocked}
             title="Completa tu perfil (biografía de 150+ caracteres y todos los apartados) para poder conectar"
             className="flex-1 sm:flex-none px-4 py-2 rounded-full text-[13px] font-semibold transition inline-flex items-center justify-center gap-1.5"
-            style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
+            style={{ background: "rgba(var(--overlay-rgb), 0.05)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "var(--t1)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
             onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border)" }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -364,12 +364,12 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
           <button onClick={onConnect}
             className="flex-1 sm:flex-none px-4 py-2 rounded-full text-[13px] font-semibold transition"
             style={{
-              background: strong ? "linear-gradient(180deg,#3b82f6,#2f6fe0)" : "linear-gradient(180deg,#6b77e0,#5460cb)",
-              color: "#fff",
-              border: "1px solid rgba(255,255,255,0.16)",
+              background: strong ? "linear-gradient(180deg,#c2542f,#8f3a1a)" : "linear-gradient(180deg,#d97c50,#a34420)",
+              color: "var(--on-accent)",
+              border: "1px solid rgba(var(--overlay-rgb), 0.16)",
               boxShadow: strong
-                ? "0 6px 20px rgba(59,130,246,0.38), inset 0 1px 0 rgba(255,255,255,0.22)"
-                : "0 6px 20px rgba(94,106,210,0.34), inset 0 1px 0 rgba(255,255,255,0.22)",
+                ? "0 6px 20px rgba(59,130,246,0.38), inset 0 1px 0 rgba(var(--overlay-rgb), 0.22)"
+                : "0 6px 20px rgba(194, 84, 47,0.34), inset 0 1px 0 rgba(var(--overlay-rgb), 0.22)",
             }}
             onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.08)"; e.currentTarget.style.transform = "translateY(-1px)" }}
             onMouseLeave={e => { e.currentTarget.style.filter = "brightness(1)"; e.currentTarget.style.transform = "translateY(0)" }}>
@@ -379,7 +379,7 @@ function ConnectCard({ candidate, index, leaving, locked, onConnect, onLocked, o
         <button onClick={onIgnore}
           className="px-3.5 py-2 rounded-full text-[13px] font-medium transition"
           style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--text-dim)" }}
-          onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
+          onMouseEnter={e => { e.currentTarget.style.color = "var(--t1)"; e.currentTarget.style.borderColor = "var(--border-strong)" }}
           onMouseLeave={e => { e.currentTarget.style.color = "var(--text-dim)"; e.currentTarget.style.borderColor = "var(--border)" }}>
           Ignorar por ahora
         </button>
@@ -453,9 +453,9 @@ function MatchBreakdownModal({ match, name, scoreColor, onClose }: {
           onClick={onClose}
           aria-label="Cerrar"
           className="absolute top-3.5 right-3.5 w-7 h-7 inline-flex items-center justify-center rounded-md cursor-pointer"
-          style={{ color: "#8a8f98" }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#f7f8f8" }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#8a8f98" }}
+          style={{ color: "#c7c2b3" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(var(--overlay-rgb), 0.06)"; e.currentTarget.style.color = "#f0ede4" }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#c7c2b3" }}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 6 6 18M6 6l12 12" />
@@ -464,14 +464,14 @@ function MatchBreakdownModal({ match, name, scoreColor, onClose }: {
 
         {/* Cabecera */}
         <div className="mb-5 pr-8">
-          <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#62666d" }}>
+          <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#8f8b7c" }}>
             Desglose de compatibilidad
           </div>
           <div className="flex items-baseline gap-2 mt-1.5">
             <span className="text-[26px] font-bold leading-none" style={{ color: scoreColor }}>
               {match.score}<span className="text-[14px] font-semibold">%</span>
             </span>
-            <span className="text-[13px]" style={{ color: "#8a8f98" }}>de match con {name}</span>
+            <span className="text-[13px]" style={{ color: "#c7c2b3" }}>de match con {name}</span>
           </div>
         </div>
 
@@ -483,9 +483,9 @@ function MatchBreakdownModal({ match, name, scoreColor, onClose }: {
               <div key={f.label}>
                 <div className="flex items-center justify-between mb-1.5 gap-3">
                   <span className="text-[14px]" style={{ color: "#b4bcd0" }}>{f.label}</span>
-                  <span className="text-[14px] font-bold shrink-0" style={{ color: "#f7f8f8" }}>{pct}%</span>
+                  <span className="text-[14px] font-bold shrink-0" style={{ color: "#f0ede4" }}>{pct}%</span>
                 </div>
-                <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(var(--overlay-rgb), 0.08)" }}>
                   <div
                     className="h-full rounded-[4px]"
                     style={{
@@ -502,13 +502,13 @@ function MatchBreakdownModal({ match, name, scoreColor, onClose }: {
 
         {/* Nota de inactividad (si aplica) */}
         {match.inactive && (
-          <div className="mt-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: "rgba(98,102,109,0.10)", color: "#8a8f98", border: "1px solid var(--border)" }}>
+          <div className="mt-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: "rgba(98,102,109,0.10)", color: "#c7c2b3", border: "1px solid var(--border)" }}>
             ⚠ Puntuación base {match.rawScore}% → reducida al 50% por inactividad ({match.daysInactive >= 999 ? `${INACTIVITY_DAYS}+` : match.daysInactive} días sin actividad).
           </div>
         )}
 
         {/* Nota explicativa */}
-        <p className="text-[12px] leading-relaxed mt-4" style={{ color: "#8a8f98" }}>
+        <p className="text-[12px] leading-relaxed mt-4" style={{ color: "#c7c2b3" }}>
           La compatibilidad se calcula comparando los campos de tu perfil con los de esta persona. A mayor completitud de perfil, mayor precisión.
         </p>
       </div>
