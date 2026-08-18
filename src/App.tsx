@@ -9,6 +9,7 @@ import { saveUser } from "./lib/saveUser"
 
 import Login from "./pages/Login"
 import Register from "./pages/Register"
+import Onboarding from "./pages/Onboarding"
 import Explorar from "./pages/Explorar"
 import Perfil from "./pages/Perfil"
 import CompletarPerfil from "./pages/CompletarPerfil"
@@ -27,10 +28,13 @@ const Merge = lazy(() => import("./pages/Jarvis"))
 
 export default function App() {
   const location = useLocation()
+  // El onboarding bloquea la app: enseñar la navbar solo invita a escaparse a
+  // secciones que todavía no tienen núcleo detrás.
   const hideNavbar =
     location.pathname === "/" ||
     location.pathname === "/login" ||
-    location.pathname === "/register"
+    location.pathname === "/register" ||
+    location.pathname === "/onboarding"
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -60,6 +64,13 @@ export default function App() {
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+
+          {/* Onboarding: exige sesión pero no puede exigirse a sí mismo. Es la
+              única ruta privada que se salta la guardia de onboarding. */}
+          <Route
+            path="/onboarding"
+            element={<RequireAuth requireOnboarding={false}><Onboarding /></RequireAuth>}
+          />
 
           {/* Todo lo de abajo exige sesión: sin ella, RequireAuth manda a /login */}
           <Route path="/explorar" element={<RequireAuth><Explorar /></RequireAuth>} />

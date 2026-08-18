@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom"
 import type { ReactNode } from "react"
 import { useUser } from "../hooks/useUser"
+import { useOnboardingDone } from "../lib/onboardingStatus"
 
 // Guardia de rutas privadas. Antes NO existía: cualquier ruta era accesible sin
 // sesión, así que si cancelabas el selector de cuentas de Google, Supabase te
@@ -10,12 +11,29 @@ import { useUser } from "../hooks/useUser"
 // useUser() no resuelve `loading` hasta que supabase-js ha terminado de leer
 // los tokens del hash de la URL, así que un login OAuth correcto nunca sufre un
 // rebote a /login por llegar aquí antes de tiempo.
-export default function RequireAuth({ children }: { children: ReactNode }) {
+export default function RequireAuth({
+  children,
+  requireOnboarding = true,
+}: {
+  children: ReactNode
+  /** La propia ruta /onboarding lo desactiva: si no, se redirige a sí misma. */
+  requireOnboarding?: boolean
+}) {
   const [user, loading] = useUser()
   const location = useLocation()
+  const { done: onboardingDone, loading: loadingOnboarding } =
+    useOnboardingDone(user?.id ?? null)
 
   if (loading) return null
-  if (user) return <>{children}</>
+  if (user) {
+    if (requireOnboarding) {
+      if (loadingOnboarding) return null
+      // Nadie usa la app sin núcleo, y el núcleo se asigna al final del
+      // onboarding: hasta entonces no hay nada que enseñar.
+      if (!onboardingDone) return <Navigate to="/onboarding" replace />
+    }
+    return <>{children}</>
+  }
 
   // Cuando el usuario cancela (o Google devuelve un error), el callback deja
   // `#error=access_denied&...` en la URL. Lo trasladamos a /login como query

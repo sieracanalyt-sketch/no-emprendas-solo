@@ -3,6 +3,8 @@ import { useNavigate, useParams, useLocation, Link } from "react-router-dom"
 import { useUser } from "../hooks/useUser"
 import { usePresence } from "../hooks/usePresence"
 import { useChatList, useGroupList } from "../hooks/useConversations"
+import { useNucleo, type Nucleo } from "../hooks/useNucleo"
+import { NUCLEO, STAGE_LABEL } from "../lib/config/nucleos"
 import { deadlineInfo, deadlineColor, fmtTimeLeft } from "../lib/matchDeadline"
 import ConversationPanel, {
   type ConversationTarget,
@@ -47,8 +49,12 @@ export default function Mensajes() {
     useChatList(user)
   const { items: groups, loading: loadingGroups, refresh: refreshGroups } =
     useGroupList(user)
+  const { nucleo } = useNucleo(user)
 
   const [search, setSearch] = useState("")
+  // Un núcleo con menos de 4 no abre chat: la fila se pulsa igual y enseña el
+  // contador. Estado local porque no es una conversación, no lleva URL.
+  const [verNucleo, setVerNucleo] = useState(false)
 
   // Tic por minuto: mantiene vivos los contadores de 72 h sin recargar
   const [, setTick] = useState(0)
@@ -77,7 +83,7 @@ export default function Mensajes() {
   const filteredChats = chats.filter((c) => c.name.toLowerCase().includes(q))
   const filteredGroups = groups.filter((g) => g.name.toLowerCase().includes(q))
 
-  const hasSelection = target !== null
+  const hasSelection = target !== null || verNucleo
 
   if (!user) {
     return (
@@ -101,6 +107,23 @@ export default function Mensajes() {
           borderRight: "1px solid var(--border)",
         }}
       >
+        {/* NÚCLEO — siempre arriba y siempre visible: lo tiene el 100 % de los
+            usuarios y no es una pestaña más. */}
+        {nucleo && (
+          <NucleoRow
+            nucleo={nucleo}
+            activo={verNucleo || (target?.type === "group" && target.groupId === nucleo.id)}
+            onClick={() => {
+              if (nucleo.chatUnlocked) {
+                setVerNucleo(false)
+                navigate(`/group/${nucleo.id}`)
+              } else {
+                setVerNucleo(true)
+              }
+            }}
+          />
+        )}
+
         {/* Pestañas compactas (estilo nativo) */}
         <div
           className="flex items-center gap-5 px-4 h-12 shrink-0"
@@ -108,13 +131,13 @@ export default function Mensajes() {
         >
           <TabButton
             label="Chats"
-            active={tab === "chats"}
-            onClick={() => navigate("/chats")}
+            active={tab === "chats" && !verNucleo}
+            onClick={() => { setVerNucleo(false); navigate("/chats") }}
           />
           <TabButton
             label="Grupos"
-            active={tab === "grupos"}
-            onClick={() => navigate("/grupos")}
+            active={tab === "grupos" && !verNucleo}
+            onClick={() => { setVerNucleo(false); navigate("/grupos") }}
           />
         </div>
 
@@ -172,7 +195,9 @@ export default function Mensajes() {
         } flex-col flex-1 min-w-0 h-full`}
         style={{ background: "var(--bg)" }}
       >
-        {target ? (
+        {verNucleo && nucleo ? (
+          <NucleoFormingPanel nucleo={nucleo} onBack={() => setVerNucleo(false)} />
+        ) : target ? (
           <ConversationPanel
             key={`${target.type}-${
               target.type === "chat" ? target.otherUserId : target.groupId
@@ -187,6 +212,151 @@ export default function Mensajes() {
           <EmptyState tab={tab} />
         )}
       </main>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Núcleo
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Punto + texto de estado. Los colores salen de tokens semánticos, nunca hex. */
+function estadoNucleo(n: Nucleo): { color: string; texto: string } {
+  if (!n.chatUnlocked)
+    return { color: "var(--state-forming)", texto: `formándose · ${n.memberCount}/${NUCLEO.MIN_SIZE}` }
+  if (n.status === "active")
+    return { color: "var(--state-active)", texto: `${n.memberCount} miembros` }
+  if (n.status === "at_risk")
+    return { color: "var(--state-forming)", texto: `${n.memberCount} miembros` }
+  return { color: "var(--state-forming)", texto: `${n.memberCount}/${NUCLEO.MIN_SIZE}` }
+}
+
+function NucleoRow({
+  nucleo, activo, onClick,
+}: { nucleo: Nucleo; activo: boolean; onClick: () => void }) {
+  const estado = estadoNucleo(nucleo)
+  return (
+    <div className="px-3 pt-3 pb-2 shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+      <p className="text-[10px] font-semibold tracking-wider px-1 pb-2"
+         style={{ color: "var(--t3)" }}>
+        NÚCLEO
+      </p>
+      <button
+        onClick={onClick}
+        className="w-full text-left px-3 py-2.5 rounded-xl transition-all duration-[180ms]"
+        style={{
+          background: activo ? "rgba(var(--accent-rgb), 0.12)" : "var(--surface)",
+          border: `1px solid ${activo ? "var(--accent)" : "var(--border)"}`,
+        }}
+        onMouseEnter={(e) => {
+          if (!activo) e.currentTarget.style.borderColor = "var(--border-hover)"
+        }}
+        onMouseLeave={(e) => {
+          if (!activo) e.currentTarget.style.borderColor = "var(--border)"
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ background: estado.color }} aria-hidden />
+          <span className="text-[13px] font-medium truncate" style={{ color: "var(--t1)" }}>
+            {nucleo.name}
+          </span>
+          {!nucleo.chatUnlocked && (
+            <span className="ml-auto text-[10px] shrink-0" style={{ color: "var(--state-locked)" }}
+                  title="El chat se abre a partir de 4 personas">
+              🔒
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] mt-0.5 pl-3.5" style={{ color: "var(--t3)" }}>
+          {estado.texto}
+          {nucleo.stage && ` · ${STAGE_LABEL[nucleo.stage]}`}
+        </p>
+      </button>
+    </div>
+  )
+}
+
+/** Lo que se ve al pulsar un núcleo que todavía no tiene chat abierto. */
+function NucleoFormingPanel({ nucleo, onBack }: { nucleo: Nucleo; onBack: () => void }) {
+  const [copiado, setCopiado] = useState(false)
+  const enlace = `${window.location.origin}/register`
+
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(enlace)
+      setCopiado(true)
+      window.setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      setCopiado(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-3 px-4 h-14 shrink-0"
+           style={{ borderBottom: "1px solid var(--border)" }}>
+        <button onClick={onBack} className="md:hidden text-[13px]" style={{ color: "var(--t3)" }}>
+          ←
+        </button>
+        <h2 className="text-[15px] font-semibold" style={{ color: "var(--t1)" }}>
+          {nucleo.name}
+        </h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto flex items-center justify-center px-4">
+        <div className="w-full max-w-2xl text-center py-10">
+          <p className="text-xl font-bold" style={{ color: "var(--t1)" }}>
+            Tu núcleo se está formando · {nucleo.memberCount} de {NUCLEO.MIN_SIZE}
+          </p>
+          <p className="text-sm mt-2" style={{ color: "var(--t2)" }}>
+            Cuando lleguéis a {NUCLEO.CHAT_UNLOCK_AT} se abre el chat. Mientras tanto,
+            tienes Explorar.
+          </p>
+
+          {/* Plazas: llenas frente a libres, sin barra de progreso */}
+          <div className="flex items-center justify-center gap-2 mt-7" aria-hidden>
+            {Array.from({ length: NUCLEO.MIN_SIZE }).map((_, i) => (
+              <span
+                key={i}
+                className="w-2.5 h-2.5 rounded-full"
+                style={{
+                  background: i < nucleo.memberCount ? "var(--state-forming)" : "transparent",
+                  border: `1px solid ${i < nucleo.memberCount ? "var(--state-forming)" : "var(--border-hover)"}`,
+                }}
+              />
+            ))}
+          </div>
+
+          {nucleo.members.length > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-7">
+              {nucleo.members.map((m) => (
+                <span key={m.id} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px]"
+                      style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--t2)" }}>
+                  <Avatar name={m.nombre} src={m.avatar} size={20} />
+                  {m.nombre}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-9">
+            <button onClick={copiar}
+                    className="btn-linear px-5 py-2.5 text-[13px] font-medium rounded-full">
+              {copiado ? "Enlace copiado" : "Invitar a alguien"}
+            </button>
+            <Link to="/explorar"
+                  className="px-5 py-2.5 text-[13px] rounded-full transition-colors"
+                  style={{ border: "1px solid var(--border)", color: "var(--t2)" }}>
+              Ir a Explorar
+            </Link>
+          </div>
+
+          <p className="text-[11px] mt-4" style={{ color: "var(--t3)" }}>
+            Invitar es lo único que acelera esto: llena tu núcleo antes.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

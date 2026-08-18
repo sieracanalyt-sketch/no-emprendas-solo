@@ -26,6 +26,11 @@
   --amber: #d97c50;         /* ya no hay ámbar separado: = accent-2 */
   --danger: #eb5757;        /* error / destructivo (fuera de la paleta de marca) */
   --danger-soft: #f0836f;   /* riesgo / red flags, menos agresivo que --danger */
+  /* Estados de núcleo. Semánticos, no de marca: nunca escribas el hex en un
+     componente — si un estado nuevo no encaja aquí, se añade el token. */
+  --state-active: var(--green);    /* núcleo con 6+ miembros */
+  --state-forming: var(--accent-2); /* llenándose, o en riesgo */
+  --state-locked: var(--t3);        /* chat bloqueado */
   /* Enlaces: el acento sólido no llega a 4.5:1 sobre el canvas OSCURO, así que
      en oscuro tiran del terracota claro y en claro del profundo. */
   --link: var(--accent-2);
@@ -104,6 +109,9 @@
   --amber: #b8562a;
   --danger: #c0392b;
   --danger-soft: #b4472f;
+  --state-active: var(--green);
+  --state-forming: var(--accent);   /* en claro tira del terracota profundo */
+  --state-locked: var(--t3);
 
   --link: var(--accent);
   --accent-rgb: 168, 70, 31;

@@ -63,6 +63,20 @@ para que el contraste sea legible.
 | Error / riesgo | `#f85149` (texto claro `#f8817b`) |
 | Aviso | `#d29922` / `#e3b341` |
 
+### Estado de núcleo
+Tokens propios, no alias de marca: el estado de un núcleo se lee igual en tema
+claro y oscuro, y el componente **nunca** escribe el hex. Si aparece un estado
+nuevo que no encaja, se añade el token aquí y en `:root` — no se improvisa un
+color en el JSX.
+
+| Token | Cuándo | Indicador |
+|---|---|---|
+| `--state-active` | Núcleo con 6+ miembros | Punto + `6 miembros` |
+| `--state-forming` | Llenándose (<6) o en riesgo | Punto + `formándose · 3/6` |
+| `--state-locked` | Chat bloqueado (<4 miembros) | Candado, fila pulsable pero sin chat |
+
+`at_risk` solo se ve **dentro** del núcleo, nunca en un perfil público.
+
 ---
 
 ## 2. El cristal (glassmorphism)
