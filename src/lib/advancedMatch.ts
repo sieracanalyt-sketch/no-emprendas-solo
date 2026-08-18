@@ -284,6 +284,38 @@ export type MergieResult = {
 // partir de la cadena de `select` y una concatenación la degrada a `string`.
 const FIELDS = "rol_buscado, fuerte_en, necesita, ambicion, horas, fiabilidad, conflicto, ritmo_plan, ritmo_decision, importa, temas, exit_ideal, horas_6m, runway_meses, conflicto_reparacion, areas, equity_split, king_o_rich, big_five, colaboracion_previa, colaboracion_detalle, cultura_ideal, pesos_usuario"
 
+// ── validación en la frontera con la base ────────────────────────────────────
+// En Postgres estas columnas son `text` con CHECK, no enums: la base garantiza
+// el dominio, pero el tipo estrecho de TypeScript hay que ganárselo al leer.
+// Los catálogos de arriba son la fuente única, así que un valor huérfano
+// (constraint cambiada, fila vieja) se descarta en vez de colarse mal tipado.
+
+const valuesOf = <T extends string>(opts: readonly { value: T }[]): readonly T[] =>
+  opts.map((o) => o.value)
+
+function oneOf<T extends string>(allowed: readonly T[], v: string | null | undefined): T | null {
+  return v != null && (allowed as readonly string[]).includes(v) ? (v as T) : null
+}
+
+function manyOf<T extends string>(
+  allowed: readonly T[],
+  v: readonly string[] | null | undefined,
+): T[] {
+  return (v ?? []).filter((x): x is T => (allowed as readonly string[]).includes(x))
+}
+
+const ROL_VALUES = valuesOf(ROLES)
+const FORTALEZA_VALUES = valuesOf(FORTALEZAS)
+const HORAS_VALUES = valuesOf(HORAS_OPTS)
+const FIABILIDAD_VALUES = valuesOf(FIABILIDAD_OPTS)
+const CONFLICTO_VALUES = valuesOf(CONFLICTO_OPTS)
+const TEMA_VALUES = valuesOf(TEMAS_OPTS)
+const EXIT_VALUES = valuesOf(EXIT_OPTS)
+const RUNWAY_VALUES = valuesOf(RUNWAY_OPTS)
+const EQUITY_VALUES = valuesOf(EQUITY_OPTS)
+const COLABORACION_VALUES = valuesOf(COLABORACION_OPTS)
+const CATEGORIA_VALUES: readonly CategoriaScore[] = RUBRICA.map((r) => r.key)
+
 export async function loadMatchProfile(userId: string): Promise<MatchProfileFields> {
   const { data } = await supabase
     .from("match_profiles")
@@ -292,29 +324,29 @@ export async function loadMatchProfile(userId: string): Promise<MatchProfileFiel
     .maybeSingle()
   if (!data) return { ...EMPTY_PROFILE }
   return {
-    rol_buscado: data.rol_buscado ?? null,
-    fuerte_en: data.fuerte_en ?? [],
-    necesita: data.necesita ?? [],
+    rol_buscado: oneOf(ROL_VALUES, data.rol_buscado),
+    fuerte_en: manyOf(FORTALEZA_VALUES, data.fuerte_en),
+    necesita: manyOf(FORTALEZA_VALUES, data.necesita),
     ambicion: data.ambicion ?? null,
-    horas: data.horas ?? null,
-    fiabilidad: data.fiabilidad ?? null,
-    conflicto: data.conflicto ?? null,
+    horas: oneOf(HORAS_VALUES, data.horas),
+    fiabilidad: oneOf(FIABILIDAD_VALUES, data.fiabilidad),
+    conflicto: oneOf(CONFLICTO_VALUES, data.conflicto),
     ritmo_plan: data.ritmo_plan ?? null,
     ritmo_decision: data.ritmo_decision ?? null,
     importa: data.importa ?? null,
-    temas: data.temas ?? [],
-    exit_ideal: data.exit_ideal ?? null,
-    horas_6m: data.horas_6m ?? null,
-    runway_meses: data.runway_meses ?? null,
+    temas: manyOf(TEMA_VALUES, data.temas),
+    exit_ideal: oneOf(EXIT_VALUES, data.exit_ideal),
+    horas_6m: oneOf(HORAS_VALUES, data.horas_6m),
+    runway_meses: oneOf(RUNWAY_VALUES, data.runway_meses),
     conflicto_reparacion: data.conflicto_reparacion ?? null,
     areas: (data.areas as MatchProfileFields["areas"]) ?? {},
-    equity_split: data.equity_split ?? null,
+    equity_split: oneOf(EQUITY_VALUES, data.equity_split),
     king_o_rich: data.king_o_rich ?? null,
     big_five: { ...EMPTY_BIG_FIVE, ...((data.big_five as Partial<BigFive> | null) ?? {}) },
-    colaboracion_previa: data.colaboracion_previa ?? null,
+    colaboracion_previa: oneOf(COLABORACION_VALUES, data.colaboracion_previa),
     colaboracion_detalle: data.colaboracion_detalle ?? null,
     cultura_ideal: data.cultura_ideal ?? null,
-    pesos_usuario: data.pesos_usuario ?? [],
+    pesos_usuario: manyOf(CATEGORIA_VALUES, data.pesos_usuario),
   }
 }
 

@@ -5,6 +5,7 @@ import type {
   ActionPriority, ActionStatus, MergeAction,
   MergeActionEnvelope, MergeActionOutcome, MergeActionResult,
 } from "./contract"
+import type { TablesUpdate } from "../types/supabase"
 
 // ──────────────────────────────────────────────────────────────────────────────
 // EJECUTOR DE ACCIONES DE MERGE SOBRE EL WORKFLOW
@@ -190,7 +191,7 @@ async function runOne(a: MergeAction, snap: WorkflowSnapshot): Promise<MergeActi
     case "task.update": {
       const t = matchByName(snap.tasks, a.task ?? "", x => x.title)
       if (!t) return ko(a.op, `No encuentro ninguna tarea que se parezca a "${a.task}".`)
-      const patch: Record<string, unknown> = {}
+      const patch: TablesUpdate<"workflow_tasks"> = {}
       const changes: string[] = []
 
       const title = toText(a.title, 160)

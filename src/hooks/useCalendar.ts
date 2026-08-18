@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "../supabase"
 import type { CalEvent } from "../lib/calendarUtils"
+import type { Json } from "../types/supabase"
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Estado global de eventos del calendario (Supabase + realtime).
@@ -24,7 +25,7 @@ export type NewEvent = {
   expires_at?: string | null
   proposal_for?: string | null
   task_id?: string | null
-  prep_answers?: unknown | null
+  prep_answers?: Json | null
   urgent?: boolean
 }
 

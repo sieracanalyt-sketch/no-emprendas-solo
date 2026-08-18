@@ -165,11 +165,22 @@ export default function ConversationPanel({ target, user, online, onActivity, on
     if (!filterVal) return
     let cancelled = false
 
-    supabase
-      .from(table)
-      .select(MSG_COLS)
-      .eq(filterCol, filterVal)
-      .order("created_at", { ascending: true })
+    // Dos consultas separadas en vez de una con `table`/`filterCol` variables:
+    // con los tipos generados, `.from(union)` deja solo las columnas comunes a
+    // las dos tablas y `group_id`/`chat_id` no está en esa intersección.
+    const pending = isGroup
+      ? supabase
+          .from("group_messages")
+          .select(MSG_COLS)
+          .eq("group_id", filterVal)
+          .order("created_at", { ascending: true })
+      : supabase
+          .from("messages")
+          .select(MSG_COLS)
+          .eq("chat_id", filterVal)
+          .order("created_at", { ascending: true })
+
+    pending
       .then(({ data }) => {
         if (cancelled) return
         const loaded = (data as Msg[]) ?? []
@@ -222,7 +233,9 @@ export default function ConversationPanel({ target, user, online, onActivity, on
     attachment?: UploadResult
   }) => {
     const att = payload.attachment
-    const base: Record<string, unknown> = {
+    // Sin anotar como Record<string, unknown>: eso borra las claves concretas
+    // y el insert deja de ver `from_uid`, que es obligatorio en las dos tablas.
+    const base = {
       text: payload.text,
       from_uid: user.id,
       attachment_url: att?.url ?? null,

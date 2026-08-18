@@ -16,6 +16,7 @@ export default function PerfilPublico() {
   useEffect(() => {
     let cancelled = false
     const cargar = async () => {
+      if (!id) return
       const { data } = await supabase
         .from("users")
         .select("nombre, biografia, proyecto, buscando")

@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 // Utilidades del calendario: rejilla horaria, huecos, zonas horarias, scoring.
 // ──────────────────────────────────────────────────────────────────────────────
+import type { Json } from "../types/supabase"
 
 export type CalEvent = {
   id: string
@@ -18,7 +19,8 @@ export type CalEvent = {
   source: "local" | "google"
   google_id: string | null
   task_id: string | null
-  prep_answers: unknown | null
+  /** jsonb en la base: `Json`, no `unknown` — si no, no se puede ni insertar. */
+  prep_answers: Json | null
   urgent: boolean
   created_at: string
 }
